@@ -1,0 +1,86 @@
+<!-- public/oauth-test.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OAuth Flow Test</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 800px; margin: 2rem auto; padding: 2rem;">
+        <h1>🔐 OAuth 2.0 Flow Test</h1>
+        
+        <div style="background: white; padding: 2rem; border-radius: 8px; margin-bottom: 2rem;">
+            <h2>Step 1: Configure Client</h2>
+            <input type="text" id="clientId" placeholder="Client ID" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0;">
+            <input type="text" id="clientSecret" placeholder="Client Secret" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0;">
+            <button class="btn btn-primary" onclick="startOAuth()">Start OAuth Flow</button>
+        </div>
+
+        <div id="results" style="background: white; padding: 2rem; border-radius: 8px;"></div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+
+        if (code) {
+            exchangeToken(code);
+        }
+
+        function startOAuth() {
+            const clientId = document.getElementById('clientId').value;
+            sessionStorage.setItem('clientId', clientId);
+            sessionStorage.setItem('clientSecret', document.getElementById('clientSecret').value);
+
+            const authUrl = '/api/oauth/authorize?' + new URLSearchParams({
+                client_id: clientId,
+                redirect_uri: window.location.origin + '/oauth-test.html',
+                response_type: 'code',
+                scope: 'openid profile email',
+                state: Math.random().toString(36).substring(7)
+            });
+
+            window.location.href = authUrl;
+        }
+
+        async function exchangeToken(code) {
+            const clientId = sessionStorage.getItem('clientId');
+            const clientSecret = sessionStorage.getItem('clientSecret');
+
+            const response = await fetch('/api/oauth/token', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    code,
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    redirect_uri: window.location.origin + '/oauth-test.html',
+                    grant_type: 'authorization_code'
+                })
+            });
+
+            const tokens = await response.json();
+            
+            document.getElementById('results').innerHTML = `
+                <h2>✅ Tokens Received</h2>
+                <pre>${JSON.stringify(tokens, null, 2)}</pre>
+                <button class="btn btn-primary" onclick="getUserInfo('${tokens.access_token}')">Get User Info</button>
+            `;
+        }
+
+        async function getUserInfo(token) {
+            const response = await fetch('/api/oauth/userinfo', {
+                headers: {'Authorization': `Bearer ${token}`}
+            });
+            
+            const user = await response.json();
+            
+            document.getElementById('results').innerHTML += `
+                <h2>👤 User Info</h2>
+                <pre>${JSON.stringify(user, null, 2)}</pre>
+            `;
+        }
+    </script>
+</body>
+</html>

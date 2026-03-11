@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Auth Monolith</title>
+    <title>Dashboard - Auth System</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -14,7 +14,7 @@
             </div>
             <div class="nav-user">
                 <span id="userName">Loading...</span>
-                <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+                <button class="btn btn-secondary btn-sm" id="logoutBtn">Logout</button>
             </div>
         </nav>
 
@@ -80,7 +80,7 @@
                         <p>Your authentication token:</p>
                         <div class="token-box">
                             <code id="tokenDisplay">Loading...</code>
-                            <button class="btn btn-sm" onclick="copyToken()">Copy</button>
+                            <button class="btn btn-sm" id="copyTokenBtn">Copy</button>
                         </div>
                     </div>
                 </div>
@@ -88,13 +88,16 @@
                 <div class="dashboard-card">
                     <h3>⚙️ Quick Actions</h3>
                     <div class="card-content">
-                        <button class="btn btn-outline btn-block" onclick="refreshToken()">
-                            🔄 Refresh Token
+                        <button class="btn btn-outline btn-block" id="testTokenBtn">
+                            🧪 Test Token
                         </button>
-                        <button class="btn btn-outline btn-block" onclick="viewProfile()">
+                        <button class="btn btn-outline btn-block" id="devPortalBtn">
+                            🔧 Developer Portal
+                        </button>
+                        <button class="btn btn-outline btn-block" id="viewProfileBtn">
                             👤 View Profile
                         </button>
-                        <button class="btn btn-outline btn-block" onclick="changePassword()">
+                        <button class="btn btn-outline btn-block" id="changePasswordBtn">
                             🔒 Change Password
                         </button>
                     </div>
@@ -108,48 +111,70 @@
         const token = localStorage.getItem('token');
         const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+        console.log('Dashboard loaded');
+        console.log('Token exists:', !!token);
+        console.log('User:', user);
+
         if (!token) {
+            console.log('No token found, redirecting to login');
             window.location.href = '/login.html';
         }
 
         // Load user data
-        document.addEventListener('DOMContentLoaded', () => {
-            if (user.username) {
-                document.getElementById('userName').textContent = user.username;
-                document.getElementById('welcomeMessage').textContent = `Hello, ${user.username}! 👋`;
-                document.getElementById('userEmail').textContent = user.email;
-                document.getElementById('userRole').textContent = user.role || 'user';
+        if (user.username) {
+            document.getElementById('userName').textContent = user.username;
+            document.getElementById('welcomeMessage').textContent = `Hello, ${user.username}! 👋`;
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userRole').textContent = user.role || 'user';
+            
+            if (token) {
                 document.getElementById('tokenDisplay').textContent = token.substring(0, 50) + '...';
-                
-                const date = new Date();
-                document.getElementById('memberSince').textContent = date.toLocaleDateString();
             }
-        });
+            
+            const date = new Date();
+            document.getElementById('memberSince').textContent = date.toLocaleDateString();
+        }
 
-        function logout() {
+        // Event Listeners
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            console.log('Logout clicked');
             if (confirm('Are you sure you want to logout?')) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 window.location.href = '/login.html';
             }
-        }
+        });
 
-        function copyToken() {
+        document.getElementById('copyTokenBtn').addEventListener('click', function() {
+            console.log('Copy token clicked');
             navigator.clipboard.writeText(token);
-            alert('Token copied to clipboard!');
-        }
+            this.textContent = 'Copied!';
+            setTimeout(() => {
+                this.textContent = 'Copy';
+            }, 2000);
+        });
 
-        function refreshToken() {
-            alert('Token refresh feature coming soon!');
-        }
+        document.getElementById('testTokenBtn').addEventListener('click', function() {
+            console.log('Test token clicked');
+            window.location.href = '/test-token.html';
+        });
 
-        function viewProfile() {
+        document.getElementById('devPortalBtn').addEventListener('click', function() {
+            console.log('Developer portal clicked');
+            window.location.href = '/developer-portal.html';
+        });
+
+        document.getElementById('viewProfileBtn').addEventListener('click', function() {
+            console.log('View profile clicked');
             alert('Profile page coming soon!');
-        }
+        });
 
-        function changePassword() {
-            alert('Change password feature coming soon!');
-        }
+        document.getElementById('changePasswordBtn').addEventListener('click', function() {
+            console.log('Change password clicked');
+            window.location.href = '/forgot-password.html';
+        });
+
+        console.log('✅ All event listeners attached');
     </script>
 </body>
 </html>

@@ -86,13 +86,54 @@ class AuthService {
     }
 
     async validateToken(token) {
-        try {
-            const decoded = jwt.verify(token, config.JWT_SECRET);
-            return { valid: true, payload: decoded };
-        } catch (error) {
-            return { valid: false, error: error.message };
+    try {
+        //  เช็คว่ามี token หรือไม่
+        if (!token) {
+            return { 
+                valid: false, 
+                error: 'Token is required' 
+            };
         }
+        
+        // Verify JWT
+        const decoded = jwt.verify(token, config.JWT_SECRET);
+        
+        //  เช็คว่า token หมดอายุหรือไม่
+        const now = Math.floor(Date.now() / 1000);
+        if (decoded.exp && decoded.exp < now) {
+            return { 
+                valid: false, 
+                error: 'Token has expired' 
+            };
+        }
+        
+        return { 
+            valid: true, 
+            payload: decoded 
+        };
+        
+    } catch (error) {
+        // JWT verification errors
+        if (error.name === 'TokenExpiredError') {
+            return { 
+                valid: false, 
+                error: 'Token has expired' 
+            };
+        }
+        
+        if (error.name === 'JsonWebTokenError') {
+            return { 
+                valid: false, 
+                error: 'Invalid token format' 
+            };
+        }
+        
+        return { 
+            valid: false, 
+            error: error.message 
+        };
     }
+}
 
     async refreshToken(refreshToken) {
         try {

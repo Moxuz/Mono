@@ -9,7 +9,6 @@ const passport = require('passport');
 const config = require('./shared/config/config');
 const connectDB = require('./shared/utils/database');
 
-// Import logger (with fallback)
 let logger;
 try {
     logger = require('./shared/utils/logger');
@@ -17,8 +16,10 @@ try {
     logger = console;
 }
 
-// Import routes
+// Import routes (เพียงครั้งเดียว!)
 const authRoutes = require('./modules/auth/routes/auth.routes');
+const oauthRoutes = require('./modules/oauth/routes/oauth.routes');
+const userRoutes = require('./modules/user/routes/user.routes');
 
 // Initialize Express app
 const app = express();
@@ -28,15 +29,27 @@ connectDB().catch(err => {
     logger.error('Database connection failed:', err);
 });
 
-// Passport configuration (optional - comment out if not using)
-// require('./shared/config/passport')(passport);
-
 // Middleware
-app.use(helmet()); // Security headers
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+              scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], 
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+
+            connectSrc: ["'self'", "ws:", "http:", "https:"],
+            fontSrc: ["'self'", "https:", "data:"],
+            objectSrc: ["'none'"],
+        },
+    },
+}));
+
 app.use(cors({
     origin: config.CORS_ORIGIN || ['http://localhost:3000', 'http://localhost:4000'],
     credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -54,13 +67,9 @@ app.use(session({
     saveUninitialized: false,
     cookie: {
         secure: config.NODE_ENV === 'production',
-        maxAge: 1000 * 60 * 60, // 1 hour
+        maxAge: 1000 * 60 * 60,
     }
 }));
-
-// Passport middleware (comment out if not using)
-// app.use(passport.initialize());
-// app.use(passport.session());
 
 // Static files
 app.use(express.static(path.join(__dirname, '../public')));
@@ -75,15 +84,29 @@ app.get('/health', (req, res) => {
     });
 });
 
-// API Routes
+// ⭐ API Routes (เพียงครั้งเดียว!)
 app.use('/api/auth', authRoutes);
+app.use('/api/oauth', oauthRoutes);
+app.use('/api/users', userRoutes);
 
-// Legacy routes (backward compatibility)
-app.use('/auth', authRoutes);
+// ❌ ลบส่วนนี้ออก ถ้ามี legacy routes ซ้ำ
+// app.use('/auth', authRoutes);  // ถ้าไม่จำเป็น ให้ลบออก
 
 // Serve HTML pages
 app.get('/', (req, res) => {
-    res.send('<h1>Auth Monolith API</h1><p>Server is running!</p>');
+    res.sendFile(path.join(__dirname, '../public', 'index.html'));
+});
+
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public', 'login.html'));
+});
+
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public', 'register.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public', 'dashboard.html'));
 });
 
 // 404 handler
@@ -103,10 +126,16 @@ app.use((err, req, res, next) => {
         method: req.method
     });
 
-    res.status(err.statusCode || 500).json({
+    //  Don't send stack trace in production
+    const isDevelopment = config.NODE_ENV === 'development';
+
+    // Default to 500 if no status code
+    const statusCode = err.statusCode || 500;
+
+    res.status(statusCode).json({
         success: false,
-        error: err.message || 'Server Error',
-        ...(config.NODE_ENV === 'development' && { stack: err.stack })
+        error: err.message || 'Internal Server Error',
+        ...(isDevelopment && { stack: err.stack })
     });
 });
 

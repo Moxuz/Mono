@@ -1,30 +1,9 @@
 version: '3.8'
 
 services:
-  app:
-    build: .
-    container_name: auth-monolith
-    ports:
-      - "5000:5000"
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - MONGODB_URI=mongodb://mongo:27017/authdb
-      - JWT_SECRET=${JWT_SECRET}
-      - SESSION_SECRET=${SESSION_SECRET}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-    depends_on:
-      - mongo
-    volumes:
-      - ./logs:/app/logs
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  mongo:
+  mongodb:
     image: mongo:latest
-    container_name: mongo-db
+    container_name: auth-mongodb
     ports:
       - "27017:27017"
     environment:
@@ -34,12 +13,32 @@ services:
     volumes:
       - mongo-data:/data/db
     networks:
-      - app-network
+      - auth-network
     restart: unless-stopped
 
-networks:
-  app-network:
-    driver: bridge
+  app:
+    build: .
+    container_name: auth-app
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGODB_URI=mongodb://admin:adminpassword@mongodb:27017/authdb?authSource=admin
+      - JWT_SECRET=your_secret_key_123456
+      - SESSION_SECRET=your_session_secret_123456
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - auth-network
+    restart: unless-stopped
 
 volumes:
   mongo-data:
+
+networks:
+  auth-network:
+    driver: bridge

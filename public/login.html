@@ -1,9 +1,9 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Auth Monolith</title>
+    <title>Login - Auth System</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -44,10 +44,10 @@
                         <input type="checkbox" name="remember">
                         <span>Remember me</span>
                     </label>
-                    <a href="#" class="link">Forgot password?</a>
+                    <a href="/forgot-password.html" class="link">Forgot password?</a>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-block">
+                <button type="submit" class="btn btn-primary btn-block" id="loginBtn">
                     Sign In
                 </button>
             </form>
@@ -72,59 +72,7 @@
         </div>
     </div>
 
-    <script src="/js/app.js"></script>
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const alertBox = document.getElementById('alert');
-
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // Save token
-                    localStorage.setItem('token', data.data.token);
-                    localStorage.setItem('user', JSON.stringify(data.data.user));
-                    
-                    showAlert('Login successful! Redirecting...', 'success');
-                    
-                    setTimeout(() => {
-                        window.location.href = '/dashboard.html';
-                    }, 1000);
-                } else {
-                    showAlert(data.error || data.message || 'Login failed', 'error');
-                }
-            } catch (error) {
-                showAlert('Network error. Please try again.', 'error');
-                console.error('Error:', error);
-            }
-        });
-
-        function loginWithGoogle() {
-            window.location.href = '/api/auth/google';
-        }
-
-        function showAlert(message, type) {
-            const alertBox = document.getElementById('alert');
-            alertBox.textContent = message;
-            alertBox.className = `alert alert-${type}`;
-            alertBox.style.display = 'block';
-            
-            setTimeout(() => {
-                alertBox.style.display = 'none';
-            }, 5000);
-        }
-    </script>
+    <!-- External JavaScript -->
+    <script src="/js/login.js"></script>
 </body>
-</html> 
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Authentication Token</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        .test-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        .test-result {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .test-result pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            color: #10b981;
+            font-weight: 600;
+        }
+        .error {
+            color: #ef4444;
+            font-weight: 600;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .test-card {
+            border: 2px solid #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .test-card:hover {
+            border-color: #4f46e5;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        }
+        .test-card h4 {
+            margin: 0 0 0.5rem 0;
+            color: #1e293b;
+        }
+        .test-card p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+        .manual-test {
+            background: #f0f9ff;
+            border: 2px solid #3b82f6;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+        }
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+        .token-display {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="dashboard-nav">
+        <div class="nav-brand">
+            <h2>🧪 Token Tester</h2>
+        </div>
+        <div class="nav-user">
+            <a href="/dashboard.html" class="btn btn-secondary btn-sm">Back to Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="test-container">
+        <!-- Current Token Section -->
+        <div class="test-section">
+            <h2>📋 Current Token</h2>
+            <div class="token-display" id="currentToken">Loading...</div>
+            <button class="btn btn-primary" style="margin-top: 1rem;" id="copyTokenBtn">Copy Token</button>
+            
+            <div style="margin-top: 1rem;">
+                <strong>Token Info:</strong>
+                <div id="tokenInfo" class="test-result"></div>
+            </div>
+        </div>
+
+        <!-- Quick Auto Tests -->
+        <div class="test-section">
+            <h2>🚀 Quick Auto Tests</h2>
+            <p style="color: #64748b; margin-bottom: 1rem;">Click any test below to automatically run with your current token</p>
+            
+            <div class="test-grid">
+                <div class="test-card" id="testValidateBtn">
+                    <h4>✓ Validate Token</h4>
+                    <p>POST /api/auth/validate-token</p>
+                </div>
+                
+                <div class="test-card" id="testUserMeBtn">
+                    <h4>👤 Get User Info</h4>
+                    <p>GET /api/users/me</p>
+                </div>
+                
+                <div class="test-card" id="testOAuthUserInfoBtn">
+                    <h4>🔑 OAuth UserInfo</h4>
+                    <p>GET /api/oauth/userinfo</p>
+                </div>
+                
+                <div class="test-card" id="testClientsBtn">
+                    <h4>📱 Get Clients</h4>
+                    <p>GET /api/oauth/clients</p>
+                </div>
+                
+                <div class="test-card" id="testInvalidBtn">
+                    <h4>❌ Invalid Token</h4>
+                    <p>Test with bad token</p>
+                </div>
+                
+                <div class="test-card" id="testNoTokenBtn">
+                    <h4>🚫 No Token</h4>
+                    <p>Test without token</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test Results -->
+        <div class="test-section">
+            <h2>📊 Test Results</h2>
+            <div id="testResults" class="test-result">
+                <p style="color: #64748b;">No tests run yet. Click a test button above to see results.</p>
+            </div>
+        </div>
+    </div>
+
+        <!-- Manual Test Section -->
+        <div class="test-section manual-test">
+    <h2>🔧 Manual API Test</h2>
+    <p style="color: #1e40af; margin-bottom: 1rem;">Test any endpoint with custom parameters</p>
+    
+    <div class="form-group">
+        <label><strong>Method & Endpoint:</strong></label>
+        <select id="manualEndpoint">
+            <option value="POST|/api/auth/validate-token">POST /api/auth/validate-token</option>
+            <option value="GET|/api/users/me">GET /api/users/me</option>
+            <option value="GET|/api/oauth/userinfo">GET /api/oauth/userinfo</option>
+            <option value="GET|/api/oauth/clients">GET /api/oauth/clients</option>
+            <option value="POST|/api/auth/login">POST /api/auth/login (no auth)</option>
+            <option value="GET|/health">GET /health</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label><strong>Token (optional - leave empty to use current):</strong></label>
+        <input type="text" id="manualToken" placeholder="Leave empty to use current token">
+        <small style="color: #64748b; display: block; margin-top: 0.25rem;">
+            💡 Tip: Leave empty to automatically use your current token
+        </small>
+    </div>
+    
+    <div class="form-group">
+        <label><strong>Request Body (JSON - for POST requests):</strong></label>
+        <input type="text" id="manualBody" placeholder='{"token": "your_token_here"}'>
+        <small style="color: #64748b; display: block; margin-top: 0.25rem;">
+            💡 Example for validate-token: <code>{"token": "eyJhbGc..."}</code>
+        </small>
+    </div>
+    
+    <!--  เพิ่ม Quick Fill Buttons -->
+    <div style="margin-bottom: 1rem;">
+        <p><strong>Quick Fill:</strong></p>
+        <button type="button" class="btn btn-sm" id="fillValidateTokenBtn" 
+                style="margin-right: 0.5rem; padding: 0.5rem 1rem;">
+            Fill Validate Token Request
+        </button>
+        <button type="button" class="btn btn-sm" id="fillLoginBtn" 
+                style="padding: 0.5rem 1rem;">
+            Fill Login Request
+        </button>
+    </div>
+    
+    <button class="btn btn-primary btn-block" id="manualTestBtn">Send Request</button>
+</div>
+
+
+    
+    
+
+
+    <script>
+        // Get token from localStorage
+        const token = localStorage.getItem('token');
+        
+        // Initialize
+        if (token) {
+            document.getElementById('currentToken').textContent = token;
+            decodeAndDisplayToken(token);
+        } else {
+            document.getElementById('currentToken').textContent = 'No token found - Please login first';
+            document.getElementById('tokenInfo').innerHTML = '<p class="error">Not logged in</p>';
+        }
+
+        // Decode token
+        function decodeAndDisplayToken(token) {
+            try {
+                const parts = token.split('.');
+                if (parts.length !== 3) throw new Error('Invalid JWT format');
+                
+                const payload = JSON.parse(atob(parts[1]));
+                const header = JSON.parse(atob(parts[0]));
+                
+                const now = Math.floor(Date.now() / 1000);
+                const isExpired = payload.exp && payload.exp < now;
+                const expiresIn = payload.exp ? Math.floor((payload.exp - now) / 60) : null;
+                
+                document.getElementById('tokenInfo').innerHTML = `
+                    <pre>${JSON.stringify({
+                        header: header,
+                        payload: payload,
+                        isExpired: isExpired,
+                        expiresIn: expiresIn ? `${expiresIn} minutes` : 'N/A'
+                    }, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('tokenInfo').innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Copy token
+        document.getElementById('copyTokenBtn').addEventListener('click', function() {
+            navigator.clipboard.writeText(token);
+            this.textContent = 'Copied!';
+            setTimeout(() => { this.textContent = 'Copy Token'; }, 2000);
+        });
+
+        // Auto test functions
+        document.getElementById('testValidateBtn').addEventListener('click', function() {
+            testAPI('Validate Token', 'POST', '/api/auth/validate-token', {token: token}, token);
+        });
+
+        document.getElementById('testUserMeBtn').addEventListener('click', function() {
+            testAPI('Get User Info', 'GET', '/api/users/me', null, token);
+        });
+
+        document.getElementById('testOAuthUserInfoBtn').addEventListener('click', function() {
+            testAPI('OAuth UserInfo', 'GET', '/api/oauth/userinfo', null, token);
+        });
+
+        document.getElementById('testClientsBtn').addEventListener('click', function() {
+            testAPI('Get Clients', 'GET', '/api/oauth/clients', null, token);
+        });
+
+        document.getElementById('testInvalidBtn').addEventListener('click', function() {
+            testAPI('Invalid Token Test', 'GET', '/api/users/me', null, 'invalid_token_123');
+        });
+
+        document.getElementById('testNoTokenBtn').addEventListener('click', function() {
+            testAPI('No Token Test', 'GET', '/api/users/me', null, null);
+        });
+
+        // Manual test
+        document.getElementById('manualTestBtn').addEventListener('click', function() {
+            const endpointData = document.getElementById('manualEndpoint').value.split('|');
+            const method = endpointData[0];
+            const endpoint = endpointData[1];
+            const customToken = document.getElementById('manualToken').value || token;
+            const bodyText = document.getElementById('manualBody').value;
+            
+            let body = null;
+            if (bodyText && method === 'POST') {
+                try {
+                    body = JSON.parse(bodyText);
+                } catch (e) {
+                    showResult('Manual Test', null, {error: 'Invalid JSON in body'});
+                    return;
+                }
+            }
+            
+            testAPI('Manual Test', method, endpoint, body, customToken);
+        });
+
+        document.getElementById('fillValidateTokenBtn').addEventListener('click', function() {
+    document.getElementById('manualEndpoint').value = 'POST|/api/auth/validate-token';
+    document.getElementById('manualToken').value = '';
+    document.getElementById('manualBody').value = JSON.stringify({token: token});
+    console.log('Filled validate token request');
+});
+
+document.getElementById('fillLoginBtn').addEventListener('click', function() {
+    document.getElementById('manualEndpoint').value = 'POST|/api/auth/login';
+    document.getElementById('manualToken').value = '';
+    document.getElementById('manualBody').value = JSON.stringify({
+        email: 'john1234@gmail.com',
+        password: 'john1234'
+    });
+    console.log('Filled login request');
+});
+
+
+
+        // Generic test function
+        async function testAPI(testName, method, endpoint, body, authToken) {
+            showLoading();
+            
+            try {
+                console.log(`Testing: ${method} ${endpoint}`);
+                
+                const options = {
+                    method: method,
+                    headers: {}
+                };
+
+                // Add auth token if provided
+                if (authToken) {
+                    options.headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                // Add body for POST requests
+                if (body && method === 'POST') {
+                    options.headers['Content-Type'] = 'application/json';
+                    options.body = JSON.stringify(body);
+                }
+
+                console.log('Request options:', options);
+
+                const response = await fetch(endpoint, options);
+                const data = await response.json();
+
+                console.log('Response:', response.status, data);
+
+                showResult(testName, response, data);
+            } catch (error) {
+                console.error('Error:', error);
+                showError(testName, error);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('testResults').innerHTML = '<p>⏳ Running test...</p>';
+        }
+
+        function showResult(testName, response, data) {
+            const statusClass = response && response.ok ? 'success' : 'error';
+            const statusText = response && response.ok ? '✅ SUCCESS' : '❌ FAILED';
+            const statusCode = response ? `${response.status} ${response.statusText}` : 'N/A';
+            
+            document.getElementById('testResults').innerHTML = `
+                <h3>${testName}</h3>
+                <p class="${statusClass}">${statusText} - Status: ${statusCode}</p>
+                <h4>Response:</h4>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+
+        function showError(testName, error) {
+            document.getElementById('testResults').innerHTML = `
+                <h3>${testName}</h3>
+                <p class="error">❌ ERROR</p>
+                <pre>${error.message}\n\n${error.stack || ''}</pre>
+            `;
+        }
+
+        // Test server health on load
+        console.log('Testing server connection...');
+        fetch('/health')
+            .then(r => r.json())
+            .then(data => console.log('✅ Server health:', data))
+            .catch(err => console.error('❌ Server error:', err));
+    </script>
+</body>
+</html>
