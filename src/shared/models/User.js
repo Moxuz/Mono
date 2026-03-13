@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        select: false // Don't include password in queries by default
+        select: false
     },
     googleId: {
         type: String,
@@ -34,7 +34,55 @@ const userSchema = new mongoose.Schema({
     },
     lastLogin: {
         type: Date
+    },
+    
+      passwordResetToken: {
+        type: String,
+        select: false    // ไม่ดึงมาโดย default (ปลอดภัย)
+    },
+    passwordResetExpires: {
+        type: Date,
+        select: false
+    },
+
+    // ✅ PDPA Consent
+pdpaConsent: {
+    // ── Essential (Required) ──────────────────────
+    essentialAccepted: {
+        type: Boolean,
+        default: false
+    },
+    essentialAcceptedAt: {
+        type: Date
+    },
+
+    // ── Analytics (Optional) ─────────────────────
+    analyticsAccepted: {
+        type: Boolean,
+        default: false
+    },
+    analyticsAcceptedAt: {
+        type: Date
+    },
+
+    // ── Cookie Banner ─────────────────────────────
+    cookieConsentAccepted: {
+        type: Boolean,
+        default: null
+    },
+    cookieConsentAt: {
+        type: Date
+    },
+
+    // ── Audit ─────────────────────────────────────
+    policyVersion: {
+        type: String,
+        default: null
+    },
+    consentIp: {
+        type: String
     }
+}
 }, {
     timestamps: true
 });
@@ -42,7 +90,6 @@ const userSchema = new mongoose.Schema({
 // Hash password before saving
 userSchema.pre('save', async function(next) {
     if (!this.isModified('password')) return next();
-    
     try {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
@@ -52,7 +99,7 @@ userSchema.pre('save', async function(next) {
     }
 });
 
-// Method to compare password
+// Compare password
 userSchema.methods.comparePassword = async function(candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };

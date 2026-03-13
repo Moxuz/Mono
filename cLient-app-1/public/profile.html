@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - ShopHub</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/" class="logo">🛒 ShopHub</a>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/products">Products</a>
+            <a href="/profile">Profile</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card" id="profileCard">
+            <p>Loading...</p>
+        </div>
+        <a href="/dashboard" class="btn btn-secondary">← Back</a>
+    </div>
+
+    <!-- Cookie Banner -->
+    <div id="cookieBanner" class="cookie-banner" role="dialog" aria-label="Cookie consent">
+        <div class="cookie-banner-content">
+            <div class="cookie-banner-text">
+                <span class="cookie-icon">🍪</span>
+                <div>
+                    <strong>We use cookies</strong>
+                    <p>
+                        Essential cookies keep you signed in.
+                        Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank">Privacy Policy</a>.
+                    </p>
+                </div>
+            </div>
+            <div class="cookie-banner-actions">
+                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Essential Only</button>
+                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept All</button>
+            </div>
+        </div>
+    </div>
+    <script src="/js/silent-auth.js"></script> 
+    <script src="/js/profile.js"></script>
+    <script src="/js/cookie-banner.js"></script>
+</body>
+</html>

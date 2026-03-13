@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authorize Application</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .consent-box {
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+        }
+        .app-info {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .app-icon { font-size: 4rem; margin-bottom: 1rem; }
+        .permissions {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+        }
+        .permissions h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        .permission-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0;
+            color: #334155;
+        }
+        .permission-item::before {
+            content: "✓";
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        .pkce-badge {
+            display: inline-block;
+            background: #dcfce7;
+            color: #166534;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            margin-top: 0.5rem;
+        }
+        .logged-in-badge {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        .divider {
+            margin: 1.5rem 0;
+            border-color: #e2e8f0;
+        }
+        .btn-deny {
+            background: white;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            padding: 0.75rem;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            font-size: 1rem;
+        }
+        .btn-deny:hover { background: #f8fafc; }
+        .footer-note {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+            text-align: center;
+        }
+        .alert-error {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fca5a5;
+        }
+        .alert-success {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        #loginFields { display: none; }
+        #loginFields.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="consent-box">
+
+            <!-- App Info -->
+            <div class="app-info">
+                <div class="app-icon">🔐</div>
+                <h2 id="clientName">Loading...</h2>
+                <p style="color:#64748b; margin-top:0.5rem;">
+                    wants to access your account
+                </p>
+                <span id="pkceBadge" class="pkce-badge" style="display:none;">
+                    🛡️ PKCE Protected
+                </span>
+            </div>
+
+            <!-- Permissions -->
+            <div class="permissions">
+                <h3>This application will be able to:</h3>
+                <div id="scopeItems"></div>
+            </div>
+
+            <!-- Alert -->
+            <div id="alert" class="alert"></div>
+
+            <!-- Form -->
+            <form id="consentForm">
+                <!-- Hidden fields -->
+                <input type="hidden" id="client_id"             name="client_id">
+                <input type="hidden" id="redirect_uri"          name="redirect_uri">
+                <input type="hidden" id="response_type"         name="response_type">
+                <input type="hidden" id="scope"                 name="scope">
+                <input type="hidden" id="state"                 name="state">
+                <input type="hidden" id="code_challenge"        name="code_challenge">
+                <input type="hidden" id="code_challenge_method" name="code_challenge_method">
+                <input type="hidden" id="action"                name="action" value="approve">
+
+                <!-- Login fields (แสดงเฉพาะตอนยังไม่ login) -->
+                <div id="loginFields">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password">
+                    </div>
+                    <hr class="divider">
+                </div>
+
+                <!-- Logged in badge (แสดงเฉพาะตอน login แล้ว) -->
+                <div id="loggedInBadge" class="logged-in-badge" style="display:none;">
+                    ✅ Signed in as <strong id="loggedInEmail"></strong>
+                </div>
+
+                <button type="submit" id="btnApprove" class="btn btn-primary btn-block">
+                    ✅ Approve & Continue
+                </button>
+                <button type="button" id="btnDeny" class="btn-deny">
+                    ✖ Deny
+                </button>
+            </form>
+
+            <div class="footer-note">
+                <small style="color:#64748b;">
+                    Your consent will be remembered for 30 days.
+                </small>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="/js/consent.js"></script>
+</body>
+</html>

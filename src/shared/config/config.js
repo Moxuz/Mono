@@ -3,6 +3,7 @@ require('dotenv').config();
 module.exports = {
     NODE_ENV: process.env.NODE_ENV || 'development',
     PORT: process.env.PORT || 5000,
+    BASE_URL: process.env.BASE_URL || 'http://localhost:5000',
     
     // Database
     MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/authdb',
@@ -25,4 +26,16 @@ module.exports = {
     // Rate Limiting
     RATE_LIMIT_WINDOW: 15 * 60 * 1000, // 15 minutes
     RATE_LIMIT_MAX: 100,
+
+    email: {
+    smtp: {
+      host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    fromName:    process.env.EMAIL_FROM_NAME    || 'ShopHub Auth',
+    fromAddress: process.env.EMAIL_FROM_ADDRESS || 'noreply@shophub.com',
+  },
 };

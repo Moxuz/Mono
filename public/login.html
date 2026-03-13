@@ -14,6 +14,17 @@
                 <p>Sign in to your account</p>
             </div>
 
+            <!-- ✅ Cookie Notice (inline — บน form) -->
+            <div class="cookie-notice" id="cookieNotice">
+                <span>🍪</span>
+                <p>
+                    We use cookies to keep you signed in and improve your experience.
+                    By signing in, you agree to our 
+                    <a href="/privacy-policy.html" target="_blank" class="link">Privacy Policy</a>.
+                </p>
+                <button class="cookie-notice-close" onclick="dismissCookieNotice()" aria-label="Close">✕</button>
+            </div>
+
             <div id="alert" class="alert" style="display: none;"></div>
 
             <form id="loginForm" class="auth-form">
@@ -52,9 +63,7 @@
                 </button>
             </form>
 
-            <div class="divider">
-                <span>OR</span>
-            </div>
+            <div class="divider"><span>OR</span></div>
 
             <button class="btn btn-google btn-block" onclick="loginWithGoogle()">
                 <svg width="18" height="18" viewBox="0 0 18 18">
@@ -72,7 +81,8 @@
         </div>
     </div>
 
-    <!-- External JavaScript -->
     <script src="/js/login.js"></script>
+    <!-- ✅ Cookie Banner -->
+    <script src="/js/cookie-banner.js"></script>
 </body>
 </html>

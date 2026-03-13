@@ -3,28 +3,103 @@ const logger = require('../../../shared/utils/logger');
 
 exports.register = async (req, res, next) => {
     try {
-        const { username, email, password } = req.body;
-        
-        const result = await authService.register({ username, email, password });
-        
-        logger.info(`User registered: ${email}`);
-        
+        const {
+            username,
+            email,
+            password,
+            consentEssential,   // ✅ เปลี่ยนจาก privacyPolicy
+            consentAnalytics    // ✅ เพิ่มใหม่
+        } = req.body;
+
+        // ── Validate essential consent ────────────────────────
+        if (!consentEssential) {
+            return res.status(400).json({
+                success: false,
+                error: 'Essential consent required',
+                message: 'กรุณายินยอมการใช้ข้อมูลที่จำเป็นก่อนสมัครสมาชิก'
+            });
+        }
+
+        const consentIp = req.ip ||
+                          req.headers['x-forwarded-for']?.split(',')[0] ||
+                          req.connection?.remoteAddress;
+
+        const now = new Date();
+
+        const result = await authService.register({
+            username,
+            email,
+            password,
+            pdpaConsent: {
+                essentialAccepted:   true,
+                essentialAcceptedAt: now,
+                analyticsAccepted:   !!consentAnalytics,
+                analyticsAcceptedAt: consentAnalytics ? now : null,
+                policyVersion:       '1.0.0',
+                consentIp
+            }
+        });
+
+        logger.info(`User registered: ${email} | analytics: ${!!consentAnalytics} | IP: ${consentIp}`);
+
         res.status(201).json({
             success: true,
             message: 'User registered successfully',
             data: result
         });
+
     } catch (error) {
         logger.error('Registration error:', error);
-        
-        // ⭐ Handle specific errors
+
         if (error.message === 'User already exists') {
             return res.status(400).json({
                 success: false,
                 error: error.message
             });
         }
-        
+
+        next(error);
+    }
+};
+// ─── Cookie Consent API ───────────────────────────────────────
+exports.updateCookieConsent = async (req, res, next) => {
+    try {
+        const { cookieConsentAccepted, version } = req.body;
+        const userId = req.user?.id || req.user?._id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+
+        if (typeof cookieConsentAccepted !== 'boolean') {
+            return res.status(400).json({
+                success: false,
+                error: 'cookieConsentAccepted must be boolean'
+            });
+        }
+
+        const consentIp = req.ip ||
+                          req.headers['x-forwarded-for']?.split(',')[0] ||
+                          req.connection?.remoteAddress;
+
+        await authService.updateCookieConsent(userId, {
+            cookieConsentAccepted,
+            cookieConsentAt: new Date(),
+            version,
+            consentIp
+        });
+
+        logger.info(`Cookie consent updated: user=${userId} accepted=${cookieConsentAccepted}`);
+
+        res.json({
+            success: true,
+            message: 'Cookie consent updated'
+        });
+    } catch (error) {
+        logger.error('Cookie consent error:', error);
         next(error);
     }
 };

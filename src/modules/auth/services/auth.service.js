@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../../../shared/models/User');
 const config = require('../../../shared/config/config');
+const emailService = require('../../../shared/services/email.service'); 
+const crypto = require('crypto');
 
 class AuthService {
     async register({ username, email, password }) {
@@ -13,13 +15,18 @@ class AuthService {
             }
 
             // Create new user
-            const user = new User({
+               const user = new User({
                 username,
                 email,
-                password // Will be hashed by pre-save hook
+                password,           // hashed by pre-save hook
+                pdpaConsent         
             });
 
             await user.save();
+
+               emailService
+            .sendWelcomeEmail({ to: user.email, username: user.username })
+            .catch((err) => console.error('Welcome email failed:', err.message));
 
             // Generate token
             const token = this.createToken(user);
@@ -33,6 +40,26 @@ class AuthService {
                 },
                 token
             };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
+     async updateCookieConsent(userId, { cookieConsentAccepted, cookieConsentAt, consentIp }) {
+        try {
+            const user = await User.findById(userId);
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            user.pdpaConsent.cookieConsentAccepted = cookieConsentAccepted;
+            user.pdpaConsent.cookieConsentAt       = cookieConsentAt;
+            user.pdpaConsent.consentIp             = consentIp;
+
+            await user.save();
+
+            return { success: true };
         } catch (error) {
             throw error;
         }
@@ -151,46 +178,98 @@ class AuthService {
         }
     }
 
-    async forgotPassword(email) {
-        try {
-            const user = await User.findOne({ email });
-            if (!user) {
-                throw new Error('User not found');
-            }
+     async forgotPassword(email) {
+    try {
+      const user = await User.findOne({ email })
+        .select('+passwordResetToken +passwordResetExpires');
 
-            // Generate reset token
-            const resetToken = jwt.sign(
-                { id: user._id },
-                config.JWT_SECRET,
-                { expiresIn: '1h' }
-            );
+      if (!user) {
+        return { message: 'If this email exists, a reset link has been sent.' };
+      }
 
-            // TODO: Send email with reset link
-            console.log(`Reset token for ${email}: ${resetToken}`);
+      const resetToken  = crypto.randomBytes(32).toString('hex');
+      const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-            return { message: 'Reset token generated', token: resetToken };
-        } catch (error) {
-            throw error;
-        }
+      user.passwordResetToken   = hashedToken;
+      user.passwordResetExpires = Date.now() + 60 * 60 * 1000;
+      await user.save();
+
+      // ─── Debug ─────────────────────────────────────────────────────────────
+      console.log('=== FORGOT PASSWORD DEBUG ===');
+      console.log('Raw token     :', resetToken);
+      console.log('Hashed token  :', hashedToken);
+      console.log('Expires at    :', new Date(user.passwordResetExpires));
+      console.log('Saved token   :', user.passwordResetToken);
+      console.log('==============================');
+
+      const resetUrl = `${process.env.AUTH_SERVER_URL}/reset-password.html?token=${resetToken}`;
+      console.log('Reset URL     :', resetUrl);
+
+      try {
+        await emailService.sendPasswordResetEmail({
+          to:       user.email,
+          username: user.username,
+          resetUrl,
+        });
+      } catch (emailError) {
+        user.passwordResetToken   = undefined;
+        user.passwordResetExpires = undefined;
+        await user.save();
+        throw new Error('Failed to send reset email. Please try again.');
+      }
+
+      return { message: 'If this email exists, a reset link has been sent.' };
+    } catch (error) {
+      throw error;
     }
+  }
 
-    async resetPassword(token, newPassword) {
-        try {
-            const decoded = jwt.verify(token, config.JWT_SECRET);
-            const user = await User.findById(decoded.id);
-            
-            if (!user) {
-                throw new Error('User not found');
-            }
+  async resetPassword(token, newPassword) {
+    try {
+      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-            user.password = newPassword;
-            await user.save();
+      // ─── Debug ─────────────────────────────────────────────────────────────
+      console.log('=== RESET PASSWORD DEBUG ===');
+      console.log('Token from URL :', token);
+      console.log('Hashed token   :', hashedToken);
+      console.log('Current time   :', new Date());
 
-            return { message: 'Password reset successful' };
-        } catch (error) {
-            throw new Error('Invalid or expired token');
-        }
+      // ─── เช็ค DB ตรงๆ ก่อน ──────────────────────────────────────────────
+      const userCheck = await User.findOne({
+        passwordResetToken: hashedToken
+      }).select('+passwordResetToken +passwordResetExpires');
+
+      console.log('User by token  :', userCheck ? userCheck.email : 'NOT FOUND');
+      if (userCheck) {
+        console.log('Token in DB    :', userCheck.passwordResetToken);
+        console.log('Expires at     :', userCheck.passwordResetExpires);
+        console.log('Is expired     :', userCheck.passwordResetExpires < Date.now());
+      }
+      console.log('============================');
+
+      const user = await User.findOne({
+        passwordResetToken:   hashedToken,
+        passwordResetExpires: { $gt: Date.now() },
+      }).select('+password +passwordResetToken +passwordResetExpires');
+
+      if (!user) {
+        throw new Error('Invalid or expired reset token');
+      }
+
+      user.password             = newPassword;
+      user.passwordResetToken   = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save();
+
+      emailService
+        .sendPasswordChangedEmail({ to: user.email, username: user.username })
+        .catch((err) => console.error('Password changed email failed:', err.message));
+
+      return { message: 'Password reset successful' };
+    } catch (error) {
+      throw error;
     }
+  }
 }
 
 module.exports = new AuthService();

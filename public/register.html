@@ -64,11 +64,72 @@
                     >
                 </div>
 
-                <div class="form-options">
-                    <label class="checkbox">
-                        <input type="checkbox" name="terms" required>
-                        <span>I agree to the <a href="#" class="link">Terms & Conditions</a></span>
-                    </label>
+             
+
+                <!-- ✅ PDPA Consent Box -->
+<div class="consent-box">
+    <div class="consent-box-header">
+        🔒 ความยินยอมในการใช้ข้อมูลส่วนบุคคล
+        <span style="font-size:0.78rem; color:#64748b; font-weight:400;">
+            (Personal Data Consent)
+        </span>
+    </div>
+
+    <!-- Consent 1: Essential (Required) -->
+    <div class="consent-item consent-item-required">
+        <label class="checkbox">
+            <input type="checkbox" name="consentEssential" id="consentEssential" required>
+            <span>
+                <strong>การใช้งานระบบ (Essential)</strong>
+                <span class="badge-required">จำเป็น / Required</span>
+                <br>
+                <small>
+                    ยินยอมให้เก็บข้อมูลที่จำเป็นสำหรับการให้บริการ เช่น
+                    ชื่อผู้ใช้ อีเมล และรหัสผ่าน (เข้ารหัส)
+                    รวมถึงยอมรับ
+                    <a href="/privacy-policy.html" target="_blank" class="link">
+                        นโยบายความเป็นส่วนตัวและเงื่อนไขการใช้งาน
+                    </a>
+                    <br>
+                    <em>
+                        Consent to collect essential data (username, email, password)
+                        and agree to our
+                        <a href="/privacy-policy.html" target="_blank" class="link">
+                            Privacy Policy &amp; Terms of Service
+                        </a>.
+                    </em>
+                </small>
+            </span>
+        </label>
+    </div>
+
+    <!-- Consent 2: Analytics (Optional) -->
+    <div class="consent-item">
+        <label class="checkbox">
+            <input type="checkbox" name="consentAnalytics" id="consentAnalytics">
+            <span>
+                <strong>การปรับปรุงบริการ (Analytics)</strong>
+                <span class="badge-optional">ไม่บังคับ / Optional</span>
+                <br>
+                <small>
+                    ยินยอมให้เก็บข้อมูลการใช้งาน เช่น
+                    เวลาเข้าสู่ระบบ ประเภทเบราว์เซอร์
+                    เพื่อวิเคราะห์และปรับปรุงคุณภาพบริการ
+                    <br>
+                    <em>Consent to collect usage data (login time, browser type)
+                    to improve service quality.</em>
+                </small>
+            </span>
+        </label>
+    </div>
+
+
+                    <p class="consent-policy-link">
+                        อ่านนโยบายความเป็นส่วนตัวฉบับเต็มได้ที่
+                        <a href="/privacy-policy.html" target="_blank" class="link">
+                            นโยบายความเป็นส่วนตัว / Privacy Policy
+                        </a>
+                    </p>
                 </div>
 
                 <button type="submit" class="btn btn-primary btn-block">
@@ -76,9 +137,7 @@
                 </button>
             </form>
 
-            <div class="divider">
-                <span>OR</span>
-            </div>
+            <div class="divider"><span>OR</span></div>
 
             <button class="btn btn-google btn-block" onclick="registerWithGoogle()">
                 <svg width="18" height="18" viewBox="0 0 18 18">
@@ -96,7 +155,7 @@
         </div>
     </div>
 
-    <!-- External JavaScript -->
     <script src="/js/register.js"></script>
+    <script src="/js/cookie-banner.js"></script>
 </body>
 </html>

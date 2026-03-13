@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ShopHub</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/" class="logo">🛒 ShopHub</a>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/products">Products</a>
+            <a href="/profile">Profile</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card" id="welcomeCard">
+            <p>Loading...</p>
+        </div>
+
+        <div class="card">
+            <h3>Quick Links</h3>
+            <a href="/products" class="btn">🛍️ Products</a>
+            <a href="/profile"  class="btn btn-secondary">👤 Profile</a>
+            <a href="/logout"   class="btn btn-danger">Logout</a>
+        </div>
+    </div>
+  
+    <!-- Cookie Banner -->
+    <div id="cookieBanner" class="cookie-banner" role="dialog" aria-label="Cookie consent">
+        <div class="cookie-banner-content">
+            <div class="cookie-banner-text">
+                <span class="cookie-icon">🍪</span>
+                <div>
+                    <strong>We use cookies</strong>
+                    <p>
+                        Essential cookies keep you signed in.
+                        Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank">Privacy Policy</a>.
+                    </p>
+                </div>
+            </div>
+            <div class="cookie-banner-actions">
+                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Essential Only</button>
+                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept All</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/silent-auth.js"></script> 
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/cookie-banner.js"></script>
+</body>
+</html>

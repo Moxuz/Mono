@@ -72,12 +72,18 @@ async function handleLogin(e) {
                 console.log('Redirecting to dashboard...');
                 window.location.href = '/dashboard.html';
             }, 1000);
-        } else {
-            console.error('Login failed:', data);
-            showAlert(data.error || data.message || 'Login failed', 'error');
-            loginBtn.disabled = false;
-            loginBtn.textContent = 'Sign In';
-        }
+      } else {
+    console.error('Login failed:', data);
+ 
+    const errorMessage = response.status === 429 
+        ? data.message                              // "ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณาลองใหม่ใน 15 นาที"
+        : data.error || data.message || 'Login failed'; // "Invalid credentials"
+
+    showAlert(errorMessage, 'error');
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Sign In';
+}
+
     } catch (error) {
         console.error('Login error:', error);
         showAlert('Network error. Please check if MongoDB is running.', 'error');
@@ -86,20 +92,35 @@ async function handleLogin(e) {
     }
 }
 
+
+
 function loginWithGoogle() {
     console.log('Google login clicked');
     window.location.href = '/api/auth/google';
 }
 
+
+
+let alertTimeout = null;
+
 function showAlert(message, type) {
-    console.log('Showing alert:', type, message);
     const alertBox = document.getElementById('alert');
-    alertBox.textContent = message;
+    
+    //  clear timeout เก่าก่อนเสมอ
+    if (alertTimeout) {
+        clearTimeout(alertTimeout);
+        alertTimeout = null;
+    }
+
+    alertBox.innerHTML = message;
     alertBox.className = 'alert alert-' + type;
     alertBox.style.display = 'block';
-    
-    setTimeout(function() {
+    alertBox.style.textAlign = 'center';
+
+    //  เก็บ timeout ใหม่ไว้
+    alertTimeout = setTimeout(function() {
         alertBox.style.display = 'none';
+        alertTimeout = null;
     }, 5000);
 }
 

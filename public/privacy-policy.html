@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Auth System</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* ── Privacy Policy specific ── */
+        .pp-header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 48px 0 32px;
+            margin-bottom: 32px;
+        }
+        .pp-header .container { text-align: center; }
+        .pp-header h1  { font-size: 2rem; margin-bottom: 8px; }
+        .pp-header p   { opacity: 0.85; font-size: 0.95rem; }
+
+        .pp-toc {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+        }
+        .pp-toc h3 { font-size: 0.9rem; color: #1e40af; margin-bottom: 12px; }
+        .pp-toc ol { padding-left: 18px; }
+        .pp-toc li { margin: 6px 0; }
+        .pp-toc a  { color: #2563eb; text-decoration: none; font-size: 0.88rem; }
+        .pp-toc a:hover { text-decoration: underline; }
+
+        .pp-section        { margin-bottom: 12px; }
+        .pp-section h2 {
+            font-size: 1.05rem;
+            color: #1e293b;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pp-section p  { color: #475569; line-height: 1.75; font-size: 0.92rem; margin-bottom: 10px; }
+        .pp-section ul { padding-left: 20px; color: #475569; font-size: 0.92rem; }
+        .pp-section li { margin: 6px 0; line-height: 1.6; }
+
+        .pp-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+        .pp-badge-blue  { background: #dbeafe; color: #1d4ed8; }
+        .pp-badge-green { background: #dcfce7; color: #166534; }
+
+        .pp-highlight {
+            background: #f0fdf4;
+            border-left: 3px solid #22c55e;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 12px 0;
+            font-size: 0.88rem;
+            color: #166534;
+        }
+
+        .pp-warning {
+            background: #fffbeb;
+            border-left: 3px solid #f59e0b;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 12px 0;
+            font-size: 0.88rem;
+            color: #92400e;
+        }
+
+        .pp-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+            margin: 12px 0;
+        }
+        .pp-table th {
+            background: #f8fafc;
+            padding: 10px 14px;
+            text-align: left;
+            color: #475569;
+            font-weight: 600;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .pp-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #64748b;
+            vertical-align: top;
+        }
+        .pp-table tr:last-child td { border-bottom: none; }
+
+        .pp-footer {
+            text-align: center;
+            padding: 32px 0 48px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+        .pp-footer .version {
+            display: inline-block;
+            background: #f1f5f9;
+            border-radius: 6px;
+            padding: 4px 12px;
+            margin-bottom: 12px;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        /* Back button */
+        .pp-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.88rem;
+            margin-bottom: 16px;
+            transition: color 0.2s;
+        }
+        .pp-back:hover { color: #3b82f6; }
+
+        @media (max-width: 600px) {
+            .pp-header { padding: 32px 0 24px; }
+            .pp-header h1 { font-size: 1.5rem; }
+            .pp-table { display: block; overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="pp-header">
+        <div class="container">
+            <h1>🔒 Privacy Policy</h1>
+            <p>How we collect, use, and protect your personal data</p>
+        </div>
+    </div>
+
+    <div class="container" style="max-width: 780px;">
+
+        <a href="javascript:history.back()" class="pp-back">← Back</a>
+
+        <!-- Version / Date -->
+        <div class="card" style="padding: 16px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+                <span class="pp-badge pp-badge-blue">Version 1.0.0</span>
+                <span style="margin-left:8px; font-size:0.85rem; color:#64748b;">
+                    Effective: <strong>January 1, 2025</strong>
+                </span>
+            </div>
+            <span class="pp-badge pp-badge-green">PDPA Compliant</span>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="pp-toc">
+            <h3>📋 Table of Contents</h3>
+            <ol>
+                <li><a href="#section-1">Data Controller Information</a></li>
+                <li><a href="#section-2">Data We Collect</a></li>
+                <li><a href="#section-3">How We Use Your Data</a></li>
+                <li><a href="#section-4">Cookies & Tracking</a></li>
+                <li><a href="#section-5">Data Sharing</a></li>
+                <li><a href="#section-6">Data Retention</a></li>
+                <li><a href="#section-7">Your Rights (PDPA)</a></li>
+                <li><a href="#section-8">Security</a></li>
+                <li><a href="#section-9">Contact Us</a></li>
+            </ol>
+        </div>
+
+        <!-- Section 1 -->
+        <div class="card pp-section" id="section-1">
+            <h2>1️⃣ Data Controller Information</h2>
+            <p>
+                This Privacy Policy describes how <strong>Auth System</strong> ("we", "us", "our")
+                collects, uses, and protects your personal information when you use our services.
+            </p>
+            <div class="pp-highlight">
+                By registering or using our services, you acknowledge that you have read
+                and understood this Privacy Policy.
+            </div>
+        </div>
+
+        <!-- Section 2 -->
+   
+<div class="card pp-section" id="section-2">
+    <h2>2️⃣ Data We Collect / ข้อมูลที่เราเก็บรวบรวม</h2>
+
+    <p class="pp-th">
+        เราเก็บรวบรวมข้อมูลส่วนบุคคลของท่านเท่าที่จำเป็น
+        ภายใต้ฐานทางกฎหมายที่กำหนดไว้ในพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562
+    </p>
+
+    <table class="pp-table">
+        <thead>
+            <tr>
+                <th>ข้อมูล / Data</th>
+                <th>ตัวอย่าง / Examples</th>
+                <th>วัตถุประสงค์ / Purpose</th>
+                <th>ฐานทางกฎหมาย / Legal Basis</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Account Data</strong></td>
+                <td>ชื่อผู้ใช้, อีเมล<br><small>Username, Email</small></td>
+                <td>สร้างและจัดการบัญชี<br><small>Account management</small></td>
+                <td><span class="pp-badge pp-badge-blue">สัญญา / Contract</span></td>
+            </tr>
+            <tr>
+                <td><strong>Authentication Data</strong></td>
+                <td>รหัสผ่าน (เข้ารหัส)<br><small>Password (hashed)</small></td>
+                <td>ยืนยันตัวตน<br><small>Identity verification</small></td>
+                <td><span class="pp-badge pp-badge-blue">สัญญา / Contract</span></td>
+            </tr>
+            <tr>
+                <td><strong>Technical Data</strong></td>
+                <td>IP, เบราว์เซอร์<br><small>IP, Browser type</small></td>
+                <td>ความปลอดภัย<br><small>Security & fraud prevention</small></td>
+                <td><span class="pp-badge pp-badge-green">ประโยชน์โดยชอบ / Legitimate Interest</span></td>
+            </tr>
+            <tr>
+                <td><strong>Usage Data</strong></td>
+                <td>เวลาเข้าสู่ระบบ<br><small>Login timestamp</small></td>
+                <td>ปรับปรุงบริการ<br><small>Service improvement</small></td>
+                <td><span class="pp-badge pp-badge-orange">ความยินยอม / Consent</span></td>
+            </tr>
+            <tr>
+                <td><strong>Consent Record</strong></td>
+                <td>เวลา consent, IP<br><small>Consent timestamp, IP</small></td>
+                <td>หลักฐาน PDPA<br><small>PDPA compliance audit</small></td>
+                <td><span class="pp-badge pp-badge-blue">กฎหมาย / Legal Obligation</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="pp-highlight">
+        🔐 รหัสผ่านถูกเข้ารหัสด้วย bcrypt ก่อนจัดเก็บทุกครั้ง
+        ไม่มีผู้ใดสามารถอ่านรหัสผ่านของท่านได้
+        <br>
+        <em>Passwords are always hashed with bcrypt before storage and are never readable.</em>
+    </div>
+</div>
+
+<!-- Section 3 — แทนของเดิม -->
+<div class="card pp-section" id="section-3">
+    <h2>3️⃣ How We Use Your Data / วัตถุประสงค์การใช้ข้อมูล</h2>
+
+    <p class="pp-th">
+        เราใช้ข้อมูลของท่านตามวัตถุประสงค์ที่ได้รับความยินยอม
+        หรือมีฐานทางกฎหมายรองรับเท่านั้น แบ่งเป็น 2 ประเภท:
+    </p>
+
+    <!-- Essential -->
+    <div class="pp-purpose-block pp-purpose-required">
+        <div class="pp-purpose-title">
+            🔵 วัตถุประสงค์ที่จำเป็น (Essential)
+            <span class="pp-badge pp-badge-blue">สัญญา / Contract</span>
+        </div>
+        <ul>
+            <li>✅ ให้บริการระบบยืนยันตัวตน (Authentication)</li>
+            <li>✅ สร้างและจัดการบัญชีผู้ใช้</li>
+            <li>✅ ส่งอีเมลที่เกี่ยวข้องกับบัญชี เช่น รีเซ็ตรหัสผ่าน</li>
+            <li>✅ ป้องกันการเข้าถึงโดยไม่ได้รับอนุญาต</li>
+        </ul>
+        <small>
+            <em>Provide authentication services, manage user accounts,
+            send account-related emails, prevent unauthorized access.</em>
+        </small>
+    </div>
+
+    <!-- Analytics -->
+    <div class="pp-purpose-block pp-purpose-optional">
+        <div class="pp-purpose-title">
+            🟢 วัตถุประสงค์เพิ่มเติม (Analytics)
+            <span class="pp-badge pp-badge-green">ความยินยอม / Consent</span>
+        </div>
+        <ul>
+            <li>📊 วิเคราะห์รูปแบบการใช้งานเพื่อปรับปรุงบริการ</li>
+            <li>📊 เก็บสถิติการเข้าสู่ระบบ</li>
+        </ul>
+        <small>
+            ท่านสามารถถอนความยินยอมนี้ได้ทุกเวลา โดยไม่กระทบต่อการใช้บริการหลัก
+            <br>
+            <em>You can withdraw this consent at any time without affecting the main service.</em>
+        </small>
+    </div>
+
+    <div class="pp-warning">
+        ❌ เราไม่ขาย ให้เช่า หรือเปิดเผยข้อมูลส่วนบุคคลของท่านแก่บุคคลที่สามเพื่อวัตถุประสงค์ทางการตลาด
+        <br>
+        <em>We do not sell, rent, or disclose your personal data to third parties for marketing purposes.</em>
+    </div>
+</div>
+
+      
+
+        <!-- Section 4 -->
+        <div class="card pp-section" id="section-4">
+            <h2>4️⃣ Cookies &amp; Tracking</h2>
+            <p>We use the following types of cookies:</p>
+
+            <table class="pp-table">
+                <thead>
+                    <tr>
+                        <th>Cookie Type</th>
+                        <th>Name</th>
+                        <th>Duration</th>
+                        <th>Required</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Session</strong></td>
+                        <td>connect.sid</td>
+                        <td>24 hours</td>
+                        <td><span class="pp-badge pp-badge-blue">Essential</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>OAuth State</strong></td>
+                        <td>oauth_state</td>
+                        <td>5 minutes</td>
+                        <td><span class="pp-badge pp-badge-blue">Essential</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>PKCE Verifier</strong></td>
+                        <td>oauth_code_verifier</td>
+                        <td>5 minutes</td>
+                        <td><span class="pp-badge pp-badge-blue">Essential</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Consent Record</strong></td>
+                        <td>cookie_consent</td>
+                        <td>365 days</td>
+                        <td><span class="pp-badge pp-badge-blue">Essential</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>
+                You can manage cookie preferences via the cookie banner shown on your first visit.
+                Note that disabling essential cookies may affect system functionality.
+            </p>
+        </div>
+
+        <!-- Section 5 -->
+        <div class="card pp-section" id="section-5">
+            <h2>5️⃣ Data Sharing</h2>
+            <p>
+                Your data may be shared with authorized third-party applications
+                that you explicitly grant access to via our OAuth 2.0 consent screen.
+            </p>
+            <ul>
+                <li>We only share data that falls within the requested OAuth <strong>scopes</strong></li>
+                <li>You can revoke access to any application at any time</li>
+                <li>Third-party apps are governed by their own privacy policies</li>
+            </ul>
+        </div>
+
+        <!-- Section 6 -->
+        <div class="card pp-section" id="section-6">
+            <h2>6️⃣ Data Retention</h2>
+
+            <table class="pp-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Retention Period</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Account data</td>
+                        <td>Until account deletion + 30 days</td>
+                    </tr>
+                    <tr>
+                        <td>Access tokens</td>
+                        <td>1 hour (JWT expiry)</td>
+                    </tr>
+                    <tr>
+                        <td>Authorization codes</td>
+                        <td>10 minutes</td>
+                    </tr>
+                    <tr>
+                        <td>Consent records</td>
+                        <td>3 years (legal requirement)</td>
+                    </tr>
+                    <tr>
+                        <td>Login logs</td>
+                        <td>90 days</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Section 7 -->
+        <div class="card pp-section" id="section-7">
+            <h2>7️⃣ Your Rights (PDPA)</h2>
+            <p>Under the Personal Data Protection Act (PDPA), you have the right to:</p>
+            <ul>
+                <li>📋 <strong>Access</strong> — Request a copy of your personal data</li>
+                <li>✏️ <strong>Rectification</strong> — Correct inaccurate data</li>
+                <li>🗑️ <strong>Erasure</strong> — Request deletion of your data</li>
+                <li>⏸️ <strong>Restriction</strong> — Restrict processing of your data</li>
+                <li>📦 <strong>Portability</strong> — Receive your data in a portable format</li>
+                <li>❌ <strong>Objection</strong> — Object to certain types of processing</li>
+                <li>🔄 <strong>Withdraw Consent</strong> — Withdraw previously given consent</li>
+            </ul>
+            <div class="pp-highlight">
+                To exercise any of these rights, please contact us at the email below.
+                We will respond within <strong>30 days</strong>.
+            </div>
+        </div>
+
+        <!-- Section 8 -->
+        <div class="card pp-section" id="section-8">
+            <h2>8️⃣ Security</h2>
+            <p>We implement industry-standard security measures including:</p>
+            <ul>
+                <li>🔒 HTTPS encryption for all data in transit</li>
+                <li>🔑 bcrypt password hashing (salt rounds: 10)</li>
+                <li>🛡️ JWT token signing (HS256)</li>
+                <li>⏱️ Rate limiting on all authentication endpoints</li>
+                <li>🚫 Token blacklisting on logout</li>
+                <li>✅ PKCE for OAuth 2.0 authorization flow</li>
+            </ul>
+        </div>
+
+        <!-- Section 9 -->
+        <div class="card pp-section" id="section-9">
+            <h2>9️⃣ Contact Us</h2>
+            <p>
+                For any privacy-related requests or questions, please contact our
+                Data Protection Officer:
+            </p>
+            <ul>
+                <li>📧 Email: <a href="mailto:privacy@example.com" class="link">privacy@example.com</a></li>
+                <li>📍 Address: 123 Example Street, Bangkok, Thailand</li>
+            </ul>
+        </div>
+
+        <!-- Footer -->
+        <div class="pp-footer">
+            <div class="version">Version 1.0.0 — Last updated January 1, 2025</div>
+            <p>
+                This policy may be updated from time to time.<br>
+                Continued use of our services constitutes acceptance of the updated policy.
+            </p>
+            <div style="margin-top: 16px;">
+                <a href="/login.html"    class="btn btn-secondary" style="font-size:0.85rem;">← Back to Login</a>
+                <a href="/register.html" class="btn"               style="font-size:0.85rem;">Create Account</a>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/js/cookie-banner.js"></script>
+</body>
+</html>
