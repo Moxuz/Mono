@@ -1,0 +1,198 @@
+// src/modules/auth/controllers/session.controller.js
+
+const sessionService = require('../../../shared/services/session.service');
+const logger = require('../../../shared/utils/logger');
+const securityAuditService = require('../../../shared/services/securityAudit.service');
+
+/**
+ * Get all active sessions for current user
+ */
+exports.getSessions = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+        
+        // 🔧 เปลี่ยนจาก req.session → req.authSession
+        const currentSessionId = req.authSession?.sessionId;
+        
+        const result = await sessionService.getUserSessions(userId, currentSessionId);
+        
+        res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        logger.error('Get sessions error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get sessions'
+        });
+    }
+};
+
+/**
+ * Revoke specific session
+ */
+exports.revokeSession = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        const { sessionId } = req.params;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+        
+        const result = await sessionService.revokeSession(sessionId, userId, 'user_logout');
+        
+        await securityAuditService.logSecurityEvent({
+            userId,
+            action: 'token_revoked',
+            status: 'success',
+            ipAddress: req.ip,
+            metadata: { sessionId, reason: 'user_logout' }
+        });
+        
+        res.json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        logger.error('Revoke session error:', error);
+        
+        if (error.message === 'Session not found') {
+            return res.status(404).json({
+                success: false,
+                error: error.message
+            });
+        }
+        
+        res.status(500).json({
+            success: false,
+            error: 'Failed to revoke session'
+        });
+    }
+};
+
+/**
+ * Revoke all other sessions (keep current)
+ */
+exports.revokeAllOtherSessions = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        const currentSessionId = req.authSession?.sessionId;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+        
+        // 🆕 ปรับปรุง error message
+        if (!currentSessionId) {
+            logger.warn('No session found for user attempting to revoke sessions:', userId);
+            return res.status(400).json({
+                success: false,
+                error: 'Current session not found',
+                message: 'Your current login session was not tracked. Please logout and login again to enable session management.',
+                code: 'NO_SESSION_TRACKING'
+            });
+        }
+        
+        const result = await sessionService.revokeAllOtherSessions(userId, currentSessionId, 'user_logout');
+        
+        await securityAuditService.logSecurityEvent({
+            userId,
+            action: 'token_revoked',
+            status: 'success',
+            ipAddress: req.ip,
+            metadata: { action: 'revoke_all_other_sessions' }
+        });
+        
+        res.json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        logger.error('Revoke all other sessions error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to revoke sessions'
+        });
+    }
+};
+
+/**
+ * Revoke all sessions (logout everywhere)
+ */
+exports.revokeAllSessions = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+        
+        const result = await sessionService.revokeAllSessions(userId, 'user_logout');
+        
+        await securityAuditService.logSecurityEvent({
+            userId,
+            action: 'logout',
+            status: 'success',
+            ipAddress: req.ip,
+            metadata: { action: 'logout_everywhere' }
+        });
+        
+        res.json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        logger.error('Revoke all sessions error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to revoke sessions'
+        });
+    }
+};
+
+/**
+ * Get session count
+ */
+exports.getSessionCount = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+        
+        const count = await sessionService.getSessionCount(userId);
+        
+        res.json({
+            success: true,
+            data: { count }
+        });
+    } catch (error) {
+        logger.error('Get session count error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get session count'
+        });
+    }
+};

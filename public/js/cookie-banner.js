@@ -1,205 +1,165 @@
-/**
- * Cookie Banner — Shared Component
- * ใช้ได้ทั้ง Auth Server และ Client App
- * 
- * Behavior:
- * - ถ้ายังไม่เคย consent → แสดง banner ล่างหน้าจอ
- * - Accept → เก็บ localStorage + เรียก API (ถ้า login อยู่)
- * - Decline → เก็บ localStorage (essential cookies only)
- * - Banner หายไป 365 วัน
- */
+// ==========================================
+// COOKIE BANNER HANDLER
+// ==========================================
 
-(function () {
-    const COOKIE_CONSENT_KEY = 'cookie_consent';
-    const COOKIE_CONSENT_EXPIRY_DAYS = 365;
-    const PRIVACY_POLICY_VERSION = '1.0.0';
+// Cookie management utilities
+const CookieManager = {
+    // Set cookie
+    set(name, value, days = 365) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        const expires = `expires=${date.toUTCString()}`;
+        document.cookie = `${name}=${value};${expires};path=/;SameSite=Strict`;
+    },
 
-    // ─── Init ────────────────────────────────────────────────
-    function init() {
-        // ซ่อน cookie notice ใน login ถ้าเคย dismiss แล้ว
-        hideCookieNoticeIfDismissed();
-
-        // ถ้ายังไม่มี consent → inject banner
-        if (!getConsent()) {
-            injectBanner();
-        }
-    }
-
-    // ─── Cookie Notice (Login Page inline) ───────────────────
-    function hideCookieNoticeIfDismissed() {
-        const notice = document.getElementById('cookieNotice');
-        if (!notice) return;
-
-        const dismissed = localStorage.getItem('cookie_notice_dismissed');
-        if (dismissed) {
-            notice.style.display = 'none';
-        }
-    }
-
-    window.dismissCookieNotice = function () {
-        const notice = document.getElementById('cookieNotice');
-        if (notice) {
-            notice.style.display = 'none';
-        }
-        localStorage.setItem('cookie_notice_dismissed', '1');
-    };
-
-    // ─── Get / Set Consent ───────────────────────────────────
-    function getConsent() {
-        try {
-            const raw = localStorage.getItem(COOKIE_CONSENT_KEY);
-            if (!raw) return null;
-            const data = JSON.parse(raw);
-            // ตรวจ expiry
-            if (data.expiresAt && Date.now() > data.expiresAt) {
-                localStorage.removeItem(COOKIE_CONSENT_KEY);
-                return null;
+    // Get cookie
+    get(name) {
+        const nameEQ = `${name}=`;
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            let cookie = cookies[i];
+            while (cookie.charAt(0) === ' ') {
+                cookie = cookie.substring(1, cookie.length);
             }
-            return data;
-        } catch {
-            return null;
+            if (cookie.indexOf(nameEQ) === 0) {
+                return cookie.substring(nameEQ.length, cookie.length);
+            }
         }
+        return null;
+    },
+
+    // Delete cookie
+    delete(name) {
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+    },
+
+    // Check if cookie exists
+    exists(name) {
+        return this.get(name) !== null;
     }
+};
 
-    function setConsent(accepted) {
-        const expiryMs = COOKIE_CONSENT_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-        const data = {
-            accepted,
-            version: PRIVACY_POLICY_VERSION,
-            timestamp: new Date().toISOString(),
-            expiresAt: Date.now() + expiryMs
-        };
-        localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(data));
-        return data;
+// Show cookie banner
+function showCookieBanner() {
+    const banner = document.getElementById('cookieBanner');
+    if (banner) {
+        banner.style.display = 'flex';
+        console.log('Cookie banner displayed');
     }
+}
 
-    // ─── Inject Banner HTML ───────────────────────────────────
-    function injectBanner() {
-        // ไม่แสดงซ้ำถ้ามีอยู่แล้ว
-        if (document.getElementById('cookieBanner')) return;
-
-        const banner = document.createElement('div');
-        banner.id = 'cookieBanner';
-        banner.className = 'cookie-banner';
-        banner.setAttribute('role', 'dialog');
-        banner.setAttribute('aria-label', 'Cookie consent');
-        banner.innerHTML = `
-            <div class="cookie-banner-content">
-                <div class="cookie-banner-text">
-                    <span class="cookie-icon">🍪</span>
-                    <div>
-                        <strong>We use cookies</strong>
-                        <p>
-                            We use essential cookies to make our site work. 
-                            With your consent, we may also use analytics cookies 
-                            to improve your experience. Read our 
-                            <a href="/privacy-policy.html" target="_blank" class="link">Privacy Policy</a>.
-                        </p>
-                    </div>
-                </div>
-                <div class="cookie-banner-actions">
-                    <button id="cookieDeclineBtn" class="btn btn-cookie-decline">
-                        Essential Only
-                    </button>
-                    <button id="cookieAcceptBtn" class="btn btn-cookie-accept">
-                        Accept All
-                    </button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(banner);
-
-        // Animate in
-        requestAnimationFrame(() => {
-            banner.classList.add('cookie-banner--visible');
-        });
-
-        // Event listeners
-        document.getElementById('cookieAcceptBtn').addEventListener('click', () => {
-            handleConsent(true);
-        });
-        document.getElementById('cookieDeclineBtn').addEventListener('click', () => {
-            handleConsent(false);
-        });
+// Hide cookie banner
+function hideCookieBanner() {
+    const banner = document.getElementById('cookieBanner');
+    if (banner) {
+        banner.style.display = 'none';
+        console.log('Cookie banner hidden');
     }
+}
 
-    // ─── Handle Consent ───────────────────────────────────────
-    function handleConsent(accepted) {
-        const data = setConsent(accepted);
-        removeBanner();
+// Handle cookie consent
+function handleCookieConsent(accepted) {
+    console.log('Cookie consent:', accepted ? 'ACCEPTED' : 'DECLINED');
 
-        // ถ้า user login อยู่ → sync กับ server
-        const token = localStorage.getItem('accessToken') ||
-                       localStorage.getItem('token');
-        if (token) {
-            syncConsentToServer(accepted, token);
-        }
-
-        // Dispatch event ให้ app อื่น listen ได้
-        window.dispatchEvent(new CustomEvent('cookieConsent', {
-            detail: { accepted, data }
-        }));
-    }
-
-    // ─── Sync to Server ───────────────────────────────────────
-    async function syncConsentToServer(accepted, token) {
-        try {
-            const baseUrl = getBaseUrl();
-            await fetch(`${baseUrl}/api/auth/cookie-consent`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    cookieConsentAccepted: accepted,
-                    version: PRIVACY_POLICY_VERSION
-                })
-            });
-        } catch (err) {
-            // Silent fail — consent ยังเก็บ localStorage ไว้แล้ว
-            console.warn('[CookieBanner] Could not sync consent to server:', err.message);
-        }
-    }
-
-    // ─── Remove Banner ────────────────────────────────────────
-    function removeBanner() {
-        const banner = document.getElementById('cookieBanner');
-        if (!banner) return;
-
-        banner.classList.remove('cookie-banner--visible');
-        banner.classList.add('cookie-banner--hiding');
-
-        setTimeout(() => {
-            banner.remove();
-        }, 300);
-    }
-
-    // ─── Utils ────────────────────────────────────────────────
-    function getBaseUrl() {
-        // Auth Server = port 5000, Client = port 3001
-        const { protocol, hostname, port } = window.location;
-        return `${protocol}//${hostname}:${port}`;
-    }
-
-    // ─── Public API ───────────────────────────────────────────
-    window.CookieBanner = {
-        getConsent,
-        hasAccepted: () => {
-            const c = getConsent();
-            return c ? c.accepted : null;
-        },
-        reset: () => {
-            localStorage.removeItem(COOKIE_CONSENT_KEY);
-            injectBanner();
-        }
-    };
-
-    // ─── Run ──────────────────────────────────────────────────
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+    // Store consent
+    if (accepted) {
+        CookieManager.set('cookieConsent', 'all', 365);
+        CookieManager.set('analyticsConsent', 'true', 365);
+        console.log('All cookies accepted');
     } else {
-        init();
+        CookieManager.set('cookieConsent', 'essential', 365);
+        CookieManager.set('analyticsConsent', 'false', 365);
+        console.log('Only essential cookies accepted');
     }
-})();
+
+    // Hide banner
+    hideCookieBanner();
+
+    // Send consent to backend (optional)
+    sendConsentToBackend(accepted);
+}
+
+// Send consent to backend
+async function sendConsentToBackend(analyticsAccepted) {
+    try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            console.log('No token found - skipping backend sync');
+            return;
+        }
+
+        const response = await fetch('/api/auth/cookie-consent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                cookieConsentAccepted: true,
+                analyticsAccepted,
+                version: '1.0.0'
+            })
+        });
+
+        if (response.ok) {
+            console.log('Cookie consent synced to backend');
+        } else {
+            console.warn('Failed to sync cookie consent to backend');
+        }
+    } catch (error) {
+        console.error('Error syncing cookie consent:', error);
+    }
+}
+
+// Check and show banner on page load
+function initCookieBanner() {
+    console.log('Initializing cookie banner...');
+
+    // Check if user has already given consent
+    const hasConsent = CookieManager.exists('cookieConsent');
+
+    console.log('Has cookie consent:', hasConsent);
+
+    if (!hasConsent) {
+        // Show banner after a short delay (for better UX)
+        setTimeout(() => {
+            showCookieBanner();
+        }, 1000);
+    } else {
+        console.log('User already gave consent:', CookieManager.get('cookieConsent'));
+    }
+}
+
+// Attach event listeners to buttons
+function attachCookieBannerListeners() {
+    const acceptBtn = document.querySelector('.btn-cookie-accept');
+    const declineBtn = document.querySelector('.btn-cookie-decline');
+
+    if (acceptBtn) {
+        acceptBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleCookieConsent(true);
+        });
+        console.log('Accept button listener attached');
+    }
+
+    if (declineBtn) {
+        declineBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleCookieConsent(false);
+        });
+        console.log('Decline button listener attached');
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded - initializing cookie banner');
+    attachCookieBannerListeners();
+    initCookieBanner();
+});
+
+// Make functions globally accessible
+window.handleCookieConsent = handleCookieConsent;
+window.CookieManager = CookieManager;

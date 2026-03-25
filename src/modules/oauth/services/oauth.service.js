@@ -5,7 +5,9 @@ const Client = require('../../../shared/models/Client');
 const User = require('../../../shared/models/User');
 const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const AuthorizationCode = require('../../../shared/models/AuthorizationCode');
+const Session = require('../../../shared/models/Session');
 const config = require('../../../shared/config/config');
+const sessionService = require('../../../shared/services/session.service');
 
 class OAuthService {
 
@@ -354,7 +356,7 @@ generateRefreshToken(user, clientId) {
     // Token Operations
     // ─────────────────────────────────────────
 
-    async refreshAccessToken(refreshToken) {
+    async refreshAccessToken(refreshToken, req) {
         try {
             const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
             if (decoded.type !== 'refresh_token') throw new Error('Invalid token type');
@@ -365,6 +367,39 @@ generateRefreshToken(user, clientId) {
             const user = await User.findById(decoded.sub);
             if (!user || !user.isActive) throw new Error('User not found or inactive');
 
+            // If session tracking is available, validate and rotate
+            if (req?.sessionToken) {
+                const sessionValidation = await sessionService.validateAndRotateRefreshToken(
+                    req.sessionToken,
+                    refreshToken
+                );
+
+                if (!sessionValidation.valid) {
+                    if (sessionValidation.compromised) {
+                        throw new Error('Session compromised - all sessions revoked');
+                    }
+                    throw new Error('Invalid session');
+                }
+
+                // Generate new refresh token (rotation)
+                const newRefreshToken = this.generateRefreshToken(user, decoded.client_id);
+                
+                // Update session with new refresh token
+                await sessionService.updateRefreshToken(req.sessionToken, newRefreshToken);
+
+                const access_token = this.generateAccessToken(
+                    user, decoded.client_id, 'openid profile email'
+                );
+
+                return {
+                    access_token,
+                    refresh_token: newRefreshToken, // New refresh token
+                    token_type: 'Bearer',
+                    expires_in: 3600
+                };
+            }
+
+            // Fallback without session tracking
             const access_token = this.generateAccessToken(
                 user, decoded.client_id, 'openid profile email'
             );

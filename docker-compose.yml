@@ -1,6 +1,43 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Auth Monolith - Complete Stack with Kafka
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Usage:
+#   Start:     docker-compose up -d
+#   Stop:      docker-compose down
+#   Logs:      docker-compose logs -f
+#
+# This creates:
+#   - Redis (for rate limiting & sessions)
+#   - MongoDB (for user data)
+#   - Kafka (for distributed logging)
+#   - Zookeeper (for Kafka)
+#   - Kafka UI (web interface)
+#   - Application (Auth Monolith)
+# ─────────────────────────────────────────────────────────────────────────────
+
 version: '3.8'
 
 services:
+  # ─── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: auth-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── MongoDB ───────────────────────────────────────────────────────────────
   mongodb:
     image: mongo:latest
     container_name: auth-mongodb
@@ -16,6 +53,85 @@ services:
       - auth-network
     restart: unless-stopped
 
+  # ─── Zookeeper (Required by Kafka) ─────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: kafka-zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Kafka Broker ──────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-broker
+    hostname: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_NUM_PARTITIONS: 3
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ─── Kafka UI (Web Interface) ──────────────────────────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: auth-app-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      DYNAMIC_CONFIG_ENABLED: "true"
+    networks:
+      - auth-network
+    restart: unless-stopped
+    volumes:
+      - kafka-ui-config:/etc/kafkaui
+
+  # ─── Application ───────────────────────────────────────────────────────────
   app:
     build: .
     container_name: auth-app
@@ -25,20 +141,35 @@ services:
       - NODE_ENV=development
       - PORT=5000
       - MONGODB_URI=mongodb://admin:adminpassword@mongodb:27017/authdb?authSource=admin
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - JWT_SECRET=your_secret_key_123456
       - SESSION_SECRET=your_session_secret_123456
+  
+
+      # Kafka Logging
+      - USE_KAFKA_LOGGING=true
+      - KAFKA_BROKER=kafka:29092
+      - KAFKA_CLIENT_ID=auth-app
     depends_on:
-      - mongodb
-    volumes:
-      - .:/app
-      - /app/node_modules
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
     networks:
       - auth-network
     restart: unless-stopped
 
-volumes:
-  mongo-data:
-
 networks:
   auth-network:
     driver: bridge
+
+volumes:
+  mongo-data:
+  redis-data:
+  zookeeper-data:
+  zookeeper-logs:
+  kafka-data:
+  kafka-ui-config:

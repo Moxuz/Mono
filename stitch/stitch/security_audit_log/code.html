@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-fixed": "#d3ceef",
+              "tertiary-container": "#d3ceef",
+              "on-secondary-fixed-variant": "#5c5b5b",
+              "error-dim": "#bb5551",
+              "primary": "#adc6ff",
+              "error": "#ee7d77",
+              "on-secondary": "#202020",
+              "on-tertiary-fixed": "#34314b",
+              "on-secondary-fixed": "#403f3f",
+              "surface-tint": "#adc6ff",
+              "inverse-surface": "#fcf8f8",
+              "secondary-fixed": "#e5e2e1",
+              "primary-fixed": "#d8e2ff",
+              "surface-container-highest": "#252626",
+              "surface-bright": "#2c2c2c",
+              "on-secondary-container": "#c1bfbe",
+              "outline": "#767575",
+              "on-error-container": "#ff9993",
+              "on-error": "#490106",
+              "primary-dim": "#98b8ff",
+              "outline-variant": "#484848",
+              "surface-container-low": "#131313",
+              "on-primary-fixed": "#003c86",
+              "surface-dim": "#0e0e0e",
+              "on-surface-variant": "#acabaa",
+              "tertiary-dim": "#c5c0e0",
+              "primary-container": "#004395",
+              "on-background": "#e7e5e4",
+              "on-tertiary-fixed-variant": "#504e69",
+              "tertiary-fixed-dim": "#c5c0e0",
+              "error-container": "#7f2927",
+              "secondary-dim": "#9f9d9d",
+              "secondary-fixed-dim": "#d6d4d3",
+              "surface": "#0e0e0e",
+              "tertiary": "#e1dcfd",
+              "background": "#0e0e0e",
+              "inverse-on-surface": "#565554",
+              "on-primary": "#003d88",
+              "on-tertiary-container": "#47445f",
+              "surface-container-lowest": "#000000",
+              "on-surface": "#e7e5e4",
+              "secondary": "#9f9d9d",
+              "surface-container": "#191a1a",
+              "secondary-container": "#3c3b3b",
+              "primary-fixed-dim": "#c3d4ff",
+              "on-primary-container": "#bdd0ff",
+              "inverse-primary": "#005bc4",
+              "surface-variant": "#252626",
+              "on-tertiary": "#504d68",
+              "surface-container-high": "#1f2020",
+              "on-primary-fixed-variant": "#0057bd"
+            },
+            fontFamily: {
+              "headline": ["Inter", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"],
+              "mono": ["JetBrains Mono", "monospace"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        font-size: 20px;
+      }
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: #0e0e0e; }
+      ::-webkit-scrollbar-thumb { background: #484848; border-radius: 2px; }
+      ::-webkit-scrollbar-thumb:hover { background: #767575; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body overflow-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full border-b border-[#484848] border-opacity-100 bg-[#0e0e0e] text-[#adc6ff] font-['Inter'] tracking-tight antialiased flex items-center justify-between px-6 h-14 w-full z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#e7e5e4]">MONOLITH</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-[#acabaa] hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 py-1 px-2" href="#">Documentation</a>
+<a class="text-[#acabaa] hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 py-1 px-2" href="#">Changelog</a>
+<a class="text-[#acabaa] hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 py-1 px-2" href="#">Status</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#acabaa] hover:text-[#e7e5e4] text-sm font-medium">Sign In</button>
+<button class="bg-primary text-on-primary px-4 py-1.5 text-sm font-semibold rounded shadow-sm hover:bg-primary-dim transition-colors">Deploy</button>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-[#484848] bg-[#000000] flex flex-col py-8 px-4 font-['Inter'] text-sm tracking-tight z-40">
+<div class="mb-8 px-2">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-high border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">security</span>
+</div>
+<div>
+<h2 class="text-lg font-black tracking-tighter text-[#e7e5e4] leading-none">Monolith Cloud</h2>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">v2.4.0-stable</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span>Terminal</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined">rocket_launch</span>
+<span>Deployments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined">database</span>
+<span>Resources</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded text-[#adc6ff] border-r-2 border-[#adc6ff] bg-[#131313] transition-all duration-75 font-medium" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">insights</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<!-- Sidebar Security Filters (Special Section) -->
+<div class="mt-8 border-t border-outline-variant pt-6 px-2">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-4">Quick Security Filters</p>
+<div class="space-y-3">
+<label class="flex items-center gap-3 group cursor-pointer">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<span class="text-xs text-on-surface-variant group-hover:text-on-surface transition-colors">Critical Failures</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-xs text-on-surface-variant group-hover:text-on-surface transition-colors">Auth Attempts</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="text-xs text-on-surface-variant group-hover:text-on-surface transition-colors">API Keys Rotation</span>
+</label>
+</div>
+</div>
+<div class="mt-auto space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined">chat_bubble_outline</span>
+<span>Feedback</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-14 h-screen flex flex-col bg-surface-container-lowest">
+<!-- Audit Header & Filters -->
+<section class="p-6 border-b border-outline-variant bg-surface">
+<div class="flex items-end justify-between mb-8">
+<div>
+<h1 class="text-4xl font-black tracking-tighter text-on-surface flex items-center gap-3">
+                        Security Audit
+                        <span class="text-xs font-mono px-2 py-0.5 rounded bg-primary-container text-on-primary-container tracking-normal font-medium">LIVE_STREAM</span>
+</h1>
+<p class="text-on-surface-variant text-sm mt-1">Real-time cryptographic verification and access log stream.</p>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-2 border border-outline-variant rounded flex items-center gap-2 text-sm font-medium hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-base">download</span>
+                        Export JSON
+                    </button>
+<button class="px-4 py-2 bg-primary text-on-primary rounded flex items-center gap-2 text-sm font-bold hover:bg-primary-dim transition-colors">
+<span class="material-symbols-outlined text-base">refresh</span>
+                        Re-scan
+                    </button>
+</div>
+</div>
+<!-- Complex Filter Bar -->
+<div class="grid grid-cols-12 gap-4">
+<div class="col-span-4 relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded py-2 pl-10 pr-4 text-sm focus:border-primary focus:ring-0 text-on-surface placeholder:text-outline" placeholder="Search JSON payload properties..." type="text"/>
+</div>
+<div class="col-span-3 flex border border-outline-variant rounded overflow-hidden">
+<div class="flex-1 px-3 py-2 border-r border-outline-variant bg-surface-container-lowest flex items-center justify-between group cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="text-xs text-on-surface-variant font-medium">All Severities</span>
+<span class="material-symbols-outlined text-xs">expand_more</span>
+</div>
+<div class="flex-1 px-3 py-2 bg-surface-container-lowest flex items-center justify-between group cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="text-xs text-on-surface-variant font-medium">Last 24h</span>
+<span class="material-symbols-outlined text-xs">calendar_today</span>
+</div>
+</div>
+<div class="col-span-3 flex items-center gap-2">
+<div class="h-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-xs text-on-surface-variant flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+                        3 Errors Detected
+                    </div>
+<div class="h-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest text-xs text-on-surface-variant flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+                        824 Events Streamed
+                    </div>
+</div>
+<div class="col-span-2 flex justify-end">
+<button class="h-full aspect-square border border-outline-variant rounded flex items-center justify-center hover:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Log Viewer Content -->
+<section class="flex-1 overflow-auto bg-surface-container-lowest font-mono text-[13px] leading-relaxed relative">
+<!-- Table Header (Sticky) -->
+<div class="sticky top-0 z-10 grid grid-cols-12 gap-0 border-b border-outline-variant bg-surface-container-low text-[10px] font-bold text-outline uppercase tracking-widest px-6 py-2">
+<div class="col-span-2">Timestamp</div>
+<div class="col-span-1">Status</div>
+<div class="col-span-2">Source IP</div>
+<div class="col-span-5">Log Message / Payload</div>
+<div class="col-span-2 text-right">Action</div>
+</div>
+<!-- Log Entries -->
+<div class="divide-y divide-outline-variant divide-opacity-40">
+<!-- Entry 1: Error -->
+<div class="grid grid-cols-12 gap-0 px-6 py-3 hover:bg-surface-container-high transition-colors group items-center">
+<div class="col-span-2 text-on-surface-variant">2023-11-24 14:02:11.452</div>
+<div class="col-span-1">
+<span class="px-2 py-0.5 bg-error-container text-on-error-container rounded text-[10px] font-bold border border-error">FAILURE</span>
+</div>
+<div class="col-span-2 text-on-surface opacity-80">192.168.1.104</div>
+<div class="col-span-5 truncate text-on-surface">
+<span class="text-error">auth_token_expired</span>: Cryptographic handshake failed for user UID_9281. Expected SHA-256...
+                    </div>
+<div class="col-span-2 text-right">
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline">View Trace</button>
+</div>
+</div>
+<!-- Entry 2: Success -->
+<div class="grid grid-cols-12 gap-0 px-6 py-3 hover:bg-surface-container-high transition-colors group items-center">
+<div class="col-span-2 text-on-surface-variant">2023-11-24 14:02:10.891</div>
+<div class="col-span-1">
+<span class="px-2 py-0.5 bg-primary-container text-on-primary-container rounded text-[10px] font-bold border border-primary">SUCCESS</span>
+</div>
+<div class="col-span-2 text-on-surface opacity-80">10.0.42.15</div>
+<div class="col-span-5 truncate text-on-surface">
+<span class="text-primary">api_request_authorized</span>: {"endpoint": "/v1/deploy", "method": "POST", "latency": "14ms"}
+                    </div>
+<div class="col-span-2 text-right">
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline">View Trace</button>
+</div>
+</div>
+<!-- Entry 3: Warning -->
+<div class="grid grid-cols-12 gap-0 px-6 py-3 hover:bg-surface-container-high transition-colors group items-center">
+<div class="col-span-2 text-on-surface-variant">2023-11-24 14:02:08.112</div>
+<div class="col-span-1">
+<span class="px-2 py-0.5 bg-tertiary-container text-on-tertiary-container rounded text-[10px] font-bold border border-tertiary">WARNING</span>
+</div>
+<div class="col-span-2 text-on-surface opacity-80">8.8.4.4</div>
+<div class="col-span-5 truncate text-on-surface">
+<span class="text-tertiary">rate_limit_near</span>: User account approaching threshold of 5000 req/min. Current: 4892.
+                    </div>
+<div class="col-span-2 text-right">
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline">View Trace</button>
+</div>
+</div>
+<!-- Entry 4: Success -->
+<div class="grid grid-cols-12 gap-0 px-6 py-3 hover:bg-surface-container-high transition-colors group items-center">
+<div class="col-span-2 text-on-surface-variant">2023-11-24 14:02:05.334</div>
+<div class="col-span-1">
+<span class="px-2 py-0.5 bg-primary-container text-on-primary-container rounded text-[10px] font-bold border border-primary">SUCCESS</span>
+</div>
+<div class="col-span-2 text-on-surface opacity-80">172.16.254.1</div>
+<div class="col-span-5 truncate text-on-surface">
+<span class="text-primary">ssh_session_opened</span>: Session ID 901-AX-92 created for dev@monolith.local
+                    </div>
+<div class="col-span-2 text-right">
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline">View Trace</button>
+</div>
+</div>
+<!-- Repeated Success Block for Density -->
+<div class="grid grid-cols-12 gap-0 px-6 py-3 hover:bg-surface-container-high transition-colors group items-center">
+<div class="col-span-2 text-on-surface-variant">2023-11-24 14:02:04.992</div>
+<div class="col-span-1">
+<span class="px-2 py-0.5 bg-primary-container text-on-primary-container rounded text-[10px] font-bold border border-primary">SUCCESS</span>
+</div>
+<div class="col-span-2 text-on-surface opacity-80">127.0.0.1</div>
+<div class="col-span-5 truncate text-on-surface">
+<span class="text-primary">health_check_pass</span>: Internal metrics cluster reports healthy status (0% packet loss)
+                    </div>
+<div class="col-span-2 text-right">
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline">View Trace</button>
+</div>
+</div>
+<!-- Entry 5: Failure -->
+<div class="grid grid-cols-12 gap-0 px-6 py-3 hover:bg-surface-container-high transition-colors group items-center">
+<div class="col-span-2 text-on-surface-variant">2023-11-24 14:01:58.210</div>
+<div class="col-span-1">
+<span class="px-2 py-0.5 bg-error-container text-on-error-container rounded text-[10px] font-bold border border-error">FAILURE</span>
+</div>
+<div class="col-span-2 text-on-surface opacity-80">45.22.19.12</div>
+<div class="col-span-5 truncate text-on-surface">
+<span class="text-error">brute_force_blocked</span>: IP address blacklisted after 5 failed login attempts to /admin
+                    </div>
+<div class="col-span-2 text-right">
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline">View Trace</button>
+</div>
+</div>
+<!-- Entry 6: Success -->
+<div class="grid grid-cols-12 gap-0 px-6 py-3 hover:bg-surface-container-high transition-colors group items-center">
+<div class="col-span-2 text-on-surface-variant">2023-11-24 14:01:55.001</div>
+<div class="col-span-1">
+<span class="px-2 py-0.5 bg-primary-container text-on-primary-container rounded text-[10px] font-bold border border-primary">SUCCESS</span>
+</div>
+<div class="col-span-2 text-on-surface opacity-80">10.0.42.18</div>
+<div class="col-span-5 truncate text-on-surface">
+<span class="text-primary">db_query_execution</span>: SELECT * FROM audit_logs WHERE user_id = ? [Latency: 2ms]
+                    </div>
+<div class="col-span-2 text-right">
+<button class="text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline">View Trace</button>
+</div>
+</div>
+</div>
+<!-- Absolute Bottom Status Bar (within canvas) -->
+<div class="sticky bottom-0 border-t border-outline-variant bg-surface px-6 py-3 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Gateway: US-EAST-1</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">DB: PostgreSQL 15.4</span>
+</div>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant text-[11px]">
+<span>Showing 1-50 of 12,402 entries</span>
+<div class="flex gap-1">
+<button class="w-6 h-6 flex items-center justify-center border border-outline-variant rounded hover:bg-surface-bright disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="w-6 h-6 flex items-center justify-center border border-outline-variant rounded hover:bg-surface-bright">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Detailed Insight Panel (Floating Right Sidebar Style) -->
+<div class="fixed top-14 right-0 h-[calc(100vh-3.5rem)] w-96 border-l border-outline-variant bg-surface-container-high z-30 transform translate-x-full md:hidden">
+<!-- Mock Hidden Panel for complex interactivity -->
+</div>
+</body></html>

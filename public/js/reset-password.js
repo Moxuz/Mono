@@ -1,182 +1,141 @@
 (() => {
   'use strict';
 
-  const form           = document.getElementById('resetForm');
-  const passwordInput  = document.getElementById('password');
-  const confirmInput   = document.getElementById('confirmPassword');
-  const submitBtn      = document.getElementById('submitBtn');
-  const alertEl        = document.getElementById('alert');
-  const strengthWrap   = document.getElementById('strengthWrap');
-  const strengthLabel  = document.getElementById('strengthLabel');
-  const requirements   = document.getElementById('requirements');
-  const formSection    = document.getElementById('form-section');
-  const successSection = document.getElementById('success-section');
-  const invalidSection = document.getElementById('invalid-section');
+  const form            = document.getElementById('resetPasswordForm');
+  const passwordInput   = document.getElementById('password');
+  const confirmInput    = document.getElementById('confirmPassword');
+  const submitBtn       = document.getElementById('submitBtn');
+  const alertEl         = document.getElementById('alert');
 
-  // ─── Token ─────────────────────────────────────────────────────────────────
-  const token = new URLSearchParams(window.location.search).get('token');
+  // Get token from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
 
+  // ─── Check Token ────────────────────────────────────────────────────────────
   if (!token) {
-    formSection.style.display    = 'none';
-    invalidSection.style.display = 'block';
+    showAlert('Invalid or missing reset token', 'error');
+    submitBtn.disabled = true;
   }
-
-  // ─── Requirements ──────────────────────────────────────────────────────────
-  const rules = {
-    length:  { el: document.getElementById('req-length'),  test: (v) => v.length >= 8 },
-    upper:   { el: document.getElementById('req-upper'),   test: (v) => /[A-Z]/.test(v) },
-    lower:   { el: document.getElementById('req-lower'),   test: (v) => /[a-z]/.test(v) },
-    number:  { el: document.getElementById('req-number'),  test: (v) => /[0-9]/.test(v) },
-    special: { el: document.getElementById('req-special'), test: (v) => /[^A-Za-z0-9]/.test(v) },
-  };
-
-  const checkRequirements = (value) => {
-    let passed = 0;
-    Object.values(rules).forEach(({ el, test }) => {
-      const ok = test(value);
-      el.classList.toggle('met', ok);
-      el.querySelector('.req-icon').textContent = ok ? '●' : '○';
-      if (ok) passed++;
-    });
-    return passed;
-  };
-
-  // ─── Strength ───────────────────────────────────────────────────────────────
-  const strengthConfig = [
-    { label: 'Very Weak', cls: 'strength-weak'   },
-    { label: 'Fair',      cls: 'strength-fair'   },
-    { label: 'Good',      cls: 'strength-good'   },
-    { label: 'Strong',    cls: 'strength-strong' },
-  ];
-
-  const updateStrength = (passed) => {
-    const index           = passed <= 1 ? 0 : passed <= 2 ? 1 : passed <= 3 ? 2 : 3;
-    const { label, cls }  = strengthConfig[index];
-    strengthWrap.className = `strength-wrap ${cls}`;
-    strengthLabel.textContent = `Strength: ${label}`;
-  };
-
-  // ─── Field Error ────────────────────────────────────────────────────────────
-  const showFieldError = (field, message) => {
-    const el = document.getElementById(`${field}-error`);
-    if (!el) return;
-    el.textContent = message;
-    el.classList.toggle('show', !!message);
-  };
-
-  // ─── Validate ───────────────────────────────────────────────────────────────
-  const validateConfirm = () => {
-    const val = confirmInput.value;
-    if (!val) {
-      showFieldError('confirm', 'Please confirm your password.');
-      confirmInput.classList.add('input-error');
-      return false;
-    }
-    if (passwordInput.value !== val) {
-      showFieldError('confirm', 'Passwords do not match.');
-      confirmInput.classList.add('input-error');
-      return false;
-    }
-    showFieldError('confirm', '');
-    confirmInput.classList.remove('input-error');
-    return true;
-  };
-
-  const validatePassword = () => {
-    const value  = passwordInput.value;
-    const passed = checkRequirements(value);
-    if (!value) {
-      showFieldError('password', 'Please enter a new password.');
-      passwordInput.classList.add('input-error');
-      return false;
-    }
-    if (passed < 3) {
-      showFieldError('password', 'Password must meet at least 3 requirements.');
-      passwordInput.classList.add('input-error');
-      return false;
-    }
-    showFieldError('password', '');
-    passwordInput.classList.remove('input-error');
-    return true;
-  };
 
   // ─── Alert ──────────────────────────────────────────────────────────────────
   const showAlert = (message, type = 'error') => {
-    alertEl.className     = `alert alert-${type}`;
-    alertEl.textContent   = message;
+    alertEl.className    = `alert alert-${type}`;
+    alertEl.textContent  = message;
     alertEl.style.display = 'block';
   };
 
   const hideAlert = () => {
     alertEl.style.display = 'none';
+    alertEl.textContent   = '';
   };
+
+  // ─── Field Error ────────────────────────────────────────────────────────────
+  const showFieldError = (fieldId, message) => {
+    const el = document.getElementById(`${fieldId}-error`);
+    const input = document.getElementById(fieldId);
+    
+    if (!el || !input) return;
+    
+    el.textContent = message;
+    el.classList.toggle('show', !!message);
+    input.classList.toggle('input-error',   !!message);
+    input.classList.toggle('input-success', !message && !!input.value);
+  };
+
+  // ─── Validate ───────────────────────────────────────────────────────────────
+  const validatePassword = () => {
+    const value = passwordInput.value;
+    
+    if (value.length < 8) {
+      showFieldError('password', 'Password must be at least 8 characters');
+      return false;
+    }
+    
+    // ตรวจสอบความแข็งแรงของรหัสผ่าน
+    const hasUpperCase = /[A-Z]/.test(value);
+    const hasLowerCase = /[a-z]/.test(value);
+    const hasNumber = /[0-9]/.test(value);
+    
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      showFieldError('password', 'Password must contain uppercase, lowercase, and number');
+      return false;
+    }
+    
+    showFieldError('password', '');
+    return true;
+  };
+
+  const validateConfirmPassword = () => {
+    const password = passwordInput.value;
+    const confirm = confirmInput.value;
+    
+    if (!confirm) {
+      showFieldError('confirmPassword', 'Please confirm your password');
+      return false;
+    }
+    
+    if (confirm !== password) {
+      showFieldError('confirmPassword', 'Passwords do not match');
+      return false;
+    }
+    
+    showFieldError('confirmPassword', '');
+    return true;
+  };
+
+  // ─── Event Listeners ────────────────────────────────────────────────────────
+  passwordInput.addEventListener('input', () => {
+    if (passwordInput.classList.contains('input-error')) validatePassword();
+    hideAlert();
+  });
+
+  confirmInput.addEventListener('input', () => {
+    if (confirmInput.classList.contains('input-error')) validateConfirmPassword();
+    hideAlert();
+  });
+
+  passwordInput.addEventListener('blur', validatePassword);
+  confirmInput.addEventListener('blur', validateConfirmPassword);
 
   // ─── Loading ────────────────────────────────────────────────────────────────
   const setLoading = (loading) => {
     submitBtn.disabled    = loading;
-    submitBtn.textContent = loading ? 'Saving...' : 'Reset Password';
+    submitBtn.textContent = loading ? 'Resetting...' : 'Reset Password';
   };
-
-  // ─── Events ─────────────────────────────────────────────────────────────────
-  passwordInput.addEventListener('focus', () => {
-    strengthWrap.style.display  = 'block';
-    requirements.style.display  = 'block';
-  });
-
-  passwordInput.addEventListener('input', () => {
-    const passed = checkRequirements(passwordInput.value);
-    updateStrength(passed);
-    showFieldError('password', '');
-    passwordInput.classList.remove('input-error');
-    if (confirmInput.value) validateConfirm();
-  });
-
-  confirmInput.addEventListener('input', validateConfirm);
-
-  document.querySelectorAll('.toggle-pw').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const input     = document.getElementById(btn.dataset.target);
-      const isHidden  = input.type === 'password';
-      input.type      = isHidden ? 'text' : 'password';
-      btn.textContent = isHidden ? '🙈' : '👁';
-    });
-  });
 
   // ─── Submit ──────────────────────────────────────────────────────────────────
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    e.stopPropagation();
     hideAlert();
 
-    const pwOk      = validatePassword();
-    const confirmOk = validateConfirm();
-    if (!pwOk || !confirmOk) return;
+    if (!validatePassword() || !validateConfirmPassword()) {
+      return;
+    }
 
+    const password = passwordInput.value;
     setLoading(true);
 
     try {
-      const res  = await fetch(`/api/auth/reset-password/${token}`, {
+      const res = await fetch(`/api/auth/reset-password/${token}`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ password: passwordInput.value }),
+        body:    JSON.stringify({ password }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 400 || res.status === 404) {
-          formSection.style.display    = 'none';
-          invalidSection.style.display = 'block';
-          return;
-        }
-        throw new Error(data.message || 'Something went wrong. Please try again.');
+        throw new Error(data.error || 'Failed to reset password');
       }
 
-      formSection.style.display    = 'none';
-      successSection.style.display = 'block';
+      showAlert('Password reset successful! Redirecting to login...', 'success');
+      
+      setTimeout(() => {
+        window.location.href = '/login.html?reset=success';
+      }, 2000);
 
     } catch (error) {
-      showAlert(error.message);
+      showAlert(error.message, 'error');
     } finally {
       setLoading(false);
     }

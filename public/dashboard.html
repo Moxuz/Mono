@@ -3,178 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Auth System</title>
+    <title>Enterprise Console — AuthSys</title>
+     <script src="/scripts/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 </head>
-<body>
-    <div class="dashboard-container">
-        <nav class="dashboard-nav">
-            <div class="nav-brand">
-                <h2>🔐 Auth System</h2>
+<body class="font-body selection:bg-primary selection:text-on-primary">
+    <!-- Top Navigation -->
+    <header class="topbar fixed top-0 left-64 right-0 h-14 bg-surface-dim border-b border-outline-variant z-30 flex items-center justify-between px-6">
+        <div class="system-status">
+            <span class="status-pulse"></span>
+            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl">System Normal</span>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
+                <span id="userEmailTop" class="text-xs font-mono text-on-surface-variant">Loading...</span>
+                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop">Logout</button>
             </div>
-            <div class="nav-user">
-                <span id="userName">Loading...</span>
-                <button class="btn btn-secondary btn-sm" id="logoutBtn">Logout</button>
-            </div>
+        </div>
+    </header>
+
+    <!-- Side Navigation -->
+    <aside class="sidebar fixed left-0 top-0 h-full w-64 border-r border-outline-variant bg-black flex flex-col py-8 px-4 z-40">
+        <div class="mb-10 px-2">
+            <h2 class="sidebar-brand text-lg font-black tracking-tighter text-stone-200">AuthSys</h2>
+            <p class="text-10 font-mono text-on-surface-variant uppercase tracking-widest mt-1">v1.0.0-stable</p>
+        </div>
+        
+        <nav class="flex-1 space-y-1">
+            <a href="/dashboard.html" class="sidebar-link active flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">insights</span>
+                <span class="text-sm tracking-tight">Console</span>
+            </a>
+            <a href="/user-activity.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">receipt_long</span>
+                <span class="text-sm tracking-tight">Activity</span>
+            </a>
+            <a href="/api-keys.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">key</span>
+                <span class="text-sm tracking-tight">API Keys</span>
+            </a>
+            <a href="/profile.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">person</span>
+                <span class="text-sm tracking-tight">Profile</span>
+            </a>
+            <a href="/settings.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">settings</span>
+                <span class="text-sm tracking-tight">Settings</span>
+            </a>
         </nav>
-
-        <div class="dashboard-content">
-            <div class="dashboard-header">
-                <h1>Welcome to Dashboard</h1>
-                <p id="welcomeMessage">Loading...</p>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">👤</div>
-                    <div class="stat-info">
-                        <h3>Profile</h3>
-                        <p id="userEmail">-</p>
-                    </div>
+        
+        <div class="pt-8 mt-auto border-t border-outline-variant">
+            <div class="flex items-center gap-3 px-2">
+                <div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center overflow-hidden">
+                    <span class="material-symbols-outlined text-primary">person</span>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon">🎯</div>
-                    <div class="stat-info">
-                        <h3>Role</h3>
-                        <p id="userRole">-</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">📅</div>
-                    <div class="stat-info">
-                        <h3>Member Since</h3>
-                        <p id="memberSince">-</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">✅</div>
-                    <div class="stat-info">
-                        <h3>Status</h3>
-                        <p class="status-active">Active</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="dashboard-grid">
-                <div class="dashboard-card">
-                    <h3>📊 Quick Stats</h3>
-                    <div class="card-content">
-                        <div class="stat-row">
-                            <span>Sessions</span>
-                            <strong>1</strong>
-                        </div>
-                        <div class="stat-row">
-                            <span>Last Login</span>
-                            <strong id="lastLogin">Just now</strong>
-                        </div>
-                        <div class="stat-row">
-                            <span>Security Level</span>
-                            <strong class="text-success">High</strong>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dashboard-card">
-                    <h3>🔑 API Access</h3>
-                    <div class="card-content">
-                        <p>Your authentication token:</p>
-                        <div class="token-box">
-                            <code id="tokenDisplay">Loading...</code>
-                            <button class="btn btn-sm" id="copyTokenBtn">Copy</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dashboard-card">
-                    <h3>⚙️ Quick Actions</h3>
-                    <div class="card-content">
-                        <button class="btn btn-outline btn-block" id="testTokenBtn">
-                            🧪 Test Token
-                        </button>
-                        <button class="btn btn-outline btn-block" id="devPortalBtn">
-                            🔧 Developer Portal
-                        </button>
-                        <button class="btn btn-outline btn-block" id="viewProfileBtn">
-                            👤 View Profile
-                        </button>
-                        <button class="btn btn-outline btn-block" id="changePasswordBtn">
-                            🔒 Change Password
-                        </button>
-                    </div>
+                <div class="overflow-hidden">
+                    <p id="userNameSide" class="text-xs font-bold truncate">Loading...</p>
+                    <p id="userRoleSide" class="text-10 text-on-surface-variant uppercase tracking-widest">User</p>
                 </div>
             </div>
         </div>
-    </div>
+    </aside>
 
-    <script>
-        // Check authentication
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+    <!-- Main Content -->
+    <main class="pl-64 pt-14 min-h-screen bg-black">
+        <div class="dashboard-container p-8 max-w-1600 mx-auto">
+            <!-- Page Header -->
+            <div class="dashboard-header mb-10">
+                <h2 class="dashboard-title text-3xl font-bold tracking-tighter text-on-surface">Console Dashboard</h2>
+                <p class="dashboard-subtitle text-on-surface-variant mt-2 text-sm italic">Real-time identity metrics and security overview for your account.</p>
+            </div>
 
-        console.log('Dashboard loaded');
-        console.log('Token exists:', !!token);
-        console.log('User:', user);
+            <!-- Metrics Grid -->
+            <div class="metrics-grid">
+                <!-- Login Activity Chart -->
+                <div class="metric-card metric-large">
+                    <div class="metric-label">
+                        <span>Login Activity</span>
+                        <span class="material-symbols-outlined">bar_chart</span>
+                    </div>
+                    <div class="metric-value-container">
+                        <span class="metric-value" id="loginTotal">0</span>
+                        <span class="metric-trend" id="loginTrend">loading...</span>
+                    </div>
+                    <div class="metric-subtitle">Last 7 days</div>
+                    
+                    <!-- Chart Container -->
+                    <div class="login-chart" id="loginChart">
+                        <div style="text-align: center; padding: 2rem; color: var(--outline);">
+                            Loading chart...
+                        </div>
+                    </div>
+                </div>
 
-        if (!token) {
-            console.log('No token found, redirecting to login');
-            window.location.href = '/login.html';
-        }
+                <!-- Current User -->
+                <div class="metric-card">
+                    <div class="metric-label">
+                        <span>Current User</span>
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <div class="metric-user-info">
+                        <p id="dashboardUserEmail" class="metric-user-email">Loading...</p>
+                        <p id="dashboardUserId" class="metric-user-id">ID: ...</p>
+                    </div>
+                    <div class="metric-user-footer">
+                        <span id="dashboardUserRole" class="status-tag">USER</span>
+                        <span class="metric-verified">VERIFIED</span>
+                    </div>
+                </div>
+            </div>
 
-        // Load user data
-        if (user.username) {
-            document.getElementById('userName').textContent = user.username;
-            document.getElementById('welcomeMessage').textContent = `Hello, ${user.username}! 👋`;
-            document.getElementById('userEmail').textContent = user.email;
-            document.getElementById('userRole').textContent = user.role || 'user';
-            
-            if (token) {
-                document.getElementById('tokenDisplay').textContent = token.substring(0, 50) + '...';
-            }
-            
-            const date = new Date();
-            document.getElementById('memberSince').textContent = date.toLocaleDateString();
-        }
+            <!-- Activity Section -->
+            <div class="activity-section">
+                <div class="activity-header">
+                    <h3 class="activity-title">Recent Identity Events</h3>
+                    <button class="activity-export-btn" id="exportLogsBtn">Export Logs</button>
+                </div>
+                <div class="activity-table-wrapper">
+                    <table class="activity-table">
+                        <thead>
+                            <tr>
+                                <th>Event Type</th>
+                                <th>Source IP</th>
+                                <th>Timestamp</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentEventsBody">
+                            <!-- Loading state -->
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 2rem; color: var(--on-surface-variant);">
+                                    Loading events...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
 
-        // Event Listeners
-        document.getElementById('logoutBtn').addEventListener('click', function() {
-            console.log('Logout clicked');
-            if (confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                window.location.href = '/login.html';
-            }
-        });
-
-        document.getElementById('copyTokenBtn').addEventListener('click', function() {
-            console.log('Copy token clicked');
-            navigator.clipboard.writeText(token);
-            this.textContent = 'Copied!';
-            setTimeout(() => {
-                this.textContent = 'Copy';
-            }, 2000);
-        });
-
-        document.getElementById('testTokenBtn').addEventListener('click', function() {
-            console.log('Test token clicked');
-            window.location.href = '/test-token.html';
-        });
-
-        document.getElementById('devPortalBtn').addEventListener('click', function() {
-            console.log('Developer portal clicked');
-            window.location.href = '/developer-portal.html';
-        });
-
-        document.getElementById('viewProfileBtn').addEventListener('click', function() {
-            console.log('View profile clicked');
-            alert('Profile page coming soon!');
-        });
-
-        document.getElementById('changePasswordBtn').addEventListener('click', function() {
-            console.log('Change password clicked');
-            window.location.href = '/forgot-password.html';
-        });
-
-        console.log('✅ All event listeners attached');
-    </script>
+    <script src="/js/ipHelper.js"></script>
+    <script src="/js/dashboard.js"></script>
 </body>
 </html>

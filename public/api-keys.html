@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Keys — AuthSys</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+</head>
+<body class="font-body selection:bg-primary selection:text-on-primary">
+    <!-- Top Navigation -->
+    <header class="topbar fixed top-0 left-64 right-0 h-14 bg-surface-dim border-b border-outline-variant z-30 flex items-center justify-between px-6">
+        <div class="system-status">
+            <span class="status-pulse"></span>
+            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl">System Normal</span>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
+                <span id="userEmailTop" class="text-xs font-mono text-on-surface-variant">Loading...</span>
+                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Side Navigation -->
+    <aside class="sidebar fixed left-0 top-0 h-full w-64 border-r border-outline-variant bg-black flex flex-col py-8 px-4 z-40">
+        <div class="mb-10 px-2">
+            <h2 class="sidebar-brand text-lg font-black tracking-tighter text-stone-200">AuthSys</h2>
+            <p class="text-10 font-mono text-on-surface-variant uppercase tracking-widest mt-1">v1.0.0-stable</p>
+        </div>
+        
+        <nav class="flex-1 space-y-1">
+            <a href="/dashboard.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">insights</span>
+                <span class="text-sm tracking-tight">Console</span>
+            </a>
+            <a href="/user-activity.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">receipt_long</span>
+                <span class="text-sm tracking-tight">Activity</span>
+            </a>
+            <a href="/api-keys.html" class="sidebar-link active flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">key</span>
+                <span class="text-sm tracking-tight">API Keys</span>
+            </a>
+            <a href="/profile.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">person</span>
+                <span class="text-sm tracking-tight">Profile</span>
+            </a>
+            <a href="/settings.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">settings</span>
+                <span class="text-sm tracking-tight">Settings</span>
+            </a>
+        </nav>
+        
+        <div class="pt-8 mt-auto border-t border-outline-variant">
+            <div class="flex items-center gap-3 px-2">
+                <div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center overflow-hidden">
+                    <span class="material-symbols-outlined text-primary">person</span>
+                </div>
+                <div class="overflow-hidden">
+                    <p id="userNameSide" class="text-xs font-bold truncate">Loading...</p>
+                    <p id="userRoleSide" class="text-10 text-on-surface-variant uppercase tracking-widest">User</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="pl-64 pt-14 min-h-screen bg-black">
+        <div class="p-8 max-w-1200 mx-auto">
+            <!-- Page Header -->
+            <div class="mb-10">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-3xl font-bold tracking-tighter text-on-surface mb-2">API Credentials</h2>
+                        <p class="text-on-surface-variant text-sm italic">Manage authentication keys for your applications and services.</p>
+                    </div>
+                <!-- Create New Key Button -->
+                <button class="btn btn-primary" id="createKeyBtn">
+                    <span class="material-symbols-outlined">add</span>
+                    Create New Key
+                </button>
+                </div>
+
+                <!-- Stats Bar -->
+                <div class="api-stats-bar">
+                    <div class="api-stat-item">
+                        <span class="material-symbols-outlined">vpn_key</span>
+                        <div>
+                            <span class="api-stat-label">Total Keys</span>
+                            <span class="api-stat-value" id="totalKeys">0</span>
+                        </div>
+                    </div>
+                    <div class="api-stat-item">
+                        <span class="material-symbols-outlined">schedule</span>
+                        <div>
+                            <span class="api-stat-label">Last Used</span>
+                            <span class="api-stat-value" id="lastUsed">Never</span>
+                        </div>
+                    </div>
+                    <div class="api-stat-item">
+                        <span class="material-symbols-outlined">trending_up</span>
+                        <div>
+                            <span class="api-stat-label">Requests (24h)</span>
+                            <span class="api-stat-value" id="requests24h">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Keys List -->
+            <div class="api-keys-container" id="apiKeysContainer">
+                <!-- Keys will be loaded here -->
+                <div class="api-keys-empty">
+                    <span class="material-symbols-outlined">vpn_key_off</span>
+                    <p>No API keys yet</p>
+                    <small>Create your first API key to get started</small>
+                </div>
+            </div>
+
+            <!-- Documentation Section -->
+            <div class="api-docs-section">
+                <div class="api-docs-header">
+                    <span class="material-symbols-outlined">menu_book</span>
+                    <h3>Quick Start Guide</h3>
+                </div>
+                <div class="api-docs-content">
+                    <div class="api-docs-step">
+                        <div class="api-docs-step-number">1</div>
+                        <div>
+                            <h4>Create API Key</h4>
+                            <p>Click "Create New Key" and select your environment (development/production)</p>
+                        </div>
+                    </div>
+                    <div class="api-docs-step">
+                        <div class="api-docs-step-number">2</div>
+                        <div>
+                            <h4>Copy Credentials</h4>
+                            <p>Save your Client ID and Secret securely. The secret will only be shown once.</p>
+                        </div>
+                    </div>
+                    <div class="api-docs-step">
+                        <div class="api-docs-step-number">3</div>
+                        <div>
+                            <h4>Authenticate Requests</h4>
+                            <p>Include your credentials in the Authorization header:</p>
+                            <pre class="code-snippet">Authorization: Bearer YOUR_CLIENT_SECRET</pre>
+                        </div>
+                    </div>
+                    <div class="api-docs-links">
+                        <a href="#" class="api-docs-link">
+                            <span class="material-symbols-outlined">description</span>
+                            Full Documentation
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create API Key Modal -->
+<div id="createModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Create New API Key</h3>
+            <button class="modal-close" id="closeCreateModalBtn">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="input-label">Key Name</label>
+                <input type="text" class="input" id="keyName" placeholder="e.g., Production App, Development Key">
+            </div>
+            <div class="form-group">
+                <label class="input-label">Environment</label>
+                <select class="settings-select" id="keyEnvironment">
+                    <option value="development">Development</option>
+                    <option value="staging">Staging</option>
+                    <option value="production">Production</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="input-label">Scopes</label>
+                <div class="scopes-grid">
+                    <label class="scope-checkbox">
+                        <input type="checkbox" value="read" checked>
+                        <span>Read</span>
+                    </label>
+                    <label class="scope-checkbox">
+                        <input type="checkbox" value="write" checked>
+                        <span>Write</span>
+                    </label>
+                    <label class="scope-checkbox">
+                        <input type="checkbox" value="delete">
+                        <span>Delete</span>
+                    </label>
+                    <label class="scope-checkbox">
+                        <input type="checkbox" value="admin">
+                        <span>Admin</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancelCreateBtn">Cancel</button>
+            <button class="btn btn-primary" id="submitCreateKeyBtn">
+                <span class="material-symbols-outlined">add</span>
+                Create Key
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Show Secret Modal -->
+<div id="secretModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-content-secret">
+        <div class="modal-header">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">check_circle</span>
+                <h3 class="modal-title">API Key Created</h3>
+            </div>
+            <button class="modal-close" id="closeSecretModalBtn">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="secret-warning">
+                <span class="material-symbols-outlined">warning</span>
+                <p>Save these credentials now. The secret will only be shown once and cannot be recovered.</p>
+            </div>
+            <div class="secret-display">
+                <label class="secret-label">Client ID</label>
+                <div class="secret-value-container">
+                    <code class="secret-value" id="newClientId">pk_live_xxxxxxxxxxxxxxxx</code>
+                    <button class="secret-copy-btn" data-copy="newClientId">
+                        <span class="material-symbols-outlined">content_copy</span>
+                    </button>
+                </div>
+            </div>
+            <div class="secret-display">
+                <label class="secret-label">Client Secret</label>
+                <div class="secret-value-container">
+                    <code class="secret-value" id="newClientSecret">sk_live_xxxxxxxxxxxxxxxx</code>
+                    <button class="secret-copy-btn" data-copy="newClientSecret">
+                        <span class="material-symbols-outlined">content_copy</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary btn-block" id="confirmSecretBtn">
+                I've saved my credentials
+            </button>
+        </div>
+    </div>
+</div>
+    <script src="/js/api-keys.js"></script>
+</body>
+</html>

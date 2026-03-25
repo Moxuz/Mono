@@ -8,11 +8,14 @@
   const formSection     = document.getElementById('form-section');
   const successSection  = document.getElementById('success-section');
   const sentEmailEl     = document.getElementById('sent-email');
-  const resendBtn       = document.getElementById('resendBtn');
-  const resendCountdown = document.getElementById('resend-countdown');
 
-  let lastEmail      = '';
-  let countdownTimer = null;
+  // ตรวจสอบว่า element มีหรือไม่ก่อน
+  if (!form || !emailInput || !submitBtn || !alertEl) {
+    console.error('❌ Required elements not found');
+    return;
+  }
+
+  let lastEmail = '';
 
   // ─── Alert ─────────────────────────────────────────────────────────────────
   const showAlert = (message, type = 'error') => {
@@ -29,6 +32,8 @@
   // ─── Field Error ────────────────────────────────────────────────────────────
   const showFieldError = (message) => {
     const el = document.getElementById('email-error');
+    if (!el) return;
+    
     el.textContent = message;
     el.classList.toggle('show', !!message);
     emailInput.classList.toggle('input-error',   !!message);
@@ -39,6 +44,7 @@
   const validateEmail = () => {
     const value = emailInput.value.trim();
     const regex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+    
     if (!value) {
       showFieldError('Please enter your email address.');
       return false;
@@ -55,6 +61,7 @@
     if (emailInput.classList.contains('input-error')) validateEmail();
     hideAlert();
   });
+  
   emailInput.addEventListener('blur', validateEmail);
 
   // ─── Loading ────────────────────────────────────────────────────────────────
@@ -63,46 +70,11 @@
     submitBtn.textContent = loading ? 'Sending...' : 'Send Reset Link';
   };
 
-  // ─── Countdown ──────────────────────────────────────────────────────────────
-  const startCountdown = () => {
-    let seconds        = 60;
-    resendBtn.disabled = true;
-
-    const tick = () => {
-      resendCountdown.textContent = `(${seconds}s)`;
-      if (seconds <= 0) {
-        resendBtn.disabled          = false;
-        resendCountdown.textContent = '';
-        clearInterval(countdownTimer);
-        return;
-      }
-      seconds--;
-    };
-
-    tick();
-    countdownTimer = setInterval(tick, 1000);
-  };
-
-  // ─── Send Request ────────────────────────────────────────────────────────────
-  const sendRequest = async (email) => {
-    const res  = await fetch('/api/auth/forgot-password', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email }),
-    });
-
-    const data = await res.json();
-
-    if (res.status === 429) throw new Error('Too many requests. Please wait a moment and try again.');
-    if (res.status >= 500) throw new Error('Server error. Please try again later.');
-
-    return data;
-  };
-
   // ─── Submit ──────────────────────────────────────────────────────────────────
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideAlert();
+    
     if (!validateEmail()) return;
 
     const email = emailInput.value.trim();
@@ -110,29 +82,39 @@
     setLoading(true);
 
     try {
-      await sendRequest(email);
-      formSection.style.display    = 'none';
-      successSection.style.display = 'block';
-      sentEmailEl.textContent      = email;
-      startCountdown();
+      const res = await fetch('/api/auth/forgot-password', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 429) {
+        throw new Error('Too many requests. Please wait a moment and try again.');
+      }
+      
+      if (res.status >= 500) {
+        throw new Error('Server error. Please try again later.');
+      }
+
+      // แสดง success message
+      if (formSection && successSection && sentEmailEl) {
+        formSection.style.display    = 'none';
+        successSection.style.display = 'block';
+        sentEmailEl.textContent      = email;
+      } else {
+        // ถ้าไม่มี success section ให้แสดง alert แทน
+        showAlert(
+          'If this email exists, a reset link has been sent. Please check your inbox.',
+          'success'
+        );
+      }
+
     } catch (error) {
       showAlert(error.message);
     } finally {
       setLoading(false);
-    }
-  });
-
-  // ─── Resend ──────────────────────────────────────────────────────────────────
-  resendBtn.addEventListener('click', async () => {
-    resendBtn.disabled = true;
-    try {
-      await sendRequest(lastEmail);
-      clearInterval(countdownTimer);
-      startCountdown();
-      showAlert('Email resent successfully. Please check your inbox.', 'success');
-    } catch (error) {
-      showAlert(error.message);
-      resendBtn.disabled = false;
     }
   });
 

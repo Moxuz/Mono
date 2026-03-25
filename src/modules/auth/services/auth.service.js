@@ -2,34 +2,73 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../../../shared/models/User');
 const config = require('../../../shared/config/config');
-const emailService = require('../../../shared/services/email.service'); 
+const emailService = require('../../../shared/services/email.service');
 const crypto = require('crypto');
+const { validatePassword } = require('../../../shared/utils/passwordValidator');
+const emailVerificationService = require('../../../shared/services/emailVerification.service');
+const securityAuditService = require('../../../shared/services/securityAudit.service');
+const twoFAService = require('../../../shared/services/2fa.service');
+const sessionService = require('../../../shared/services/session.service');
+const logger = require('../../../shared/utils/logger');
 
 class AuthService {
-    async register({ username, email, password }) {
+    async register({ username, email, password, pdpaConsent }) {
         try {
+            logger.info(`Register attempt for user: ${email}`);
+
+            // Validate password strength
+            const passwordValidation = validatePassword(password);
+            if (!passwordValidation.valid) {
+                logger.warn(`Weak password detected for user: ${email}`, { errors: passwordValidation.errors });
+                const error = new Error('Password does not meet requirements');
+                error.code = 'WEAK_PASSWORD';
+                error.details = passwordValidation.errors;
+                throw error;
+            }
+
             // Check if user exists
             const existingUser = await User.findOne({ email });
             if (existingUser) {
+                logger.warn(`Registration failed - user already exists: ${email}`);
                 throw new Error('User already exists');
             }
 
             // Create new user
-               const user = new User({
+            const user = new User({
                 username,
                 email,
-                password,           // hashed by pre-save hook
-                pdpaConsent         
+                password,
+                pdpaConsent: pdpaConsent || {}
             });
 
             await user.save();
+            logger.info(`User created successfully: ${user.email} (ID: ${user._id})`);
 
-               emailService
-            .sendWelcomeEmail({ to: user.email, username: user.username })
-            .catch((err) => console.error('Welcome email failed:', err.message));
+            // Send welcome email
+            emailService
+                .sendWelcomeEmail({ to: user.email, username: user.username })
+                .catch((err) => logger.error('Welcome email failed:', { email: user.email, error: err.message }));
+
+            // Send verification email
+            emailVerificationService
+                .sendVerificationEmail(user._id)
+                .catch((err) => logger.error('Verification email failed:', { email: user.email, error: err.message }));
+
+            // Log security event
+            securityAuditService.logSecurityEvent({
+                userId: user._id,
+                action: 'account_created',
+                status: 'success',
+                ipAddress: pdpaConsent?.consentIp,
+                metadata: {
+                    email: user.email,
+                    username: user.username
+                }
+            });
 
             // Generate token
             const token = this.createToken(user);
+            logger.info(`Token generated for new user: ${user.email}`);
 
             return {
                 user: {
@@ -41,50 +80,177 @@ class AuthService {
                 token
             };
         } catch (error) {
+            logger.error('Registration failed:', { error: error.message, email });
             throw error;
         }
     }
 
-
-     async updateCookieConsent(userId, { cookieConsentAccepted, cookieConsentAt, consentIp }) {
+    async updateCookieConsent(userId, { cookieConsentAccepted, cookieConsentAt, consentIp, version }) {
         try {
+            logger.info(`Updating cookie consent for user ID: ${userId}`);
+
             const user = await User.findById(userId);
             if (!user) {
+                logger.warn(`Cookie consent update failed - user not found: ${userId}`);
                 throw new Error('User not found');
             }
 
             user.pdpaConsent.cookieConsentAccepted = cookieConsentAccepted;
             user.pdpaConsent.cookieConsentAt       = cookieConsentAt;
             user.pdpaConsent.consentIp             = consentIp;
+            user.pdpaConsent.policyVersion         = version || user.pdpaConsent.policyVersion;
 
             await user.save();
+            logger.info(`Cookie consent updated for user: ${user.email}`);
 
             return { success: true };
         } catch (error) {
+            logger.error('Cookie consent update failed:', { userId, error: error.message });
             throw error;
         }
     }
 
-    async login({ email, password }) {
+    async login({ email, password, req }) {
         try {
+            logger.info(`Login attempt for user: ${email}`);
+
             // Find user
-            const user = await User.findOne({ email }).select('+password');
+            const user = await User.findOne({ email }).select('+password +twoFactorEnabled +twoFactorSecret');
             if (!user) {
+                logger.warn(`Login failed - user not found: ${email}`);
+                await securityAuditService.logLoginFailed(email, req, 'user_not_found');
                 throw new Error('Invalid credentials');
+            }
+
+            // Check if account is locked
+            if (user.isLocked()) {
+                const lockTime = Math.ceil((user.lockUntil - new Date()) / 60000);
+                logger.warn(`Login failed - account locked: ${email} (${lockTime} minutes remaining)`);
+                await securityAuditService.logLoginFailed(email, req, 'account_locked');
+                throw new Error(`Account is locked. Try again in ${lockTime} minutes`);
             }
 
             // Check password
             const isMatch = await bcrypt.compare(password, user.password);
             if (!isMatch) {
+                const isNowLocked = await user.incrementLoginAttempts();
+
+                if (isNowLocked) {
+                    logger.warn(`Login failed - account locked due to too many attempts: ${email}`);
+                    await securityAuditService.logAccountLocked(user, req, 'too_many_failed_attempts');
+                    throw new Error('Account is locked due to too many failed attempts. Try again in 15 minutes');
+                }
+
+                logger.warn(`Login failed - invalid password for user: ${email}`);
+                await securityAuditService.logLoginFailed(email, req, 'invalid_password');
                 throw new Error('Invalid credentials');
             }
+
+            // Reset login attempts on successful login
+            await user.resetLoginAttempts();
 
             // Update last login
             user.lastLogin = new Date();
             await user.save();
+            logger.info(`Password verified for user: ${email}`);
+
+            // ✅ ส่ง Login Alert Email (async - ไม่ block login process)
+            sendLoginAlertIfEnabled(user, req).catch(err => {
+                logger.error('Login alert email failed:', { email: user.email, error: err.message });
+            });
+
+            // Check if 2FA is enabled
+            if (user.twoFactorEnabled) {
+                logger.info(`2FA required for user: ${email}`);
+                const tempToken = this.createTempToken(user);
+                await securityAuditService.logLoginSuccess(user, req);
+
+                return {
+                    user: {
+                        id: user._id,
+                        username: user.username,
+                        email: user.email,
+                        role: user.role
+                    },
+                    requiresTwoFactor: true,
+                    tempToken
+                };
+            }
+
+            // Log successful login
+            await securityAuditService.logLoginSuccess(user, req);
+            logger.info(`Login successful for user: ${email}`);
 
             // Generate token
             const token = this.createToken(user);
+            const refreshToken = this.generateRefreshToken(user);
+
+            // Create session
+            let session = null;
+            try {
+                session = await sessionService.createSession(
+                    user._id, 
+                    token,
+                    refreshToken,
+                    req
+                );
+                logger.info(`Session created for user: ${email} (Session ID: ${session.sessionId})`);
+            } catch (error) {
+                console.error('⚠️ Failed to create session:', error);
+            }
+
+            return {
+                user: {
+                    id: user._id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role
+                },
+                requiresTwoFactor: false,
+                token,
+                refreshToken,
+                sessionId: session?.sessionId || null
+            };
+        } catch (error) {
+            logger.error('Login failed:', { error: error.message, email });
+            throw error;
+        }
+    }
+
+    async verify2FAAndLogin({ tempToken, twoFactorToken, backupCode, req }) {
+        try {
+            logger.info(`2FA verification attempt for temp token`);
+
+            const decoded = jwt.verify(tempToken, config.JWT_SECRET);
+            if (decoded.type !== 'temp_token') {
+                logger.warn('Invalid temp token type');
+                throw new Error('Invalid temp token');
+            }
+
+            const user = await User.findById(decoded.id).select('+twoFactorSecret +twoFactorBackupCodes');
+            if (!user || !user.twoFactorEnabled) {
+                logger.warn('2FA verification failed - 2FA not required');
+                throw new Error('2FA not required');
+            }
+
+            let verified = false;
+            if (backupCode) {
+                logger.info(`Verifying 2FA backup code for user: ${user.email}`);
+                verified = await twoFAService.verifyBackupCode(user, backupCode);
+            } else if (twoFactorToken) {
+                logger.info(`Verifying 2FA token for user: ${user.email}`);
+                verified = await twoFAService.verify2FAToken(user, twoFactorToken);
+            }
+
+            if (!verified) {
+                logger.warn(`2FA verification failed for user: ${user.email}`);
+                throw new Error('Invalid 2FA token or backup code');
+            }
+
+            logger.info(`2FA verification successful for user: ${user.email}`);
+
+            const token = this.createToken(user);
+            await securityAuditService.logLoginSuccess(user, req);
 
             return {
                 user: {
@@ -96,8 +262,21 @@ class AuthService {
                 token
             };
         } catch (error) {
+            logger.error('2FA verification failed:', error.message);
             throw error;
         }
+    }
+
+    createTempToken(user) {
+        return jwt.sign(
+            {
+                id: user._id,
+                email: user.email,
+                type: 'temp_token'
+            },
+            config.JWT_SECRET,
+            { expiresIn: '5m' }
+        );
     }
 
     createToken(user) {
@@ -112,164 +291,573 @@ class AuthService {
         );
     }
 
-    async validateToken(token) {
-    try {
-        //  เช็คว่ามี token หรือไม่
-        if (!token) {
-            return { 
-                valid: false, 
-                error: 'Token is required' 
-            };
-        }
-        
-        // Verify JWT
-        const decoded = jwt.verify(token, config.JWT_SECRET);
-        
-        //  เช็คว่า token หมดอายุหรือไม่
-        const now = Math.floor(Date.now() / 1000);
-        if (decoded.exp && decoded.exp < now) {
-            return { 
-                valid: false, 
-                error: 'Token has expired' 
-            };
-        }
-        
-        return { 
-            valid: true, 
-            payload: decoded 
-        };
-        
-    } catch (error) {
-        // JWT verification errors
-        if (error.name === 'TokenExpiredError') {
-            return { 
-                valid: false, 
-                error: 'Token has expired' 
-            };
-        }
-        
-        if (error.name === 'JsonWebTokenError') {
-            return { 
-                valid: false, 
-                error: 'Invalid token format' 
-            };
-        }
-        
-        return { 
-            valid: false, 
-            error: error.message 
-        };
+    generateRefreshToken(user) {
+        return jwt.sign(
+            {
+                id: user._id,
+                type: 'refresh_token'
+            },
+            config.JWT_SECRET,
+            { expiresIn: '30d' }
+        );
     }
-}
 
-    async refreshToken(refreshToken) {
+    async validateToken(token) {
         try {
+            logger.info(`Token validation requested`);
+
+            if (!token) {
+                logger.warn('Token validation failed - no token provided');
+                return {
+                    valid: false,
+                    error: 'Token is required'
+                };
+            }
+
+            const decoded = jwt.verify(token, config.JWT_SECRET);
+
+            const now = Math.floor(Date.now() / 1000);
+            if (decoded.exp && decoded.exp < now) {
+                logger.warn('Token validation failed - token expired');
+                return {
+                    valid: false,
+                    error: 'Token has expired'
+                };
+            }
+
+            logger.info(`Token validation successful for user: ${decoded.email || decoded.id}`);
+
+            return {
+                valid: true,
+                payload: decoded
+            };
+
+        } catch (error) {
+            if (error.name === 'TokenExpiredError') {
+                logger.warn('Token validation failed - expired');
+                return {
+                    valid: false,
+                    error: 'Token has expired'
+                };
+            }
+
+            if (error.name === 'JsonWebTokenError') {
+                logger.warn('Token validation failed - invalid format');
+                return {
+                    valid: false,
+                    error: 'Invalid token format'
+                };
+            }
+
+            logger.error('Token validation failed:', error.message);
+            return {
+                valid: false,
+                error: error.message
+            };
+        }
+    }
+
+    async refreshToken(refreshToken, sessionId = null, deviceInfo = null) {
+        try {
+            logger.info('Refresh token request received');
+
             const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
-            const user = await User.findById(decoded.id);
             
+            if (decoded.type !== 'refresh_token') {
+                logger.warn('Refresh token failed - invalid token type');
+                throw new Error('Invalid refresh token');
+            }
+
+            const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
+            const isBlacklisted = await TokenBlacklist.isBlacklisted(refreshToken);
+            if (isBlacklisted) {
+                logger.warn('Refresh token failed - token is blacklisted (possible reuse attack)');
+                await this.blacklistAllUserTokens(decoded.id, 'security_breach');
+                throw new Error('Token has been revoked due to security concerns');
+            }
+
+            const user = await User.findById(decoded.id);
+
+            if (!user) {
+                logger.warn('Refresh token failed - user not found');
+                throw new Error('User not found');
+            }
+
+            if (!user.isActive) {
+                logger.warn('Refresh token failed - user account is inactive');
+                await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'admin_revoke');
+                throw new Error('User account is inactive');
+            }
+
+            if (sessionId) {
+                const Session = require('../../../shared/models/Session');
+                const session = await Session.findOne({ sessionId, userId: user._id, isActive: true });
+                
+                if (!session) {
+                    logger.warn('Refresh token failed - session not found or inactive');
+                    await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'user_logout');
+                    throw new Error('Session has expired or been revoked');
+                }
+
+                session.lastActivity = new Date();
+                if (deviceInfo) {
+                    session.deviceInfo = { ...session.deviceInfo, ...deviceInfo };
+                }
+                await session.save();
+                logger.info(`Session activity updated for user: ${user.email}`);
+            }
+
+            await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'user_logout');
+            logger.info(`Old refresh token blacklisted for user: ${user.email} (rotation)`);
+
+            const newAccessToken = this.createToken(user);
+            const newRefreshToken = this.generateRefreshToken(user);
+
+            if (sessionId) {
+                const Session = require('../../../shared/models/Session');
+                await Session.findOneAndUpdate(
+                    { sessionId },
+                    { refreshToken: newRefreshToken }
+                );
+            }
+
+            const securityAuditService = require('../../../shared/services/securityAudit.service');
+            await securityAuditService.logSecurityEvent({
+                userId: user._id,
+                action: 'token_refreshed',
+                status: 'success',
+                ipAddress: deviceInfo?.ipAddress,
+                metadata: {
+                    sessionId,
+                    device: deviceInfo?.deviceType
+                }
+            });
+
+            logger.info(`Token rotation completed for user: ${user.email}`);
+
+            return {
+                token: newAccessToken,
+                refreshToken: newRefreshToken,
+                expiresIn: config.JWT_EXPIRE || '1h'
+            };
+        } catch (error) {
+            if (error.name === 'TokenExpiredError') {
+                logger.warn('Refresh token failed - token expired');
+                throw new Error('Refresh token has expired. Please login again.');
+            }
+            
+            if (error.name === 'JsonWebTokenError') {
+                logger.warn('Refresh token failed - invalid token format');
+                throw new Error('Invalid refresh token format');
+            }
+
+            logger.error('Refresh token failed:', error.message);
+            throw error;
+        }
+    }
+
+    async blacklistAllUserTokens(userId, reason = 'security_breach') {
+        try {
+            const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
+            const Session = require('../../../shared/models/Session');
+
+            const sessions = await Session.find({ userId, isActive: true });
+            
+            for (const session of sessions) {
+                if (session.refreshToken) {
+                    await TokenBlacklist.revokeToken(
+                        session.refreshToken,
+                        userId,
+                        null,
+                        reason
+                    );
+                }
+                
+                session.isActive = false;
+                await session.save();
+            }
+
+            logger.warn(`All tokens blacklisted for user ${userId} - Reason: ${reason}`);
+            
+            return { success: true, count: sessions.length };
+        } catch (error) {
+            logger.error('Blacklist all tokens failed:', error.message);
+            throw error;
+        }
+    }
+
+    async getActiveSessions(userId) {
+        try {
+            const Session = require('../../../shared/models/Session');
+            
+            const sessions = await Session.find(
+                { userId, isActive: true },
+                { sessionId, deviceInfo, lastActivity, createdAt, expiresAt }
+            ).sort({ lastActivity: -1 });
+
+            logger.info(`Retrieved ${sessions.length} active sessions for user ${userId}`);
+
+            return sessions;
+        } catch (error) {
+            logger.error('Get active sessions failed:', error.message);
+            throw error;
+        }
+    }
+
+    async revokeSession(userId, sessionId) {
+        try {
+            const Session = require('../../../shared/models/Session');
+            const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
+
+            const session = await Session.findOne({ sessionId, userId });
+
+            if (!session) {
+                throw new Error('Session not found');
+            }
+
+            if (session.refreshToken) {
+                await TokenBlacklist.revokeToken(session.refreshToken, userId, null, 'user_logout');
+            }
+
+            session.isActive = false;
+            await session.save();
+
+            logger.info(`Session ${sessionId} revoked for user ${userId}`);
+
+            return { success: true };
+        } catch (error) {
+            logger.error('Revoke session failed:', error.message);
+            throw error;
+        }
+    }
+
+    async revokeAllOtherSessions(userId, currentSessionId) {
+        try {
+            const Session = require('../../../shared/models/Session');
+            const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
+
+            const sessions = await Session.find({
+                userId,
+                isActive: true,
+                sessionId: { $ne: currentSessionId }
+            });
+
+            for (const session of sessions) {
+                if (session.refreshToken) {
+                    await TokenBlacklist.revokeToken(session.refreshToken, userId, null, 'user_logout');
+                }
+                
+                session.isActive = false;
+                await session.save();
+            }
+
+            logger.info(`Revoked ${sessions.length} other sessions for user ${userId}`);
+
+            return { success: true, count: sessions.length };
+        } catch (error) {
+            logger.error('Revoke all other sessions failed:', error.message);
+            throw error;
+        }
+    }
+
+    async checkSessionLimit(userId, maxSessions = 5) {
+        try {
+            const Session = require('../../../shared/models/Session');
+            
+            const activeSessionCount = await Session.countDocuments({
+                userId,
+                isActive: true
+            });
+
+            if (activeSessionCount >= maxSessions) {
+                logger.warn(`Session limit reached for user ${userId} (${activeSessionCount}/${maxSessions})`);
+                
+                const oldestSession = await Session.findOne(
+                    { userId, isActive: true },
+                    null,
+                    { sort: { lastActivity: 1 } }
+                );
+
+                if (oldestSession) {
+                    await this.revokeSession(userId, oldestSession.sessionId);
+                    logger.info(`Revoked oldest session for user ${userId} to maintain limit`);
+                }
+
+                return { limitReached: true, action: 'revoked_oldest' };
+            }
+
+            return { limitReached: false, activeSessions: activeSessionCount };
+        } catch (error) {
+            logger.error('Check session limit failed:', error.message);
+            throw error;
+        }
+    }
+
+    async forgotPassword(email, req = null) {
+        try {
+            logger.info(`Password reset requested for: ${email}`);
+
+            const user = await User.findOne({ email })
+                .select('+passwordResetToken +passwordResetExpires');
+
+            if (!user) {
+                logger.info(`Password reset - email not found (not revealing): ${email}`);
+                return { message: 'If this email exists, a reset link has been sent.' };
+            }
+
+            const resetToken  = crypto.randomBytes(32).toString('hex');
+            const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+            user.passwordResetToken   = hashedToken;
+            user.passwordResetExpires = Date.now() + 60 * 60 * 1000;
+            await user.save();
+
+            logger.info(`Password reset token created for: ${user.email}`);
+
+            const resetUrl = `${process.env.AUTH_SERVER_URL}/reset-password.html?token=${resetToken}`;
+
+            try {
+                await emailService.sendPasswordResetEmail({
+                    to:       user.email,
+                    username: user.username,
+                    resetUrl,
+                });
+                logger.info(`Password reset email sent to: ${user.email}`);
+            } catch (emailError) {
+                logger.error('Password reset email failed:', { email: user.email, error: emailError.message });
+                user.passwordResetToken   = undefined;
+                user.passwordResetExpires = undefined;
+                await user.save();
+                throw new Error('Failed to send reset email. Please try again.');
+            }
+
+            return { message: 'If this email exists, a reset link has been sent.' };
+        } catch (error) {
+            logger.error('Forgot password failed:', { email, error: error.message });
+            throw error;
+        }
+    }
+
+    async resetPassword(token, newPassword, req = null) {
+        try {
+            logger.info('Password reset with token attempted');
+
+            const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+            const user = await User.findOne({
+                passwordResetToken:   hashedToken,
+                passwordResetExpires: { $gt: Date.now() },
+            }).select('+password +passwordResetToken +passwordResetExpires');
+
+            if (!user) {
+                logger.warn('Password reset failed - invalid or expired token');
+                throw new Error('Invalid or expired reset token');
+            }
+
+            const isSamePassword = await bcrypt.compare(newPassword, user.password);
+            if (isSamePassword) {
+                logger.warn(`Password reset failed - new password same as current: ${user.email}`);
+                throw new Error('New password must be different from your current password');
+            }
+
+            user.password             = newPassword;
+            user.passwordResetToken   = undefined;
+            user.passwordResetExpires = undefined;
+            await user.save();
+
+            logger.info(`Password reset successful for user: ${user.email}`);
+
+            await securityAuditService.logSecurityEvent({
+                userId: user._id,
+                action: 'password_reset_completed',
+                status: 'success',
+                ipAddress: req?.ip || req?.headers?.['x-forwarded-for']?.split(',')[0] || req?.connection?.remoteAddress || 'unknown',
+                userAgent: req?.headers?.['user-agent'] || 'unknown',
+                metadata: {
+                    email: user.email,
+                    method: 'reset_token',
+                    tokenUsed: true
+                }
+            });
+
+            emailService
+                .sendPasswordChangedEmail({ to: user.email, username: user.username })
+                .catch((err) => logger.error('Password changed email failed:', { email: user.email, error: err.message }));
+
+            return { message: 'Password reset successful' };
+        } catch (error) {
+            logger.error('Password reset failed:', error.message);
+            throw error;
+        }
+    }
+
+    async updatePreferences(userId, preferences) {
+        try {
+            logger.info(`Updating preferences for user: ${userId}`);
+
+            const user = await User.findById(userId);
+            if (!user) {
+                logger.warn(`Preferences update failed - user not found: ${userId}`);
+                throw new Error('User not found');
+            }
+
+            if (preferences.theme) {
+                user.preferences.theme = preferences.theme;
+            }
+            if (preferences.language) {
+                user.preferences.language = preferences.language;
+            }
+            if (preferences.notifications) {
+                if (typeof preferences.notifications.email === 'boolean') {
+                    user.preferences.notifications.email = preferences.notifications.email;
+                }
+                if (typeof preferences.notifications.loginAlerts === 'boolean') {
+                    user.preferences.notifications.loginAlerts = preferences.notifications.loginAlerts;
+                }
+            }
+
+            await user.save();
+            logger.info(`Preferences updated for user: ${user.email}`);
+
+            return {
+                preferences: user.preferences
+            };
+        } catch (error) {
+            logger.error('Update preferences failed:', { userId, error: error.message });
+            throw error;
+        }
+    }
+
+    async getPreferences(userId) {
+        try {
+            const user = await User.findById(userId);
             if (!user) {
                 throw new Error('User not found');
             }
 
-            const newToken = this.createToken(user);
-            return { token: newToken };
+            return {
+                preferences: user.preferences || {
+                    theme: 'dark',
+                    language: 'en',
+                    notifications: {
+                        email: true,
+                        loginAlerts: true
+                    }
+                }
+            };
         } catch (error) {
-            throw new Error('Invalid refresh token');
+            logger.error('Get preferences failed:', { userId, error: error.message });
+            throw error;
         }
     }
 
-     async forgotPassword(email) {
+    async changePassword(userId, currentPassword, newPassword, req) {
+        try {
+            logger.info(`Password change requested for user ID: ${userId}`);
+
+            const passwordValidation = validatePassword(newPassword);
+            if (!passwordValidation.valid) {
+                logger.warn(`Weak new password for user ID: ${userId}`, { errors: passwordValidation.errors });
+                const error = new Error('New password does not meet requirements');
+                error.code = 'WEAK_PASSWORD';
+                error.details = passwordValidation.errors;
+                throw error;
+            }
+
+            const user = await User.findById(userId).select('+password');
+            if (!user) {
+                logger.warn(`Password change failed - user not found: ${userId}`);
+                throw new Error('User not found');
+            }
+
+            const isMatch = await bcrypt.compare(currentPassword, user.password);
+            if (!isMatch) {
+                logger.warn(`Password change failed - current password incorrect: ${user.email}`);
+                throw new Error('Current password is incorrect');
+            }
+
+            if (await bcrypt.compare(newPassword, user.password)) {
+                logger.warn(`Password change failed - new password same as current: ${user.email}`);
+                throw new Error('New password must be different from current password');
+            }
+
+            user.password = newPassword;
+            await user.save();
+            logger.info(`Password updated for user: ${user.email}`);
+
+            emailService
+                .sendPasswordChangedEmail({ to: user.email, username: user.username })
+                .catch((err) => logger.error('Password changed email failed:', { email: user.email, error: err.message }));
+
+            await securityAuditService.logPasswordChanged(user, req);
+
+            logger.info(`Password change completed for user: ${user.email}`);
+
+            return { message: 'Password changed successfully' };
+        } catch (error) {
+            logger.error('Password change failed:', { userId, error: error.message });
+            throw error;
+        }
+    }
+}
+
+// ✅ Helper function สำหรับส่ง login alert
+async function sendLoginAlertIfEnabled(user, req) {
     try {
-      const user = await User.findOne({ email })
-        .select('+passwordResetToken +passwordResetExpires');
+        // เช็คว่า user เปิด login alerts หรือไม่
+        if (!user.preferences?.notifications?.loginAlerts) {
+            logger.info(`Login alert skipped - disabled by user: ${user.email}`);
+            return;
+        }
 
-      if (!user) {
-        return { message: 'If this email exists, a reset link has been sent.' };
-      }
+        const userAgent = req.headers['user-agent'] || 'Unknown';
+        const ipAddress = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress;
 
-      const resetToken  = crypto.randomBytes(32).toString('hex');
-      const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        const deviceInfo = {
+            deviceType: getDeviceType(userAgent),
+            browser: getBrowser(userAgent),
+            os: getOS(userAgent),
+            location: ipAddress
+        };
 
-      user.passwordResetToken   = hashedToken;
-      user.passwordResetExpires = Date.now() + 60 * 60 * 1000;
-      await user.save();
-
-      // ─── Debug ─────────────────────────────────────────────────────────────
-      console.log('=== FORGOT PASSWORD DEBUG ===');
-      console.log('Raw token     :', resetToken);
-      console.log('Hashed token  :', hashedToken);
-      console.log('Expires at    :', new Date(user.passwordResetExpires));
-      console.log('Saved token   :', user.passwordResetToken);
-      console.log('==============================');
-
-      const resetUrl = `${process.env.AUTH_SERVER_URL}/reset-password.html?token=${resetToken}`;
-      console.log('Reset URL     :', resetUrl);
-
-      try {
-        await emailService.sendPasswordResetEmail({
-          to:       user.email,
-          username: user.username,
-          resetUrl,
+        await emailService.sendLoginAlertEmail({
+            to: user.email,
+            username: user.username,
+            deviceInfo,
+            ipAddress,
+            timestamp: new Date()
         });
-      } catch (emailError) {
-        user.passwordResetToken   = undefined;
-        user.passwordResetExpires = undefined;
-        await user.save();
-        throw new Error('Failed to send reset email. Please try again.');
-      }
 
-      return { message: 'If this email exists, a reset link has been sent.' };
+        logger.info(`Login alert email sent to: ${user.email}`);
     } catch (error) {
-      throw error;
+        logger.error('Send login alert failed:', error);
+        throw error;
     }
-  }
+}
 
-  async resetPassword(token, newPassword) {
-    try {
-      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+// ✅ Helper functions สำหรับ parse user agent
+function getDeviceType(userAgent) {
+    if (/mobile/i.test(userAgent)) return 'Mobile';
+    if (/tablet/i.test(userAgent)) return 'Tablet';
+    return 'Desktop';
+}
 
-      // ─── Debug ─────────────────────────────────────────────────────────────
-      console.log('=== RESET PASSWORD DEBUG ===');
-      console.log('Token from URL :', token);
-      console.log('Hashed token   :', hashedToken);
-      console.log('Current time   :', new Date());
+function getBrowser(userAgent) {
+    if (/edg/i.test(userAgent)) return 'Edge';
+    if (/chrome/i.test(userAgent)) return 'Chrome';
+    if (/firefox/i.test(userAgent)) return 'Firefox';
+    if (/safari/i.test(userAgent)) return 'Safari';
+    if (/opera/i.test(userAgent)) return 'Opera';
+    return 'Unknown';
+}
 
-      // ─── เช็ค DB ตรงๆ ก่อน ──────────────────────────────────────────────
-      const userCheck = await User.findOne({
-        passwordResetToken: hashedToken
-      }).select('+passwordResetToken +passwordResetExpires');
-
-      console.log('User by token  :', userCheck ? userCheck.email : 'NOT FOUND');
-      if (userCheck) {
-        console.log('Token in DB    :', userCheck.passwordResetToken);
-        console.log('Expires at     :', userCheck.passwordResetExpires);
-        console.log('Is expired     :', userCheck.passwordResetExpires < Date.now());
-      }
-      console.log('============================');
-
-      const user = await User.findOne({
-        passwordResetToken:   hashedToken,
-        passwordResetExpires: { $gt: Date.now() },
-      }).select('+password +passwordResetToken +passwordResetExpires');
-
-      if (!user) {
-        throw new Error('Invalid or expired reset token');
-      }
-
-      user.password             = newPassword;
-      user.passwordResetToken   = undefined;
-      user.passwordResetExpires = undefined;
-      await user.save();
-
-      emailService
-        .sendPasswordChangedEmail({ to: user.email, username: user.username })
-        .catch((err) => console.error('Password changed email failed:', err.message));
-
-      return { message: 'Password reset successful' };
-    } catch (error) {
-      throw error;
-    }
-  }
+function getOS(userAgent) {
+    if (/windows/i.test(userAgent)) return 'Windows';
+    if (/mac/i.test(userAgent)) return 'macOS';
+    if (/linux/i.test(userAgent)) return 'Linux';
+    if (/android/i.test(userAgent)) return 'Android';
+    if (/ios/i.test(userAgent)) return 'iOS';
+    return 'Unknown';
 }
 
 module.exports = new AuthService();

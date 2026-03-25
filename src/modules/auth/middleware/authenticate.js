@@ -1,15 +1,16 @@
+// src/modules/auth/middleware/authenticate.js
+
 const jwt = require('jsonwebtoken');
 const config = require('../../../shared/config/config');
 const User = require('../../../shared/models/User');
+const Session = require('../../../shared/models/Session');
 const logger = require('../../../shared/utils/logger');
 
 /**
  * Middleware to authenticate JWT token
- * รองรับทั้ง token จาก /api/auth/login และ /api/oauth/token
  */
 exports.authenticate = async (req, res, next) => {
     try {
-        // Get token from header or query
         let token = req.headers['authorization'] || req.query.token;
         
         if (!token) {
@@ -20,19 +21,15 @@ exports.authenticate = async (req, res, next) => {
             });
         }
 
-        // Remove Bearer from token
         if (token.startsWith('Bearer ')) {
             token = token.slice(7);
         }
 
         console.log('Token received:', token.substring(0, 20) + '...');
 
-        // Verify token
         const decoded = jwt.verify(token, config.JWT_SECRET);
         console.log('Token decoded:', decoded);
 
-        // Get user ID from token
-        // รองรับทั้ง 'id' (จาก login) และ 'sub' (จาก OAuth)
         const userId = decoded.id || decoded.sub;
         
         if (!userId) {
@@ -45,7 +42,6 @@ exports.authenticate = async (req, res, next) => {
 
         console.log('Looking for user:', userId);
 
-        // Get user from database
         const user = await User.findById(userId);
         
         if (!user) {
@@ -66,6 +62,47 @@ exports.authenticate = async (req, res, next) => {
 
         console.log('User authenticated:', user.email);
 
+        // ============================================
+        // 🆕 SESSION TRACKING (เปลี่ยนชื่อ)
+        // ============================================
+        
+        const session = await Session.findOne({
+            sessionToken: token,
+            isActive: true
+        });
+        
+        if (session) {
+            console.log('Session found:', session._id);
+            
+            if (session.isExpired()) {
+                console.log('Session expired:', session._id);
+                await session.revoke('expired');
+                return res.status(401).json({
+                    success: false,
+                    message: 'Session expired',
+                    error: 'Session expired'
+                });
+            }
+            
+            try {
+                await session.updateLastActive();
+                console.log('Session activity updated:', session._id);
+            } catch (error) {
+                logger.error('Failed to update session activity:', error);
+            }
+            
+            // 🔧 เปลี่ยนจาก req.session → req.authSession
+            req.authSession = {
+                sessionId: session._id.toString(),
+                sessionToken: token
+            };
+            
+            console.log('Auth session attached:', req.authSession.sessionId);
+        } else {
+            console.log('No session found for token (might be OAuth or old token)');
+            req.authSession = null;
+        }
+
         // Attach user to request
         req.user = {
             id: user._id.toString(),
@@ -81,20 +118,23 @@ exports.authenticate = async (req, res, next) => {
         if (error.name === 'JsonWebTokenError') {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid token'
+                message: 'Invalid token',
+                error: 'Invalid token'
             });
         }
         
         if (error.name === 'TokenExpiredError') {
             return res.status(401).json({
                 success: false,
-                message: 'Token expired'
+                message: 'Token expired',
+                error: 'Token expired'
             });
         }
 
         return res.status(401).json({
             success: false,
-            message: 'Authentication failed'
+            message: 'Authentication failed',
+            error: error.message
         });
     }
 };
@@ -123,4 +163,22 @@ exports.authorize = (...roles) => {
 
         next();
     };
+};
+
+/**
+ * 🆕 Middleware to require session
+ */
+exports.requireSession = (req, res, next) => {
+    // 🔧 เปลี่ยนจาก req.session → req.authSession
+    if (!req.authSession || !req.authSession.sessionId) {
+        logger.warn('Session required but not found for user:', req.user?.id);
+        return res.status(400).json({
+            success: false,
+            message: 'Session required',
+            error: 'Current session not found'
+        });
+    }
+    
+    console.log('Session validation passed:', req.authSession.sessionId);
+    next();
 };

@@ -1,132 +1,164 @@
-console.log('Login page loaded');
+// ==========================================
+// LOGIN.JS - Login Form Handler
+// ==========================================
 
-// Auto-fill from URL parameters
-window.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded');
+// Toggle password visibility
+function togglePassword(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
     
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('email')) {
-        document.getElementById('email').value = params.get('email');
-        console.log('Email filled from URL');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = 'visibility_off';
+    } else {
+        input.type = 'password';
+        icon.textContent = 'visibility';
     }
-    if (params.has('password')) {
-        document.getElementById('password').value = params.get('password');
-        console.log('Password filled from URL');
-    }
-});
-
-// Login form handler
-const loginForm = document.getElementById('loginForm');
-if (loginForm) {
-    loginForm.addEventListener('submit', handleLogin);
-    console.log('Login form handler attached');
-} else {
-    console.error('Login form not found!');
 }
 
-async function handleLogin(e) {
-    e.preventDefault();
-    console.log('Login form submitted');
+// Show alert message
+function showAlert(message, type = 'error') {
+    const alert = document.getElementById('alert');
     
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const loginBtn = document.getElementById('loginBtn');
-
-    console.log('Email:', email);
-    console.log('Password:', password ? '***' : 'empty');
-
-    // Disable button
-    loginBtn.disabled = true;
-    loginBtn.textContent = 'Signing in...';
-
-    try {
-        console.log('Sending POST request to /api/auth/login');
-        
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password })
-        });
-
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-        
-        const data = await response.json();
-        console.log('Response data:', data);
-
-        if (response.ok && data.success) {
-            console.log('Login successful!');
-            
-            // Save token and user info
-            localStorage.setItem('token', data.data.token);
-            localStorage.setItem('user', JSON.stringify(data.data.user));
-            
-            console.log('Token saved to localStorage');
-            
-            showAlert('Login successful! Redirecting...', 'success');
-            
-            // Redirect after 1 second
-            setTimeout(function() {
-                console.log('Redirecting to dashboard...');
-                window.location.href = '/dashboard.html';
-            }, 1000);
-      } else {
-    console.error('Login failed:', data);
- 
-    const errorMessage = response.status === 429 
-        ? data.message                              // "ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณาลองใหม่ใน 15 นาที"
-        : data.error || data.message || 'Login failed'; // "Invalid credentials"
-
-    showAlert(errorMessage, 'error');
-    loginBtn.disabled = false;
-    loginBtn.textContent = 'Sign In';
-}
-
-    } catch (error) {
-        console.error('Login error:', error);
-        showAlert('Network error. Please check if MongoDB is running.', 'error');
-        loginBtn.disabled = false;
-        loginBtn.textContent = 'Sign In';
+    if (!message || message.trim() === '') {
+        alert.style.display = 'none';
+        return;
     }
-}
-
-
-
-function loginWithGoogle() {
-    console.log('Google login clicked');
-    window.location.href = '/api/auth/google';
-}
-
-
-
-let alertTimeout = null;
-
-function showAlert(message, type) {
-    const alertBox = document.getElementById('alert');
     
-    //  clear timeout เก่าก่อนเสมอ
-    if (alertTimeout) {
-        clearTimeout(alertTimeout);
-        alertTimeout = null;
-    }
-
-    alertBox.innerHTML = message;
-    alertBox.className = 'alert alert-' + type;
-    alertBox.style.display = 'block';
-    alertBox.style.textAlign = 'center';
-
-    //  เก็บ timeout ใหม่ไว้
-    alertTimeout = setTimeout(function() {
-        alertBox.style.display = 'none';
-        alertTimeout = null;
+    alert.className = `alert alert-${type}`;
+    alert.textContent = message;
+    alert.style.display = 'block';
+    
+    setTimeout(() => {
+        alert.style.display = 'none';
     }, 5000);
 }
 
-// Test connection on page load
-console.log('Testing API connection...');
-fetch('/health')
-    .then(r => r.json())
-    .then(data => console.log('Server health:', data))
-    .catch(err => console.error('Server not responding:', err));
+// Validate email format
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// Handle form submission
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const remember = document.getElementById('remember').checked;
+    const loginBtn = document.getElementById('loginBtn');
+    
+    // Validation
+    if (!email || !isValidEmail(email)) {
+        showAlert('INVALID_EMAIL_FORMAT', 'error');
+        return;
+    }
+    
+    if (!password) {
+        showAlert('PASSWORD_REQUIRED', 'error');
+        return;
+    }
+    
+    // Show loading state
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<div class="spinner"></div><span>AUTHENTICATING...</span>';
+    
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email: email,
+                password: password,
+                remember: remember
+            }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Store token
+            const token = data.data?.token || data.token;
+            if (token) {
+                localStorage.setItem('token', token);
+            }
+            
+            // Store user data
+            if (data.data && data.data.user) {
+                const user = {
+                    id: data.data.user._id || data.data.user.id,
+                    username: data.data.user.username,
+                    email: data.data.user.email,
+                    role: data.data.user.role || 'user'
+                };
+                localStorage.setItem('user', JSON.stringify(user));
+            } else {
+                // If API doesn't return user data, fetch profile
+                try {
+                    const profileResponse = await fetch('/api/auth/profile', {
+                        headers: { 
+                            'Authorization': 'Bearer ' + token
+                        }
+                    });
+                    
+                    const profileData = await profileResponse.json();
+                    
+                    if (profileData.success && profileData.data) {
+                        const user = {
+                            id: profileData.data._id || profileData.data.id,
+                            username: profileData.data.username,
+                            email: profileData.data.email,
+                            role: profileData.data.role || 'user'
+                        };
+                        localStorage.setItem('user', JSON.stringify(user));
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch profile:', error);
+                }
+            }
+            
+            showAlert('AUTH_SUCCESS > REDIRECT_INIT', 'success');
+            
+            setTimeout(() => {
+                window.location.href = '/dashboard.html';
+            }, 1000);
+        } else {
+            showAlert(data.message || 'AUTH_FAILED', 'error');
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = '<span>SIGN_IN_INIT</span>';
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        showAlert('ERR_NETWORK_FAILURE', 'error');
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<span>SIGN_IN_INIT</span>';
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('loginForm');
+    const alert = document.getElementById('alert');
+    
+    // Hide alert on page load
+    if (alert) {
+        alert.style.display = 'none';
+    }
+    
+    // Attach form submit handler
+    if (form) {
+        form.addEventListener('submit', handleLogin);
+    }
+    
+    // Attach password toggle handlers
+    const passwordToggleBtns = document.querySelectorAll('.password-toggle');
+    passwordToggleBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const inputId = this.getAttribute('data-input');
+            const iconId = this.getAttribute('data-icon');
+            togglePassword(inputId, iconId);
+        });
+    });
+});

@@ -1,3 +1,5 @@
+const config = require('../config/config');
+
 const baseLayout = (content) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -40,7 +42,7 @@ const baseLayout = (content) => `
       <div class="footer">
         <p>© ${new Date().getFullYear()}  Auth System. All rights reserved.</p>
         <p style="margin-top:6px">
-          <a href="${process.env.AUTH_SERVER_URL}/privacy-policy.html">Privacy Policy</a>
+          <a href="${config.AUTH_SERVER_URL}/privacy-policy.html">Privacy Policy</a>
           &nbsp;·&nbsp;
           <a href="mailto:support@globalauthen.com">Contact Support</a>
         </p>
@@ -86,7 +88,7 @@ const getWelcomeTemplate = ({ username }) =>
        You can now log in and start using the platform.</p>
 
     <div style="text-align:center; margin: 32px 0;">
-      <a href="${process.env.AUTH_SERVER_URL}/login.html" class="btn">
+      <a href="${config.AUTH_SERVER_URL}/login.html" class="btn">
         🚀 Go to Login
       </a>
     </div>
@@ -111,7 +113,7 @@ const getPasswordChangedTemplate = ({ username }) =>
 
     <div class="note">
       ⚠️ If you did not make this change, please
-      <a href="${process.env.AUTH_SERVER_URL}/login.html" style="color:#667eea">
+      <a href="${config.AUTH_SERVER_URL}/login.html" style="color:#667eea">
         log in immediately
       </a>
       and reset your password, or contact us at
@@ -121,8 +123,32 @@ const getPasswordChangedTemplate = ({ username }) =>
     </div>
   `);
 
+const getVerificationTemplate = ({ username, verificationUrl }) =>
+  baseLayout(`
+    <h2>Verify Your Email 📧</h2>
+    <p>Hi <strong>${username}</strong>,</p>
+    <p>Thank you for registering! Please verify your email address by clicking the button below.</p>
+
+    <div style="text-align:center; margin: 32px 0;">
+      <a href="${verificationUrl}" class="btn">✅ Verify Email</a>
+    </div>
+
+    <div class="note">
+      ⏱️ This link will expire in <strong>24 hours</strong>.<br />
+      If you did not create this account, you can safely ignore this email.
+    </div>
+
+    <hr class="divider" />
+
+    <p style="font-size:13px;color:#888">
+      If the button above doesn't work, copy and paste this URL into your browser:<br />
+      <a href="${verificationUrl}" style="color:#667eea;word-break:break-all">${verificationUrl}</a>
+    </p>
+  `);
+
 module.exports = {
   getPasswordResetTemplate,
   getWelcomeTemplate,
   getPasswordChangedTemplate,
+  getVerificationTemplate,
 };

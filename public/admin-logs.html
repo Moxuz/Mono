@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Logs - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #3498db;
+            --success-color: #27ae60;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 250px;
+            background: linear-gradient(180deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding-top: 20px;
+            z-index: 1000;
+        }
+        
+        .sidebar h4 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+        
+        .sidebar a {
+            color: #ecf0f1;
+            text-decoration: none;
+            padding: 12px 20px;
+            display: block;
+            transition: all 0.3s;
+        }
+        
+        .sidebar a:hover, .sidebar a.active {
+            background-color: rgba(255,255,255,0.1);
+            border-left: 4px solid var(--accent-color);
+        }
+        
+        .sidebar i {
+            margin-right: 10px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        
+        .stats-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .stats-card h3 {
+            font-size: 2rem;
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .stats-card p {
+            color: #7f8c8d;
+            margin: 5px 0 0 0;
+        }
+        
+        .stats-card.success h3 { color: var(--success-color); }
+        .stats-card.danger h3 { color: var(--danger-color); }
+        .stats-card.warning h3 { color: var(--warning-color); }
+        
+        .filter-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .badge-success { background-color: var(--success-color); }
+        .badge-failure { background-color: var(--danger-color); }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 50px;
+        }
+        
+        .export-btn {
+            float: right;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h4><i class="bi bi-shield-lock"></i> Admin Dashboard</h4>
+        <a href="/admin"><i class="bi bi-speedometer2"></i> Overview</a>
+        <a href="/admin/logs" class="active"><i class="bi bi-journal-text"></i> Security Logs</a>
+        <a href="/admin/sessions"><i class="bi bi-laptop"></i> Sessions</a>
+        <a href="/admin/monitoring"><i class="bi bi-activity"></i> Monitoring</a>
+        <a href="/admin/users"><i class="bi bi-people"></i> Users</a>
+        <a href="/" class="mt-5"><i class="bi bi-box-arrow-left"></i> Back to Site</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <h2><i class="bi bi-journal-text"></i> Security Audit Logs</h2>
+        <p class="text-muted">View and analyze all security events in the system</p>
+
+        <!-- Stats Cards -->
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h3 id="totalEvents">-</h3>
+                    <p>Total Events (24h)</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card success">
+                    <h3 id="successEvents">-</h3>
+                    <p>Successful Events</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card danger">
+                    <h3 id="failedEvents">-</h3>
+                    <p>Failed Events</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card warning">
+                    <h3 id="lockedAccounts">-</h3>
+                    <p>Locked Accounts (24h)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Action Type</label>
+                    <select class="form-select" id="filterAction">
+                        <option value="">All Actions</option>
+                        <option value="login_success">Login Success</option>
+                        <option value="login_failed">Login Failed</option>
+                        <option value="logout">Logout</option>
+                        <option value="password_changed">Password Changed</option>
+                        <option value="account_locked">Account Locked</option>
+                        <option value="email_verified">Email Verified</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="filterStatus">
+                        <option value="">All</option>
+                        <option value="success">Success</option>
+                        <option value="failure">Failure</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="filterStartDate">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="filterEndDate">
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <button class="btn btn-primary" onclick="loadLogs()">
+                        <i class="bi bi-search"></i> Apply Filters
+                    </button>
+                    <button class="btn btn-success export-btn" onclick="exportLogs()">
+                        <i class="bi bi-download"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Section -->
+        <div class="table-container">
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+            <table id="logsTable" class="table table-striped table-hover" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Action</th>
+                        <th>Status</th>
+                        <th>User</th>
+                        <th>IP Address</th>
+                        <th>Device</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        let dataTable;
+        const token = localStorage.getItem('token') || sessionStorage.getItem('tempToken');
+
+        // Load logs on page load
+        $(document).ready(function() {
+            loadLogs();
+            loadStats();
+        });
+
+        async function loadLogs() {
+            $('#loadingSpinner').show();
+            $('#logsTable').hide();
+
+            const params = new URLSearchParams();
+            const action = $('#filterAction').val();
+            const status = $('#filterStatus').val();
+            const startDate = $('#filterStartDate').val();
+            const endDate = $('#filterEndDate').val();
+
+            if (action) params.append('action', action);
+            if (status) params.append('status', status);
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+
+            try {
+                const response = await fetch(`/api/dashboard/logs/security?${params}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    renderTable(result.data.logs);
+                    updateStats(result.data);
+                } else {
+                    alert('Failed to load logs: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                alert('Error loading logs');
+            } finally {
+                $('#loadingSpinner').hide();
+                $('#logsTable').show();
+            }
+        }
+
+        function renderTable(logs) {
+            if (dataTable) {
+                dataTable.destroy();
+            }
+
+            const tbody = $('#logsTable tbody');
+            tbody.empty();
+
+            logs.forEach(log => {
+                const row = `
+                    <tr>
+                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                        <td><span class="badge bg-info">${log.action}</span></td>
+                        <td><span class="badge badge-${log.status}">${log.status}</span></td>
+                        <td>${log.userInfo ? log.userInfo.username : 'N/A'}<br>
+                            <small class="text-muted">${log.userInfo ? log.userInfo.email : ''}</small>
+                        </td>
+                        <td>${log.ipAddress || 'N/A'}</td>
+                        <td>${log.userAgent ? parseUserAgent(log.userAgent) : 'N/A'}</td>
+                        <td><small>${JSON.stringify(log.metadata || {}).substring(0, 50)}...</small></td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+
+            dataTable = $('#logsTable').DataTable({
+                order: [[0, 'desc']],
+                pageLength: 25,
+                responsive: true
+            });
+        }
+
+        function parseUserAgent(ua) {
+            if (ua.includes('Chrome')) return 'Chrome';
+            if (ua.includes('Firefox')) return 'Firefox';
+            if (ua.includes('Safari')) return 'Safari';
+            if (ua.includes('Edge')) return 'Edge';
+            return 'Other';
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/dashboard/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    $('#totalEvents').text(result.data.logins.last24Hours || 0);
+                    $('#successEvents').text((result.data.logins.last24Hours - result.data.logins.failedLast24h) || 0);
+                    $('#failedEvents').text(result.data.logins.failedLast24h || 0);
+                    $('#lockedAccounts').text(result.data.security.accountLockouts24h || 0);
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function exportLogs() {
+            const params = new URLSearchParams();
+            const action = $('#filterAction').val();
+            const status = $('#filterStatus').val();
+            const startDate = $('#filterStartDate').val();
+            const endDate = $('#filterEndDate').val();
+
+            if (action) params.append('action', action);
+            if (status) params.append('status', status);
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+
+            window.location.href = `/api/dashboard/logs/export?${params}`;
+        }
+    </script>
+</body>
+</html>

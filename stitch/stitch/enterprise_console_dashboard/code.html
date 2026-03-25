@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Monolith Enterprise Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "tertiary-fixed": "#d3ceef",
+                "tertiary-container": "#d3ceef",
+                "on-secondary-fixed-variant": "#5c5b5b",
+                "error-dim": "#bb5551",
+                "primary": "#adc6ff",
+                "error": "#ee7d77",
+                "on-secondary": "#202020",
+                "on-tertiary-fixed": "#34314b",
+                "on-secondary-fixed": "#403f3f",
+                "surface-tint": "#adc6ff",
+                "inverse-surface": "#fcf8f8",
+                "secondary-fixed": "#e5e2e1",
+                "primary-fixed": "#d8e2ff",
+                "surface-container-highest": "#252626",
+                "surface-bright": "#2c2c2c",
+                "on-secondary-container": "#c1bfbe",
+                "outline": "#767575",
+                "on-error-container": "#ff9993",
+                "on-error": "#490106",
+                "primary-dim": "#98b8ff",
+                "outline-variant": "#484848",
+                "surface-container-low": "#131313",
+                "on-primary-fixed": "#003c86",
+                "surface-dim": "#0e0e0e",
+                "on-surface-variant": "#acabaa",
+                "tertiary-dim": "#c5c0e0",
+                "primary-container": "#004395",
+                "on-background": "#e7e5e4",
+                "on-tertiary-fixed-variant": "#504e69",
+                "tertiary-fixed-dim": "#c5c0e0",
+                "error-container": "#7f2927",
+                "secondary-dim": "#9f9d9d",
+                "secondary-fixed-dim": "#d6d4d3",
+                "surface": "#0e0e0e",
+                "tertiary": "#e1dcfd",
+                "background": "#0e0e0e",
+                "inverse-on-surface": "#565554",
+                "on-primary": "#003d88",
+                "on-tertiary-container": "#47445f",
+                "surface-container-lowest": "#000000",
+                "on-surface": "#e7e5e4",
+                "secondary": "#9f9d9d",
+                "surface-container": "#191a1a",
+                "secondary-container": "#3c3b3b",
+                "primary-fixed-dim": "#c3d4ff",
+                "on-primary-container": "#bdd0ff",
+                "inverse-primary": "#005bc4",
+                "surface-variant": "#252626",
+                "on-tertiary": "#504d68",
+                "surface-container-high": "#1f2020",
+                "on-primary-fixed-variant": "#0057bd"
+              },
+              fontFamily: {
+                "headline": ["Inter", "sans-serif"],
+                "body": ["Inter", "sans-serif"],
+                "label": ["Inter", "sans-serif"],
+                "mono": ["JetBrains Mono", "monospace"]
+              },
+              borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+            font-size: 20px;
+        }
+        body { background-color: #000000; color: #e7e5e4; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #484848; border-radius: 10px; }
+    </style>
+</head>
+<body class="font-body selection:bg-primary selection:text-on-primary">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 border-r border-[#484848] bg-[#000000] flex flex-col py-8 px-4 z-40">
+<div class="mb-10 px-2">
+<h1 class="text-lg font-black tracking-tighter text-[#e7e5e4]">Monolith Cloud</h1>
+<p class="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest mt-1">v2.4.0-stable</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:bg-[#131313] hover:text-[#e7e5e4] transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">terminal</span>
+<span class="font-['Inter'] text-sm tracking-tight">Terminal</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:bg-[#131313] hover:text-[#e7e5e4] transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">rocket_launch</span>
+<span class="font-['Inter'] text-sm tracking-tight">Deployments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:bg-[#131313] hover:text-[#e7e5e4] transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">database</span>
+<span class="font-['Inter'] text-sm tracking-tight">Resources</span>
+</a>
+<!-- Active State -->
+<a class="flex items-center gap-3 px-3 py-2 text-[#adc6ff] border-r-2 border-[#adc6ff] bg-[#131313] transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">insights</span>
+<span class="font-['Inter'] text-sm tracking-tight">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:bg-[#131313] hover:text-[#e7e5e4] transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">settings</span>
+<span class="font-['Inter'] text-sm tracking-tight">Settings</span>
+</a>
+</nav>
+<div class="pt-8 mt-auto border-t border-outline-variant space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:bg-[#131313] hover:text-[#e7e5e4] transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span class="font-['Inter'] text-sm tracking-tight">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:bg-[#131313] hover:text-[#e7e5e4] transition-all duration-75 group" href="#">
+<span class="material-symbols-outlined">chat_bubble_outline</span>
+<span class="font-['Inter'] text-sm tracking-tight">Feedback</span>
+</a>
+<div class="mt-4 flex items-center gap-3 px-2 pt-4 border-t border-outline-variant/30">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center overflow-hidden">
+<img alt="Developer Profile" data-alt="Abstract geometric avatar for developer profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwHHMdETeQj_5IBA5udC7CsLsVDBnVD4_LwmjKo1UIE4RKW0ZcytaF0Q2iyY3y31he-uUWzq1wQRIzoNp1gqth0SySU4GpE-aX0q_L0QOzA2s7ipo3z2OUyBQZZQmv8ZpSXQoW0_DsIz13lUmHQ9fpN4wx1d3di8zlWwwQf1bkfNnuZtostzgPMO497aPoz2UkkPrnvpKWpz_PVxLEfWeGIW61nufu8ct4oHM55CcQKTxoY1lyApLLC-9AToOYHfx3TadBYe_UdhlO"/>
+</div>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">auth_admin_prod</p>
+<p class="text-[10px] text-on-surface-variant">Enterprise Tier</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar (Horizontal Desktop Context) -->
+<header class="fixed top-0 left-64 right-0 h-14 bg-[#0e0e0e] border-b border-[#484848] z-30 flex items-center justify-between px-6">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+<span class="text-[11px] font-mono text-primary uppercase tracking-[0.2em]">System Normal</span>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-xs font-medium text-[#acabaa] hover:text-[#e7e5e4] transition-colors" href="#">Documentation</a>
+<a class="text-xs font-medium text-[#acabaa] hover:text-[#e7e5e4] transition-colors" href="#">Changelog</a>
+<a class="text-xs font-medium text-[#acabaa] hover:text-[#e7e5e4] transition-colors" href="#">Status</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-xs text-[#acabaa] hover:text-[#e7e5e4] px-3 py-1.5 transition-colors">Sign In</button>
+<button class="text-xs bg-primary text-on-primary font-bold px-4 py-1.5 rounded-lg hover:bg-primary-dim transition-colors">Deploy</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pl-64 pt-14 min-h-screen bg-[#000000]">
+<div class="p-8 max-w-[1600px] mx-auto">
+<!-- Page Header -->
+<div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h2 class="text-3xl font-bold tracking-tight text-on-surface">Enterprise Console</h2>
+<p class="text-on-surface-variant mt-2 text-sm max-w-xl italic">Visualizing identity throughput and infrastructure resilience across 12 global regions.</p>
+</div>
+<div class="flex gap-2">
+<div class="bg-surface-container-low border border-outline-variant px-3 py-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant">calendar_today</span>
+<span class="text-xs font-mono">LATEST_24H</span>
+</div>
+<button class="bg-surface-bright border border-outline-variant px-4 py-2 text-xs font-bold hover:bg-surface-container-high transition-colors">EXPORT_JSON</button>
+</div>
+</div>
+<!-- Bento Grid Metrics -->
+<div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+<!-- Large Metric: Active Sessions -->
+<div class="md:col-span-2 lg:col-span-2 bg-[#131313] border border-[#484848] p-6 relative overflow-hidden">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">Active Sessions</span>
+<span class="material-symbols-outlined text-primary">groups</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black tracking-tighter">42.8k</span>
+<span class="text-xs text-primary font-mono">+12.4%</span>
+</div>
+<div class="mt-6 h-12 flex items-end gap-1">
+<div class="bg-primary/20 w-full h-[40%]"></div>
+<div class="bg-primary/20 w-full h-[60%]"></div>
+<div class="bg-primary/40 w-full h-[55%]"></div>
+<div class="bg-primary/30 w-full h-[80%]"></div>
+<div class="bg-primary/50 w-full h-[100%]"></div>
+<div class="bg-primary/60 w-full h-[90%]"></div>
+<div class="bg-primary w-full h-[95%]"></div>
+</div>
+</div>
+<!-- Token Churn -->
+<div class="md:col-span-2 lg:col-span-2 bg-[#131313] border border-[#484848] p-6">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">Token Churn</span>
+<span class="material-symbols-outlined text-primary">key_visualizer</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black tracking-tighter">0.02<span class="text-lg">%</span></span>
+<span class="text-xs text-on-surface-variant font-mono">NOMINAL</span>
+</div>
+<div class="mt-6 grid grid-cols-4 gap-2">
+<div class="h-1 bg-primary"></div>
+<div class="h-1 bg-primary"></div>
+<div class="h-1 bg-primary/30"></div>
+<div class="h-1 bg-primary/30"></div>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-3 font-mono">TTL_AVG: 3600ms</p>
+</div>
+<!-- Error Rate -->
+<div class="md:col-span-2 lg:col-span-2 bg-[#131313] border border-[#484848] p-6">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">Global Error Rate</span>
+<span class="material-symbols-outlined text-error">report</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black tracking-tighter">404</span>
+<span class="text-xs text-error font-mono">CRITICAL</span>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-6 uppercase leading-tight">Spike detected in <span class="text-on-surface">us-east-1</span> edge nodes. Verifying protocol.</p>
+</div>
+<!-- Infrastructure Health (Wide) -->
+<div class="md:col-span-4 lg:col-span-4 bg-[#131313] border border-[#484848] p-6">
+<div class="flex justify-between items-center mb-6">
+<span class="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest">Regional Throughput</span>
+<div class="flex gap-4">
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span class="text-[10px] text-on-surface-variant">EU-CENTRAL</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary/30"></span>
+<span class="text-[10px] text-on-surface-variant">US-WEST</span>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="h-2 bg-[#000000] w-full relative">
+<div class="absolute inset-0 bg-primary/40 w-[85%]"></div>
+<div class="absolute inset-0 bg-primary w-[62%]"></div>
+</div>
+<div class="h-2 bg-[#000000] w-full relative">
+<div class="absolute inset-0 bg-primary/40 w-[45%]"></div>
+<div class="absolute inset-0 bg-primary w-[38%]"></div>
+</div>
+<div class="h-2 bg-[#000000] w-full relative">
+<div class="absolute inset-0 bg-primary/40 w-[92%]"></div>
+<div class="absolute inset-0 bg-primary w-[74%]"></div>
+</div>
+</div>
+</div>
+<!-- Quick Action Card -->
+<div class="md:col-span-2 lg:col-span-2 bg-primary p-6 flex flex-col justify-between">
+<div>
+<h3 class="text-on-primary text-xl font-bold tracking-tighter leading-tight">Scale cluster to 128 nodes?</h3>
+<p class="text-on-primary/70 text-xs mt-2">Predicted demand spike in 14 minutes due to scheduled cron job.</p>
+</div>
+<button class="w-full bg-[#000000] text-on-surface font-mono text-[10px] py-3 mt-4 hover:bg-surface-container-high transition-all">EXEC_SCALING_INIT</button>
+</div>
+</div>
+<!-- Deployment Table Section -->
+<div class="bg-[#000000] border border-[#484848]">
+<div class="p-6 border-b border-[#484848] flex items-center justify-between">
+<h3 class="text-sm font-bold tracking-tighter uppercase text-on-surface-variant">Recent Deployments</h3>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-[#131313] border border-[#484848] text-[11px] pl-9 pr-4 py-1.5 focus:border-primary focus:ring-0 w-64 transition-all" placeholder="Filter deployments..." type="text"/>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest border-b border-[#484848]">
+<th class="px-6 py-4 font-normal">Environment</th>
+<th class="px-6 py-4 font-normal">Commit</th>
+<th class="px-6 py-4 font-normal">Status</th>
+<th class="px-6 py-4 font-normal">Latency</th>
+<th class="px-6 py-4 font-normal text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#484848]/50">
+<!-- Row 1 -->
+<tr class="hover:bg-[#131313] transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
+<span class="text-xs font-bold">production-main</span>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-[10px] text-on-surface-variant">8f2a4c1...</td>
+<td class="px-6 py-4">
+<span class="bg-primary/10 text-primary text-[9px] font-bold px-2 py-0.5 rounded uppercase">Deployed</span>
+</td>
+<td class="px-6 py-4 text-xs font-mono">142ms</td>
+<td class="px-6 py-4 text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">more_horiz</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-[#131313] transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
+<span class="text-xs font-bold">staging-edge</span>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-[10px] text-on-surface-variant">4e9b7d2...</td>
+<td class="px-6 py-4">
+<span class="bg-primary/10 text-primary text-[9px] font-bold px-2 py-0.5 rounded uppercase">Deployed</span>
+</td>
+<td class="px-6 py-4 text-xs font-mono">89ms</td>
+<td class="px-6 py-4 text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">more_horiz</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-[#131313] transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 bg-error rounded-full"></div>
+<span class="text-xs font-bold">dev-auth-patch</span>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-[10px] text-on-surface-variant">1a3c5e0...</td>
+<td class="px-6 py-4">
+<span class="bg-error/10 text-error text-[9px] font-bold px-2 py-0.5 rounded uppercase">Failed</span>
+</td>
+<td class="px-6 py-4 text-xs font-mono">--</td>
+<td class="px-6 py-4 text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">more_horiz</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-[#131313] transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 bg-on-surface-variant rounded-full"></div>
+<span class="text-xs font-bold">beta-v2-test</span>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-[10px] text-on-surface-variant">9d8f7a1...</td>
+<td class="px-6 py-4">
+<span class="bg-on-surface-variant/10 text-on-surface-variant text-[9px] font-bold px-2 py-0.5 rounded uppercase">Queued</span>
+</td>
+<td class="px-6 py-4 text-xs font-mono">--</td>
+<td class="px-6 py-4 text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">more_horiz</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-[#484848] flex justify-center">
+<button class="text-[10px] font-bold tracking-widest text-on-surface-variant hover:text-primary transition-colors uppercase">View All System Logs</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual FAB (Suppressed on analytics focus but kept for deployment quick action) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform z-50">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+</button>
+</body></html>

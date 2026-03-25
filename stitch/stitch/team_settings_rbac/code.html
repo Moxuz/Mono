@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Monolith - Team Settings &amp; RBAC</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-fixed": "#d3ceef",
+              "tertiary-container": "#d3ceef",
+              "on-secondary-fixed-variant": "#5c5b5b",
+              "error-dim": "#bb5551",
+              "primary": "#adc6ff",
+              "error": "#ee7d77",
+              "on-secondary": "#202020",
+              "on-tertiary-fixed": "#34314b",
+              "on-secondary-fixed": "#403f3f",
+              "surface-tint": "#adc6ff",
+              "inverse-surface": "#fcf8f8",
+              "secondary-fixed": "#e5e2e1",
+              "primary-fixed": "#d8e2ff",
+              "surface-container-highest": "#252626",
+              "surface-bright": "#2c2c2c",
+              "on-secondary-container": "#c1bfbe",
+              "outline": "#767575",
+              "on-error-container": "#ff9993",
+              "on-error": "#490106",
+              "primary-dim": "#98b8ff",
+              "outline-variant": "#484848",
+              "surface-container-low": "#131313",
+              "on-primary-fixed": "#003c86",
+              "surface-dim": "#0e0e0e",
+              "on-surface-variant": "#acabaa",
+              "tertiary-dim": "#c5c0e0",
+              "primary-container": "#004395",
+              "on-background": "#e7e5e4",
+              "on-tertiary-fixed-variant": "#504e69",
+              "tertiary-fixed-dim": "#c5c0e0",
+              "error-container": "#7f2927",
+              "secondary-dim": "#9f9d9d",
+              "secondary-fixed-dim": "#d6d4d3",
+              "surface": "#0e0e0e",
+              "tertiary": "#e1dcfd",
+              "background": "#0e0e0e",
+              "inverse-on-surface": "#565554",
+              "on-primary": "#003d88",
+              "on-tertiary-container": "#47445f",
+              "surface-container-lowest": "#000000",
+              "on-surface": "#e7e5e4",
+              "secondary": "#9f9d9d",
+              "surface-container": "#191a1a",
+              "secondary-container": "#3c3b3b",
+              "primary-fixed-dim": "#c3d4ff",
+              "on-primary-container": "#bdd0ff",
+              "inverse-primary": "#005bc4",
+              "surface-variant": "#252626",
+              "on-tertiary": "#504d68",
+              "surface-container-high": "#1f2020",
+              "on-primary-fixed-variant": "#0057bd"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body {
+            background-color: #000000;
+            color: #e7e5e4;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="antialiased overflow-hidden">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full border-b border-[#484848] border-opacity-100 bg-[#0e0e0e] text-[#adc6ff] font-['Inter'] tracking-tight antialiased flex items-center justify-between px-6 h-14 z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#e7e5e4]">MONOLITH</span>
+<div class="hidden md:flex gap-6 items-center">
+<a class="text-[#acabaa] hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 py-1 px-2" href="#">Documentation</a>
+<a class="text-[#acabaa] hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 py-1 px-2" href="#">Changelog</a>
+<a class="text-[#acabaa] hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 py-1 px-2" href="#">Status</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#acabaa] hover:text-[#e7e5e4] text-sm font-medium">Sign In</button>
+<button class="bg-primary text-on-primary px-4 py-1.5 text-sm font-semibold rounded hover:bg-primary-dim transition-colors">Deploy</button>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-[#484848] bg-[#000000] flex flex-col py-8 px-4 font-['Inter'] text-sm tracking-tight">
+<div class="mb-8 px-2">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-primary scale-75">terminal</span>
+</div>
+<div>
+<h2 class="text-[#e7e5e4] font-black tracking-tighter text-lg leading-none">Monolith Cloud</h2>
+<p class="text-on-surface-variant text-[10px] uppercase tracking-widest mt-1">v2.4.0-stable</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+<span>Terminal</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="rocket_launch">rocket_launch</span>
+<span>Deployments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="database">database</span>
+<span>Resources</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#adc6ff] border-r-2 border-[#adc6ff] bg-[#131313]" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="mt-auto pt-8 space-y-1 border-t border-outline-variant">
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-[#acabaa] hover:text-[#e7e5e4] hover:bg-[#131313] transition-all duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="chat_bubble_outline">chat_bubble_outline</span>
+<span>Feedback</span>
+</a>
+<div class="flex items-center gap-3 px-3 py-4 mt-4">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant overflow-hidden">
+<img alt="Developer Profile" class="w-full h-full object-cover" data-alt="Minimalist developer avatar in grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAu5k15G2PdMknsGfao7ohEDb5Ui6IZfynJgfA31IX8D1ZwTfxNTFah9FVpLWrY9-z-BpLTBQrX9tHMTMVIZXEl9u48J4WnIxtQnPDgmsFymLe6WE-2wwL60RiyXZn2lOMRV50YobVqG4YGweq2IkG6HW5GmFEQSxh12uL_u3TnDWPFi-mPatwo8rMINm89rvCfr9dTfHU8cVHpSyyXv2Jm2346ABgr-D9iEPm4ArnM3GX1qVkkWk4ckSdqRTudFTSR4AQYNls01RXv"/>
+</div>
+<div class="flex flex-col">
+<span class="text-[#e7e5e4] font-medium text-xs">admin@monolith</span>
+<span class="text-[10px] text-primary">Pro Plan</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-14 p-8 overflow-y-auto h-[calc(100vh-3.5rem)]">
+<!-- Header Section -->
+<div class="max-w-6xl mx-auto mb-10">
+<h1 class="text-3xl font-bold tracking-tight text-[#e7e5e4] mb-2">Team Settings</h1>
+<p class="text-on-surface-variant max-w-2xl">Manage your organization's members, roles, and granular access control policies across all cloud resources.</p>
+</div>
+<!-- Bento Grid Layout -->
+<div class="max-w-6xl mx-auto grid grid-cols-12 gap-6">
+<!-- RBAC Table Section -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container-low border border-outline-variant rounded p-1">
+<div class="p-4 flex items-center justify-between border-b border-outline-variant mb-2">
+<h3 class="font-semibold text-[#e7e5e4]">Team Members</h3>
+<div class="flex gap-2">
+<button class="text-xs px-3 py-1.5 border border-outline-variant hover:bg-surface-bright transition-colors rounded">Export CSV</button>
+<button class="text-xs px-3 py-1.5 bg-primary text-on-primary font-bold rounded">Invite Member</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm">
+<thead class="text-on-surface-variant uppercase text-[10px] tracking-widest">
+<tr class="border-b border-outline-variant">
+<th class="px-4 py-3 font-medium">User</th>
+<th class="px-4 py-3 font-medium">Role</th>
+<th class="px-4 py-3 font-medium">Status</th>
+<th class="px-4 py-3 font-medium text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="px-4 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center text-[10px] font-bold">JD</div>
+<div>
+<div class="text-[#e7e5e4] font-medium">John Doe</div>
+<div class="text-[11px] text-on-surface-variant">john@monolith.io</div>
+</div>
+</td>
+<td class="px-4 py-4">
+<span class="text-xs px-2 py-0.5 rounded border border-primary/30 text-primary bg-primary/5">Owner</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span class="text-[11px] text-on-surface-variant">Active</span>
+</div>
+</td>
+<td class="px-4 py-4 text-right">
+<button class="text-on-surface-variant hover:text-[#e7e5e4] transition-colors">
+<span class="material-symbols-outlined text-sm">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="px-4 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center text-[10px] font-bold">SA</div>
+<div>
+<div class="text-[#e7e5e4] font-medium">Sarah Abrams</div>
+<div class="text-[11px] text-on-surface-variant">s.abrams@monolith.io</div>
+</div>
+</td>
+<td class="px-4 py-4">
+<span class="text-xs px-2 py-0.5 rounded border border-outline-variant text-[#acabaa]">Architect</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span class="text-[11px] text-on-surface-variant">Active</span>
+</div>
+</td>
+<td class="px-4 py-4 text-right">
+<button class="text-on-surface-variant hover:text-[#e7e5e4] transition-colors">
+<span class="material-symbols-outlined text-sm">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors group">
+<td class="px-4 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center text-[10px] font-bold">MK</div>
+<div>
+<div class="text-[#e7e5e4] font-medium">Mike Kessler</div>
+<div class="text-[11px] text-on-surface-variant">m.k@monolith.io</div>
+</div>
+</td>
+<td class="px-4 py-4">
+<span class="text-xs px-2 py-0.5 rounded border border-outline-variant text-[#acabaa]">DevOps</span>
+</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span>
+<span class="text-[11px] text-on-surface-variant">Away</span>
+</div>
+</td>
+<td class="px-4 py-4 text-right">
+<button class="text-on-surface-variant hover:text-[#e7e5e4] transition-colors">
+<span class="material-symbols-outlined text-sm">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Stats/Summary Sidebar (Asymmetric) -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-surface-container-low border border-outline-variant rounded p-6">
+<h4 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">Resource Limits</h4>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-[11px] mb-1.5">
+<span class="text-[#e7e5e4]">Team Seats</span>
+<span class="text-on-surface-variant">8 / 10</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[80%]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-[11px] mb-1.5">
+<span class="text-[#e7e5e4]">API Keys</span>
+<span class="text-on-surface-variant">14 / 25</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[56%]"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant rounded p-6">
+<h4 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">Quick Actions</h4>
+<div class="space-y-2">
+<button class="w-full text-left text-xs px-3 py-2 border border-outline-variant hover:bg-surface-bright transition-all rounded flex items-center justify-between">
+                            Audit logs
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+<button class="w-full text-left text-xs px-3 py-2 border border-outline-variant hover:bg-surface-bright transition-all rounded flex items-center justify-between">
+                            Policy templates
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Policy Editor (The Focused Shell) -->
+<div class="col-span-12 bg-surface-container-low border border-outline-variant rounded mt-4">
+<div class="p-6 border-b border-outline-variant flex items-center justify-between">
+<div>
+<h3 class="text-lg font-bold tracking-tight text-[#e7e5e4]">Policy Editor</h3>
+<p class="text-xs text-on-surface-variant">JSON-based role definition for <code class="text-primary-dim bg-[#131313] px-1">Architect</code></p>
+</div>
+<div class="flex gap-3">
+<button class="text-xs px-4 py-2 border border-outline-variant hover:bg-surface-bright transition-colors rounded">Discard Changes</button>
+<button class="text-xs px-4 py-2 bg-primary text-on-primary font-bold rounded">Apply Policy</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2">
+<div class="p-6 border-r border-outline-variant bg-surface-container-lowest">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-sm text-primary">data_object</span>
+<span class="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Configuration Shell</span>
+</div>
+<pre class="font-mono text-xs text-[#acabaa] leading-relaxed space-y-1"><span class="text-primary">{</span>
+  <span class="text-white">"version"</span>: <span class="text-primary">"2024-02-01"</span>,
+  <span class="text-white">"statement"</span>: [
+    {
+      <span class="text-white">"effect"</span>: <span class="text-primary">"Allow"</span>,
+      <span class="text-white">"action"</span>: [
+        <span class="text-primary">"compute:CreateInstance"</span>,
+        <span class="text-primary">"compute:StopInstance"</span>,
+        <span class="text-primary">"compute:TerminateInstance"</span>
+      ],
+      <span class="text-white">"resource"</span>: <span class="text-primary">"arn:monolith:compute:*:*:instance/*"</span>
+    },
+    {
+      <span class="text-white">"effect"</span>: <span class="text-primary">"Deny"</span>,
+      <span class="text-white">"action"</span>: <span class="text-primary">"billing:*"</span>,
+      <span class="text-white">"resource"</span>: <span class="text-primary">"*"</span>
+    }
+  ]
+<span class="text-primary">}</span></pre>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-sm text-primary">visibility</span>
+<span class="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Capabilities Review</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-3">
+<div class="p-1 rounded bg-primary/10 border border-primary/20">
+<span class="material-symbols-outlined text-primary text-sm" data-weight="fill">check_circle</span>
+</div>
+<div>
+<p class="text-xs font-bold text-[#e7e5e4]">Infrastructure Provisioning</p>
+<p class="text-[10px] text-on-surface-variant">Can deploy, modify and scale cloud clusters.</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="p-1 rounded bg-primary/10 border border-primary/20">
+<span class="material-symbols-outlined text-primary text-sm" data-weight="fill">check_circle</span>
+</div>
+<div>
+<p class="text-xs font-bold text-[#e7e5e4]">Resource Access</p>
+<p class="text-[10px] text-on-surface-variant">Read-write access to S3 buckets and databases.</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="p-1 rounded bg-error/10 border border-error/20">
+<span class="material-symbols-outlined text-error text-sm" data-weight="fill">cancel</span>
+</div>
+<div>
+<p class="text-xs font-bold text-error">Billing Management</p>
+<p class="text-[10px] text-on-surface-variant">Restricted from accessing invoices or payment methods.</p>
+</div>
+</div>
+</div>
+<div class="pt-6 border-t border-outline-variant">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">Change Description</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded text-xs p-3 focus:border-primary focus:ring-0 transition-colors placeholder:text-outline" placeholder="Briefly describe why these permissions are being updated..." rows="3"></textarea>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Visual Indicator of Active Session -->
+<div class="fixed bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-surface-container-high border border-outline-variant rounded-full">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="text-[10px] font-mono text-on-surface-variant">SESSION: TERMINAL_ACTIVE_092</span>
+</div>
+</body></html>

@@ -3,230 +3,348 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OAuth Client Demo</title>
+    <title>OAuth Client Demo — Monolith Cloud</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+        
         .demo-container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 2rem auto;
             padding: 2rem;
         }
-        .config-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        
+        .demo-header {
             margin-bottom: 2rem;
         }
-        .user-info {
-            background: #f0fdf4;
-            border: 2px solid #10b981;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin-top: 1rem;
+        
+        .demo-title {
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            margin-bottom: 0.5rem;
         }
+        
+        .demo-subtitle {
+            color: var(--on-surface-variant);
+            font-size: 0.875rem;
+        }
+        
+        .config-section {
+            background-color: var(--surface-container-low);
+            border: 1px solid var(--outline-variant);
+            border-radius: var(--radius-default);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-title .material-symbols-outlined {
+            color: var(--primary);
+        }
+        
         .step {
-            background: #f8fafc;
+            background-color: var(--surface-container-lowest);
+            border: 1px solid var(--outline-variant);
+            border-left: 3px solid var(--primary);
             padding: 1rem;
-            border-left: 4px solid #4f46e5;
+            margin: 1rem 0;
+            border-radius: var(--radius-default);
+        }
+        
+        .step-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+        
+        .step-description {
+            font-size: 0.75rem;
+            color: var(--on-surface-variant);
+            line-height: 1.6;
+        }
+        
+        .user-info {
+            background-color: var(--primary/10);
+            border: 1px solid var(--primary);
+            padding: 1.5rem;
+            border-radius: var(--radius-default);
+            margin-top: 1.5rem;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--outline-variant/30);
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-size: 0.75rem;
+            color: var(--on-surface-variant);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .info-value {
+            font-size: 0.875rem;
+            color: var(--on-surface);
+            font-family: var(--font-mono);
+        }
+        
+        .code-block {
+            background-color: var(--surface-container-lowest);
+            border: 1px solid var(--outline-variant);
+            border-radius: var(--radius-default);
+            padding: 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            overflow-x: auto;
             margin: 1rem 0;
         }
     </style>
 </head>
 <body>
-    <div class="demo-container">
-        <h1>🔐 OAuth 2.0 Client Demo</h1>
-        <p>Test your OAuth integration with this demo application</p>
-
-        <div class="config-section">
-            <h2>Configuration</h2>
-            <div class="form-group">
-                <label>Client ID</label>
-                <input type="text" id="clientId" placeholder="Enter your client_id">
-            </div>
-            <div class="form-group">
-                <label>Client Secret</label>
-                <input type="password" id="clientSecret" placeholder="Enter your client_secret">
-            </div>
-            <div class="form-group">
-                <label>Redirect URI</label>
-                <input type="text" id="redirectUri" value="http://localhost:5000/client-demo.html" readonly>
-                <small>Make sure this matches your registered redirect URI</small>
-            </div>
-            <button class="btn btn-primary" onclick="startOAuthFlow()">
-                🚀 Start OAuth Flow
-            </button>
+    <!-- Top Navigation -->
+    <nav class="topbar">
+        <div class="topbar-brand">MONOLITH CLOUD</div>
+        <div class="topbar-nav">
+            <a href="/" class="topbar-link">Home</a>
+            <a href="/developer-portal.html" class="topbar-link">Developer Portal</a>
+            <a href="/client-demo.html" class="topbar-link" style="color: var(--primary);">Client Demo</a>
         </div>
-
-        <div class="config-section">
-            <h2>OAuth Flow Steps</h2>
-            
-            <div class="step">
-                <h4>Step 1: Authorization Request</h4>
-                <p>User is redirected to authorization server</p>
-                <div id="step1Status">⏳ Waiting...</div>
-            </div>
-
-            <div class="step">
-                <h4>Step 2: User Authentication</h4>
-                <p>User logs in and authorizes your application</p>
-                <div id="step2Status">⏳ Waiting...</div>
-            </div>
-
-            <div class="step">
-                <h4>Step 3: Token Exchange</h4>
-                <p>Exchange authorization code for access token</p>
-                <div id="step3Status">⏳ Waiting...</div>
-            </div>
-
-            <div class="step">
-                <h4>Step 4: Access Protected Resource</h4>
-                <p>Use access token to get user info</p>
-                <div id="step4Status">⏳ Waiting...</div>
-            </div>
+        <div class="topbar-actions">
+            <a href="/login.html" class="btn btn-sm btn-secondary">Sign In</a>
         </div>
+    </nav>
 
-        <div id="userInfoSection" style="display: none;">
+    <!-- Main Content -->
+    <main class="main-content-full">
+        <div class="demo-container">
+            <div class="demo-header">
+                <h1 class="demo-title">OAuth 2.0 Client Demo</h1>
+                <p class="demo-subtitle">Test your OAuth integration with this demo application</p>
+            </div>
+
+            <!-- Configuration Section -->
             <div class="config-section">
-                <h2>✅ Authentication Successful!</h2>
-                <div class="user-info">
-                    <h3>User Information</h3>
-                    <div id="userInfoDisplay"></div>
-                </div>
+                <h2 class="section-title">
+                    <span class="material-symbols-outlined">settings</span>
+                    Configuration
+                </h2>
                 
-                <h3>Access Token</h3>
-                <div class="token-box">
-                    <code id="accessTokenDisplay"></code>
-                    <button class="btn btn-sm" onclick="copyToken()">Copy</button>
+                <div class="step">
+                    <div class="step-title">Step 1: Get Your Credentials</div>
+                    <div class="step-description">
+                        Go to the <a href="/developer-portal.html" style="color: var(--primary);">Developer Portal</a> and register a new OAuth client to get your Client ID and Client Secret.
+                    </div>
                 </div>
 
-                <h3>ID Token (JWT)</h3>
-                <div class="token-box">
-                    <code id="idTokenDisplay"></code>
-                    <button class="btn btn-sm" onclick="copyIdToken()">Copy</button>
+                <div class="form-group">
+                    <label for="clientId" class="input-label">Client ID</label>
+                    <input type="text" id="clientId" class="input" placeholder="Enter your client_id">
                 </div>
                 
-                <button class="btn btn-secondary" onclick="testApiCall()">
-                    Test API Call
+                <div class="form-group">
+                    <label for="clientSecret" class="input-label">Client Secret</label>
+                    <input type="password" id="clientSecret" class="input" placeholder="Enter your client_secret">
+                </div>
+                
+                <div class="form-group">
+                    <label for="redirectUri" class="input-label">Redirect URI</label>
+                    <input type="text" id="redirectUri" class="input" value="http://localhost:5000/client-demo.html" readonly>
+                    <div style="font-size: 0.75rem; color: var(--on-surface-variant); margin-top: 0.25rem;">
+                        Make sure this matches your registered redirect URI
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="startOAuthFlow()" style="margin-top: 1rem;">
+                    <span class="material-symbols-outlined">rocket_launch</span>
+                    Start OAuth Flow
                 </button>
-                <button class="btn btn-secondary" onclick="revokeToken()">
-                    Revoke Token
-                </button>
-                <button class="btn btn-outline" onclick="reset()">
-                    Start Over
+            </div>
+
+            <!-- Steps Section -->
+            <div class="config-section">
+                <h2 class="section-title">
+                    <span class="material-symbols-outlined">flowchart</span>
+                    OAuth Flow Steps
+                </h2>
+                
+                <div class="step">
+                    <div class="step-title">1. Authorization Request</div>
+                    <div class="step-description">
+                        User is redirected to the authorization server with client_id, redirect_uri, and scope
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-title">2. User Authentication</div>
+                    <div class="step-description">
+                        User logs in and grants permission to the application
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-title">3. Authorization Code</div>
+                    <div class="step-description">
+                        Authorization server redirects back with an authorization code
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-title">4. Token Exchange</div>
+                    <div class="step-description">
+                        Application exchanges the code for access token and refresh token
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Info Section (hidden by default) -->
+            <div id="userInfo" class="user-info" style="display: none;">
+                <h2 class="section-title">
+                    <span class="material-symbols-outlined">verified</span>
+                    Authentication Successful
+                </h2>
+                
+                <div class="info-row">
+                    <span class="info-label">User ID</span>
+                    <span class="info-value" id="userId">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email</span>
+                    <span class="info-value" id="userEmail">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Username</span>
+                    <span class="info-value" id="username">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Role</span>
+                    <span class="info-value" id="userRole">-</span>
+                </div>
+                
+                <div class="code-block" id="tokenDisplay">
+                    <!-- Access token will be displayed here -->
+                </div>
+                
+                <button class="btn btn-secondary" onclick="clearAuth()" style="margin-top: 1rem;">
+                    <span class="material-symbols-outlined">logout</span>
+                    Clear Authentication
                 </button>
             </div>
         </div>
-
-        <div class="config-section">
-            <h2>📝 Implementation Code</h2>
-            <p>Here's how to implement this in your application:</p>
-            
-            <h3>JavaScript Example</h3>
-            <pre class="code-block"><code>// Step 1: Redirect to authorization URL
-const authUrl = 'http://localhost:5000/api/oauth/authorize?' +
-  new URLSearchParams({
-    client_id: 'YOUR_CLIENT_ID',
-    redirect_uri: 'YOUR_REDIRECT_URI',
-    response_type: 'code',
-    scope: 'openid profile email',
-    state: generateRandomState()
-  });
-
-window.location.href = authUrl;
-
-// Step 2: Handle callback (after user authorizes)
-const params = new URLSearchParams(window.location.search);
-const code = params.get('code');
-const state = params.get('state');
-
-// Step 3: Exchange code for tokens
-const response = await fetch('http://localhost:5000/api/oauth/token', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    code: code,
-    client_id: 'YOUR_CLIENT_ID',
-    client_secret: 'YOUR_CLIENT_SECRET',
-    redirect_uri: 'YOUR_REDIRECT_URI',
-    grant_type: 'authorization_code'
-  })
-});
-
-const tokens = await response.json();
-// { access_token, id_token, refresh_token, ... }
-
-// Step 4: Get user info
-const userResponse = await fetch('http://localhost:5000/api/oauth/userinfo', {
-  headers: { 'Authorization': `Bearer ${tokens.access_token}` }
-});
-
-const userInfo = await userResponse.json();</code></pre>
-        </div>
-    </div>
+    </main>
 
     <script>
-        // Check if returning from OAuth flow
-        window.addEventListener('load', handleCallback);
-
-        function handleCallback() {
-            const params = new URLSearchParams(window.location.search);
-            const code = params.get('code');
-            const state = params.get('state');
-            const error = params.get('error');
-
-            if (error) {
-                alert('Authorization error: ' + error);
-                return;
-            }
-
-            if (code) {
-                document.getElementById('step1Status').innerHTML = '✅ Authorization code received';
-                document.getElementById('step2Status').innerHTML = '✅ User authenticated';
-                exchangeCodeForToken(code);
-            }
+        // Check for OAuth callback
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        
+        if (code) {
+            exchangeToken(code);
         }
-
-        function generateRandomState() {
-            return Math.random().toString(36).substring(2, 15);
-        }
-
+        
         function startOAuthFlow() {
             const clientId = document.getElementById('clientId').value;
-            const redirectUri = document.getElementById('redirectUri').value;
-
-            if (!clientId) {
-                alert('Please enter Client ID');
+            const clientSecret = document.getElementById('clientSecret').value;
+            
+            if (!clientId || !clientSecret) {
+                alert('Please enter both Client ID and Client Secret');
                 return;
             }
-
-            // Save to sessionStorage for after redirect
-            sessionStorage.setItem('clientId', clientId);
-            sessionStorage.setItem('clientSecret', document.getElementById('clientSecret').value);
-
-            const state = generateRandomState();
-            sessionStorage.setItem('oauthState', state);
-
-            const authUrl = 'http://localhost:5000/api/oauth/authorize?' +
-                new URLSearchParams({
-                    client_id: clientId,
-                    redirect_uri: redirectUri,
-                    response_type: 'code',
-                    scope: 'openid profile email',
-                    state: state
-                });
-
-            document.getElementById('step1Status').innerHTML = '🔄 Redirecting to authorization server...';
             
-            setTimeout(() => {
-                window.location.href = authUrl;
-            }, 1000);
+            sessionStorage.setItem('clientId', clientId);
+            sessionStorage.setItem('clientSecret', clientSecret);
+            
+            const authUrl = '/api/oauth/authorize?' + new URLSearchParams({
+                client_id: clientId,
+                redirect_uri: window.location.origin + '/client-demo.html',
+                response_type: 'code',
+                scope: 'openid profile email',
+                state: Math.random().toString(36).substring(7)
+            });
+            
+            window.location.href = authUrl;
         }
-
-        async function exchangeCodeForToken(code) {
-            document.getElementById('step3Status').innerHTML = '🔄 Exchanging code for tokens...';
-
+        
+        async function exchangeToken(code) {
             const clientId = sessionStorage.getItem('clientId');
             const clientSecret = sessionStorage.getItem('clientSecret');
-            const redirectUri = document.getElementById('redirectUri').value;
+            
+            try {
+                const response = await fetch('/api/oauth/token', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        code,
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        redirect_uri: window.location.origin + '/client-demo.html',
+                        grant_type: 'authorization_code'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayUserInfo(data.data);
+                    // Clean URL
+                    window.history.replaceState({}, document.title, '/client-demo.html');
+                } else {
+                    alert('Token exchange failed: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
         }
+        
+        function displayUserInfo(data) {
+            const user = data.user || data;
+            
+            document.getElementById('userId').textContent = user.id || '-';
+            document.getElementById('userEmail').textContent = user.email || '-';
+            document.getElementById('username').textContent = user.username || '-';
+            document.getElementById('userRole').textContent = user.role || '-';
+            
+            if (data.access_token) {
+                const tokenPreview = data.access_token.substring(0, 50) + '...';
+                document.getElementById('tokenDisplay').textContent = 'Access Token: ' + tokenPreview;
+            }
+            
+            document.getElementById('userInfo').style.display = 'block';
+        }
+        
+        function clearAuth() {
+            sessionStorage.clear();
+            document.getElementById('userInfo').style.display = 'none';
+            document.getElementById('clientId').value = '';
+            document.getElementById('clientSecret').value = '';
+        }
+    </script>
+</body>
+</html>

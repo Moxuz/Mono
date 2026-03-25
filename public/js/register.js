@@ -1,92 +1,221 @@
-document.getElementById('registerForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+// ==========================================
+// REGISTER.JS - Registration Form Handler
+// ==========================================
 
-    const username          = document.getElementById('username').value.trim();
-    const email             = document.getElementById('email').value.trim();
-    const password          = document.getElementById('password').value;
-    const confirmPassword   = document.getElementById('confirmPassword').value;
-    const consentEssential  = document.getElementById('consentEssential').checked;
-    const consentAnalytics  = document.getElementById('consentAnalytics').checked;
+// Toggle password visibility
+function togglePassword(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = 'visibility_off';
+    } else {
+        input.type = 'password';
+        icon.textContent = 'visibility';
+    }
+}
 
-    // ── Validate ──────────────────────────────────────────────
+// Show alert message
+function showAlert(message, type = 'error') {
+    const alert = document.getElementById('alert');
+    alert.className = `alert alert-${type}`;
+    alert.textContent = message;
+    alert.style.display = 'block';
+    
+    alert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    setTimeout(() => {
+        alert.style.display = 'none';
+    }, 5000);
+}
+
+// Validate email format
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// Validate password (simplified - just 8 characters)
+function validatePassword(password) {
+    if (password.length < 8) {
+        return {
+            isValid: false,
+            missing: ['at least 8 characters']
+        };
+    }
+    
+    return {
+        isValid: true,
+        missing: []
+    };
+}
+
+// Calculate password strength (simplified)
+function calculatePasswordStrength(password) {
+    if (!password) return { 
+        strength: '', 
+        text: 'Enter password...', 
+        width: '0%', 
+        color: 'var(--outline-variant)' 
+    };
+    
+    const length = password.length;
+    
+    if (length < 8) {
+        return { 
+            strength: 'weak', 
+            text: 'TOO_SHORT', 
+            width: '25%', 
+            color: 'var(--error)' 
+        };
+    }
+    if (length < 10) {
+        return { 
+            strength: 'fair', 
+            text: 'FAIR_STRENGTH', 
+            width: '50%', 
+            color: '#ff9800' 
+        };
+    }
+    if (length < 12) {
+        return { 
+            strength: 'good', 
+            text: 'GOOD_STRENGTH', 
+            width: '75%', 
+            color: 'var(--secondary)' 
+        };
+    }
+    return { 
+        strength: 'strong', 
+        text: 'STRONG_SECURE', 
+        width: '100%', 
+        color: 'var(--primary)' 
+    };
+}
+
+// Update password strength indicator
+function updatePasswordStrength() {
+    const password = document.getElementById('password').value;
+    const strengthBarFill = document.getElementById('strengthBarFill');
+    const strengthText = document.getElementById('strengthText');
+    
+    const { strength, text, width, color } = calculatePasswordStrength(password);
+    
+    strengthBarFill.style.width = width;
+    strengthBarFill.style.backgroundColor = color;
+    strengthText.textContent = text;
+    strengthText.style.color = color;
+}
+
+// Handle form submission
+async function handleRegister(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const consentEssential = document.getElementById('consentEssential').checked;
+    const registerBtn = document.getElementById('registerBtn');
+    
+    // Validation
+    if (!username) {
+        showAlert('Please enter a username', 'error');
+        return;
+    }
+    
+    if (username.length < 3) {
+        showAlert('Username must be at least 3 characters long', 'error');
+        return;
+    }
+    
+    if (!email || !isValidEmail(email)) {
+        showAlert('Please enter a valid email address', 'error');
+        return;
+    }
+    
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.isValid) {
+        showAlert(`Password must include: ${passwordCheck.missing.join(', ')}`, 'error');
+        return;
+    }
+    
     if (password !== confirmPassword) {
         showAlert('Passwords do not match', 'error');
         return;
     }
-
+    
     if (!consentEssential) {
-        showAlert('กรุณายินยอมการใช้ข้อมูลที่จำเป็น (Essential consent is required)', 'error');
+        showAlert('You must agree to the Terms and Privacy Policy', 'error');
         return;
     }
-
-    // ── Submit ────────────────────────────────────────────────
-    setLoading(true);
-
+    
+    // Show loading state
+    registerBtn.disabled = true;
+    registerBtn.innerHTML = '<div class="spinner"></div><span>INITIALIZING...</span>';
+    
     try {
         const response = await fetch('/api/auth/register', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
                 username,
                 email,
                 password,
-                // ✅ ส่ง consent แยกตามวัตถุประสงค์
-                consentEssential,
-                consentAnalytics
-            })
+                consentEssential
+            }),
         });
-
+        
         const data = await response.json();
-
-        if (response.ok && data.success) {
-            showAlert('Registration successful! Redirecting...', 'success');
-
-            if (data.data?.token) {
-                localStorage.setItem('accessToken', data.data.token);
-            }
-
+        
+        if (response.ok) {
+            showAlert('ACCOUNT_CREATED > REDIRECT_INIT', 'success');
             setTimeout(() => {
                 window.location.href = '/login.html';
-            }, 2000);
-
+            }, 1500);
         } else {
-            showAlert(data.error || data.message || 'Registration failed', 'error');
+            showAlert(data.message || 'Registration failed', 'error');
+            registerBtn.disabled = false;
+            registerBtn.innerHTML = '<span>CREATE_ACCOUNT</span><span class="material-symbols-outlined">person_add</span>';
         }
-
     } catch (error) {
-        showAlert('Network error. Please try again.', 'error');
-        console.error('Register error:', error);
-
-    } finally {
-        setLoading(false);
+        console.error('Registration error:', error);
+        showAlert('ERR_NETWORK_FAILURE', 'error');
+        registerBtn.disabled = false;
+        registerBtn.innerHTML = '<span>CREATE_ACCOUNT</span><span class="material-symbols-outlined">person_add</span>';
     }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registerForm');
+    const passwordInput = document.getElementById('password');
+    const alert = document.getElementById('alert');
+    
+    // ✅ ซ่อน alert เมื่อโหลดหน้าเสร็จ
+    if (alert) {
+        alert.style.display = 'none';
+    }
+    
+    // Attach form submit handler
+    if (form) {
+        form.addEventListener('submit', handleRegister);
+    }
+    
+    // Attach password strength handler
+    if (passwordInput) {
+        passwordInput.addEventListener('input', updatePasswordStrength);
+    }
+    
+    // Attach password toggle handlers
+    const passwordToggleBtns = document.querySelectorAll('.password-toggle');
+    passwordToggleBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const inputId = this.getAttribute('data-input');
+            const iconId = this.getAttribute('data-icon');
+            togglePassword(inputId, iconId);
+        });
+    });
 });
-
-// ─── Google Register ──────────────────────────────────────────
-function registerWithGoogle() {
-    window.location.href = '/api/auth/google';
-}
-
-// ─── Loading State ────────────────────────────────────────────
-function setLoading(isLoading) {
-    const btn = document.querySelector('#registerForm button[type="submit"]');
-    if (!btn) return;
-    if (isLoading) {
-        btn.disabled = true;
-        btn.dataset.originalText = btn.textContent;
-        btn.textContent = 'Creating account...';
-    } else {
-        btn.disabled = false;
-        btn.textContent = btn.dataset.originalText || 'Create Account';
-    }
-}
-
-// ─── Show Alert ───────────────────────────────────────────────
-function showAlert(message, type) {
-    const alertBox = document.getElementById('alert');
-    alertBox.textContent = message;
-    alertBox.className = `alert alert-${type}`;
-    alertBox.style.display = 'block';
-    const duration = type === 'error' ? 6000 : 4000;
-    setTimeout(() => { alertBox.style.display = 'none'; }, duration);
-}

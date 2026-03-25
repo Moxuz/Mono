@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShopHub</title>
+    <title>ShopHub - E-commerce Platform</title>
     <style>
-        /* index มี style เฉพาะตัว */
+        /* index has specific styles */
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -25,14 +25,90 @@
             padding: 1.5rem; background: #f8fafc; border-radius: 12px;
         }
         .features li { margin: 0.75rem 0; color: #475569; }
+        
+        /* Buttons */
         .btn {
             display: inline-block; padding: 15px 40px;
             background: #3b82f6; color: white; text-decoration: none;
             border-radius: 50px; font-size: 1.1rem; font-weight: 600;
             transition: transform 0.2s, box-shadow 0.2s; margin: 10px;
+            border: none; cursor: pointer;
         }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(59,130,246,0.3); }
         .btn-secondary { background: #64748b; }
+        
+        /* Social Login Buttons */
+        .social-login {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .btn-social {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 300px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+        }
+        
+        .btn-social:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-google {
+            background: #ffffff;
+            color: #333333;
+            border: 1px solid #dddddd;
+        }
+        
+        .btn-github {
+            background: #24292e;
+            color: #ffffff;
+        }
+        
+        .btn-facebook {
+            background: #1877f2;
+            color: #ffffff;
+        }
+        
+        .btn-social svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: #64748b;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #dddddd;
+        }
+        
+        .divider span {
+            padding: 0 10px;
+            font-size: 0.9rem;
+        }
+        
         .status {
             margin-top: 2rem; padding: 1rem;
             background: #e7f3ff; border-radius: 8px; color: #0066cc;
@@ -55,7 +131,45 @@
             </ul>
         </div>
 
+        <!-- Traditional Login Button -->
         <a href="/login" class="btn">🚀 Login with SSO</a>
+
+        <!-- Divider -->
+        <div class="divider"><span>OR</span></div>
+
+        <!-- Social Login Buttons -->
+        <div class="social-login">
+            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 10px;">
+                Sign in with Social Media
+            </p>
+            
+            <!-- Google Login -->
+            <a href="http://localhost:5000/api/auth/google" class="btn-social btn-google">
+                <svg viewBox="0 0 18 18" aria-hidden="true">
+                    <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                    <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                    <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/>
+                    <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z"/>
+                </svg>
+                Continue with Google
+            </a>
+
+            <!-- GitHub Login -->
+            <a href="http://localhost:5000/api/auth/github" class="btn-social btn-github">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                Continue with GitHub
+            </a>
+
+            <!-- Facebook Login -->
+            <a href="http://localhost:5000/api/auth/facebook" class="btn-social btn-facebook">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M12 2.04C6.5 2.04 2 6.53 2 12.06C2 17.06 5.66 21.21 10.44 21.96V14.96H7.9V12.06H10.44V9.85C10.44 7.34 11.93 5.96 14.15 5.96C15.21 5.96 16.12 6.04 16.12 6.04V8.51H15.01C13.77 8.51 13.38 9.28 13.38 10.07V12.06H16.16L15.71 14.96H13.38V21.96C18.16 21.21 21.82 17.06 21.82 12.06C21.82 6.53 17.32 2.04 12 2.04Z"/>
+                </svg>
+                Continue with Facebook
+            </a>
+        </div>
 
         <div class="status" id="status">
             <p>📍 Status: Checking...</p>

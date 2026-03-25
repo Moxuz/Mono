@@ -1,8 +1,39 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../../auth/middleware/authenticate');
+const userController = require('../controllers/user.controller');
 const User = require('../../../shared/models/User');
 const logger = require('../../../shared/utils/logger');
+
+/**
+ * GET /api/users/profile
+ * Get current user profile (PDPA Right to Access)
+ */
+router.get('/profile', authenticate, userController.getProfile);
+
+/**
+ * PUT /api/users/profile
+ * Update current user profile
+ */
+router.put('/profile', authenticate, userController.updateProfile);
+
+/**
+ * DELETE /api/users/account
+ * Delete user account (PDPA Right to Erasure)
+ */
+router.delete('/account', authenticate, userController.deleteAccount);
+
+/**
+ * GET /api/users/export
+ * Export user data (PDPA Right to Data Portability)
+ */
+router.get('/export', authenticate, userController.exportData);
+
+/**
+ * GET /api/users/sessions
+ * Get active sessions
+ */
+router.get('/sessions', authenticate, userController.getSessions);
 
 /**
  * GET /api/users/me

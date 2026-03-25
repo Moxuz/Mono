@@ -3,105 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auth Monolith - Home</title>
+    <title>AuthSys — The Logic of Identity</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL,GRAD,opsz@20..48,100..700,0..1,-50..200" />
 </head>
 <body>
-    <div class="container">
-        <nav class="navbar">
-            <div class="nav-brand">
-                <h2>🔐 Auth System</h2>
-            </div>
-            <div class="nav-links">
-                <a href="/">Home</a>
-                <a href="/developer-portal.html">Developer Portal</a>
-                <a href="/login.html">Login</a>
-                <a href="/register.html">Register</a>
-            </div>
-        </nav>
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <a href="/" class="brand">AUTHSYS</a>
+        <div class="nav-actions">
+            <a href="/login.html" class="nav-link">Sign In</a>
+            <a href="/register.html" class="btn btn-sm btn-primary">Get Started</a>
+        </div>
+    </nav>
 
-        <div class="hero">
+    <main>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="grid-pattern"></div>
             <div class="hero-content">
-                <h1>Global Authentication System</h1>
-                <p>Secure OAuth 2.0 authentication for your applications</p>
+                <div class="hero-version">
+                    <span class="hero-version-dot"></span>
+                    v1.0.0-stable // production_ready
+                </div>
+                <h1 class="hero-title">
+                    The Logic of<br>
+                    <span class="text-primary-dim">Identity.</span>
+                </h1>
+                <p class="hero-subtitle">
+                    A high-precision authentication layer carved for developers. Stateless architecture, cryptographic certainty, and zero-latency execution.
+                </p>
                 <div class="hero-buttons">
-                    <a href="/register.html" class="btn btn-primary">Get Started</a>
-                    <a href="/login.html" class="btn btn-secondary">Sign In</a>
+                    <a href="/register.html" class="btn btn-lg btn-primary">
+                        Create Account
+                        <span class="material-symbols-outlined">arrow_forward</span>
+                    </a>
+                    <a href="/login.html" class="btn btn-lg btn-secondary">Documentation</a>
                 </div>
             </div>
-            <div class="hero-image">
-                <div class="placeholder-image">
-                    🔒
+        </section>
+
+        <!-- Feature Grid -->
+        <section class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-label">
+                    <span class="material-symbols-outlined">terminal</span>
+                    Protocol
                 </div>
+                <h3 class="feature-title">Bare-Metal Auth</h3>
+                <p class="feature-text">Eliminate middleware bloat. Directly integrate with our low-level API for sub-10ms validation latency.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-label">
+                    <span class="material-symbols-outlined">encrypted</span>
+                    Security
+                </div>
+                <h3 class="feature-title">Zero-Trust Origin</h3>
+                <p class="feature-text">Hardware-level security keys and biometric passkey support baked into the core primitive.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-label">
+                    <span class="material-symbols-outlined">database</span>
+                    Edge
+                </div>
+                <h3 class="feature-title">Global Persistence</h3>
+                <p class="feature-text">Data replicated across 32 regional clusters. Identity follows your users wherever they compute.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="landing-footer">
+        <div class="footer-container">
+            <div class="footer-brand-section">
+                <span class="footer-brand-name">AUTHSYS</span>
+                <span class="footer-copyright">© 2026 PRECISION LOGIC SYSTEMS</span>
+            </div>
+            <div class="footer-links">
+                <a href="/privacy-policy.html" class="footer-link">Privacy</a>
+                <a href="#" class="footer-link">Security</a>
+                <a href="#" class="footer-link">GitHub</a>
             </div>
         </div>
+    </footer>
 
-        <div class="features">
-            <h2>Features</h2>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🔐</div>
-                    <h3>OAuth 2.0 Provider</h3>
-                    <p>Full OAuth 2.0 implementation with authorization code flow</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🌐</div>
-                    <h3>OpenID Connect</h3>
-                    <p>OIDC-compliant identity provider with standard claims</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Easy Integration</h3>
-                    <p>Simple API with comprehensive documentation</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Secure by Default</h3>
-                    <p>Industry-standard security with JWT tokens and bcrypt</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">👥</div>
-                    <h3>User Management</h3>
-                    <p>Complete user management with roles and permissions</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📊</div>
-                    <h3>Client Dashboard</h3>
-                    <p>Manage your OAuth applications with ease</p>
+    <!-- Cookie Banner -->
+    <div id="cookieBanner" class="cookie-banner" role="dialog" aria-label="Cookie consent">
+        <div class="cookie-banner-content">
+            <div class="cookie-banner-text">
+                <span class="cookie-icon">🍪</span>
+                <div>
+                    <strong>COOKIE_LEDGER_NOTICE</strong>
+                    <p>Essential identity tracking enabled. <a href="/privacy-policy.html" target="_blank">POL_PRIVACY</a>.</p>
                 </div>
             </div>
-        </div>
-
-        <div class="features" style="background: #f8fafc; padding: 4rem 2rem; border-radius: 16px; margin-top: 4rem;">
-            <h2>How It Works</h2>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="feature-icon" style="background: #dbeafe; color: #1e40af; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">1</div>
-                    <h3>Register Your App</h3>
-                    <p>Create an OAuth client in the developer portal</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon" style="background: #dbeafe; color: #1e40af; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">2</div>
-                    <h3>Redirect Users</h3>
-                    <p>Send users to our authorization endpoint</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon" style="background: #dbeafe; color: #1e40af; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">3</div>
-                    <h3>Get Tokens</h3>
-                    <p>Exchange authorization code for access tokens</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon" style="background: #dbeafe; color: #1e40af; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">4</div>
-                    <h3>Access User Data</h3>
-                    <p>Use tokens to access protected resources</p>
-                </div>
+            <div class="cookie-banner-actions">
+                <button class="btn-cookie-decline" type="button">ESSENTIAL_ONLY</button>
+                <button class="btn-cookie-accept" type="button">ACCEPT_ALL</button>
             </div>
         </div>
-
-        <footer>
-            <p>&copy; 2024 Auth System. All rights reserved.</p>
-            <p><a href="/developer-portal.html">Developer Portal</a> | <a href="#">Documentation</a> | <a href="#">Support</a></p>
-        </footer>
     </div>
+
+    <script src="/js/cookie-banner.js"></script>
 </body>
 </html>

@@ -158,7 +158,10 @@ exports.showAuthorizeForm = async (req, res, next) => {
             return res.status(400).send('<h1>Invalid Client</h1>');
         }
 
-        const requestedScope = scope || 'openid profile email';
+        // Validate and sanitize scope
+        const requestedScope = scope 
+            ? scope.replace(/[^\w\s:]/g, '').trim()
+            : 'openid profile email';
 
         // ─── params ที่จะส่งไป consent.html ─────────────────────
         const baseParams = new URLSearchParams({
@@ -283,7 +286,12 @@ exports.authorize = async (req, res, next) => {
         }
 
         // ─── บันทึก Consent ───────────────────────────────────────
-        await Consent.saveConsent(userId, client_id, scope || 'openid profile email');
+        // Validate and sanitize scope
+        const sanitizedScope = scope 
+            ? scope.replace(/[^\w\s:]/g, '').trim()
+            : 'openid profile email';
+        
+        await Consent.saveConsent(userId, client_id, sanitizedScope);
 
         // ─── ออก code ─────────────────────────────────────────────
         const pkce = code_challenge
@@ -292,7 +300,7 @@ exports.authorize = async (req, res, next) => {
 
         const code = await oauthService.generateAuthorizationCode(
             userId, client_id, redirect_uri,
-            scope || 'openid profile email',
+            sanitizedScope,
             pkce
         );
 
@@ -314,23 +322,30 @@ exports.authorize = async (req, res, next) => {
 // token endpoint - รับ code_verifier
 exports.token = async (req, res, next) => {
     try {
-        const { 
-            code, 
-            client_id, 
-            client_secret, 
-            redirect_uri, 
-            grant_type, 
+        const {
+            code,
+            client_id,
+            client_secret,
+            redirect_uri,
+            grant_type,
             refresh_token,
-            code_verifier  
+            code_verifier,
+            session_token
         } = req.body;
 
         console.log('=== Token Endpoint ===');
         console.log('grant_type   :', grant_type);
-        console.log('code_verifier:', code_verifier); // ✅ เพิ่ม log
+        console.log('code_verifier:', code_verifier);
         console.log('======================');
 
         if (grant_type === 'refresh_token') {
-            const result = await oauthService.refreshAccessToken(refresh_token);
+            if (!refresh_token) {
+                return res.status(400).json({
+                    error: 'invalid_request',
+                    error_description: 'refresh_token is required'
+                });
+            }
+            const result = await oauthService.refreshAccessToken(refresh_token, { sessionToken: session_token });
             return res.json(result);
         }
 
@@ -350,11 +365,11 @@ exports.token = async (req, res, next) => {
 
 
         const tokens = await oauthService.exchangeCodeForTokens(
-            code, 
-            client_id, 
-            client_secret, 
+            code,
+            client_id,
+            client_secret,
             redirect_uri,
-            code_verifier  
+            code_verifier
         );
 
         logger.info('Tokens issued', { client_id });
@@ -374,7 +389,17 @@ exports.token = async (req, res, next) => {
  */
 exports.userinfo = async (req, res, next) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log('No valid authorization header provided');
+            return res.status(401).json({
+                error: 'invalid_token',
+                error_description: 'Valid authorization header required'
+            });
+        }
+
+        const token = authHeader.split(' ')[1];
 
         if (!token) {
             console.log('No token provided to userinfo endpoint');
@@ -391,10 +416,10 @@ exports.userinfo = async (req, res, next) => {
 
         console.log('UserInfo returned successfully');
         res.json(userInfo);
-        
+
     } catch (error) {
         logger.error('UserInfo endpoint error:', error);
-        
+
         // Error handling
         if (error.message.includes('expired')) {
             return res.status(401).json({
@@ -402,7 +427,7 @@ exports.userinfo = async (req, res, next) => {
                 error_description: 'Token has expired'
             });
         }
-        
+
         if (error.message.includes('not found')) {
             return res.status(404).json({
                 error: 'user_not_found',

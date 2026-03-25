@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Client App 1 - ShopHub E-commerce
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Usage:
+#   Start:     docker-compose -f docker-compose.client.yml up -d
+#   Stop:      docker-compose -f docker-compose.client.yml down
+#   Logs:      docker-compose -f docker-compose.client.yml logs -f
+#
+# This creates:
+#   - Client App 1 (ShopHub E-commerce with OAuth SSO)
+#
+# Prerequisites:
+#   - Auth server must be running first (docker-compose up -d in main folder)
+#   - OAuth client must be registered in auth server developer portal
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: '3.8'
+
+services:
+  # ─── Client App 1 (ShopHub E-commerce) ─────────────────────────────────────
+  client-app-1:
+    build:
+      context: ./cLient-app-1
+      dockerfile: ../Dockerfile.client
+    container_name: shophub-client
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - APP_NAME=ShopHub Client App 1
+      # OAuth Configuration (REAL credentials from registration)
+      - CLIENT_ID=3cbc1409a2716608ebf01a7d962e69cf
+      - CLIENT_SECRET=d97352ab0f1916409841e4655c489e31db76e5e4365bafc8eaf7cf0e3e9b922d
+      - REDIRECT_URI=http://localhost:3001/callback
+      - OAUTH_PROVIDER=http://host.docker.internal:5000
+      - SESSION_SECRET=super_secure_random_string_min_32_chars_here_change_this
+    # Note: Auth server must be running separately
+    # Remove depends_on if auth server is already running
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - client-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/session"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── Auth Server Reference (for dependency) ────────────────────────────────
+  # Note: This is just a reference. Auth server should run separately.
+  # Uncomment if you want to start everything together:
+  #
+  # auth-server:
+  #   image: auth-monolith:latest
+  #   container_name: auth-server
+  #   ports:
+  #     - "5000:5000"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=5000
+  #   networks:
+  #     - client-network
+  #   restart: unless-stopped
+
+networks:
+  client-network:
+    driver: bridge
+
+# Volumes (optional - for persistent data if needed)
+# volumes:
+#   client-data:

@@ -23,6 +23,9 @@ const userSchema = new mongoose.Schema({
         type: String,
         sparse: true
     },
+    
+    githubId: { type: String, sparse: true, unique: true },     
+     avatar: { type: String }, 
     role: {
         type: String,
         enum: ['user', 'admin', 'moderator'],
@@ -35,54 +38,95 @@ const userSchema = new mongoose.Schema({
     lastLogin: {
         type: Date
     },
-    
-      passwordResetToken: {
+
+    // Account Lockout
+    failedLoginAttempts: {
+        type: Number,
+        default: 0
+    },
+    lockUntil: {
+        type: Date,
+        default: null
+    },
+
+    // Email Verification
+    emailVerified: {
+        type: Boolean,
+        default: false
+    },
+    emailVerificationToken: {
         type: String,
-        select: false    // ไม่ดึงมาโดย default (ปลอดภัย)
+        select: false
+    },
+    emailVerificationExpires: {
+        type: Date,
+        select: false
+    },
+
+    passwordResetToken: {
+        type: String,
+        select: false
     },
     passwordResetExpires: {
         type: Date,
         select: false
     },
 
-    // ✅ PDPA Consent
-pdpaConsent: {
-    // ── Essential (Required) ──────────────────────
-    essentialAccepted: {
-        type: Boolean,
-        default: false
-    },
-    essentialAcceptedAt: {
-        type: Date
-    },
-
-    // ── Analytics (Optional) ─────────────────────
-    analyticsAccepted: {
-        type: Boolean,
-        default: false
-    },
-    analyticsAcceptedAt: {
-        type: Date
-    },
-
-    // ── Cookie Banner ─────────────────────────────
-    cookieConsentAccepted: {
-        type: Boolean,
-        default: null
-    },
-    cookieConsentAt: {
-        type: Date
+    
+    preferences: {
+        theme: {
+            type: String,
+            enum: ['dark', 'light', 'auto'],
+            default: 'dark'
+        },
+        language: {
+            type: String,
+            enum: ['en', 'th'],
+            default: 'en'
+        },
+        notifications: {
+            email: {
+                type: Boolean,
+                default: true
+            },
+            loginAlerts: {
+                type: Boolean,
+                default: true
+            }
+        }
     },
 
-    // ── Audit ─────────────────────────────────────
-    policyVersion: {
-        type: String,
-        default: null
-    },
-    consentIp: {
-        type: String
+    // PDPA Consent
+    pdpaConsent: {
+        essentialAccepted: {
+            type: Boolean,
+            default: false
+        },
+        essentialAcceptedAt: {
+            type: Date
+        },
+        analyticsAccepted: {
+            type: Boolean,
+            default: false
+        },
+        analyticsAcceptedAt: {
+            type: Date
+        },
+        cookieConsentAccepted: {
+            type: Boolean,
+            default: null
+        },
+        cookieConsentAt: {
+            type: Date
+        },
+        policyVersion: {
+            type: String,
+            default: null
+        },
+        consentIp: {
+            type: String
+        }
     }
-}
 }, {
     timestamps: true
 });
@@ -102,6 +146,43 @@ userSchema.pre('save', async function(next) {
 // Compare password
 userSchema.methods.comparePassword = async function(candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Check if account is locked
+userSchema.methods.isLocked = function() {
+    if (!this.lockUntil) return false;
+    return this.lockUntil > new Date();
+};
+
+// Increment failed login attempts
+userSchema.methods.incrementLoginAttempts = async function() {
+    const maxAttempts = 5;
+    const lockTimeMs = 15 * 60 * 1000;
+
+    if (this.lockUntil && this.lockUntil > new Date()) {
+        return false;
+    }
+
+    if (this.lockUntil && this.lockUntil < new Date()) {
+        this.failedLoginAttempts = 0;
+        this.lockUntil = null;
+    }
+
+    this.failedLoginAttempts += 1;
+
+    if (this.failedLoginAttempts >= maxAttempts) {
+        this.lockUntil = new Date(Date.now() + lockTimeMs);
+    }
+
+    await this.save();
+    return this.isLocked();
+};
+
+// Reset login attempts on successful login
+userSchema.methods.resetLoginAttempts = async function() {
+    this.failedLoginAttempts = 0;
+    this.lockUntil = null;
+    await this.save();
 };
 
 module.exports = mongoose.model('User', userSchema);

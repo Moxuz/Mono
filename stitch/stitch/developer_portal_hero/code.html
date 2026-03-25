@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&amp;family=Geist+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-fixed": "#d3ceef",
+              "tertiary-container": "#d3ceef",
+              "on-secondary-fixed-variant": "#5c5b5b",
+              "error-dim": "#bb5551",
+              "primary": "#adc6ff",
+              "error": "#ee7d77",
+              "on-secondary": "#202020",
+              "on-tertiary-fixed": "#34314b",
+              "on-secondary-fixed": "#403f3f",
+              "surface-tint": "#adc6ff",
+              "inverse-surface": "#fcf8f8",
+              "secondary-fixed": "#e5e2e1",
+              "primary-fixed": "#d8e2ff",
+              "surface-container-highest": "#252626",
+              "surface-bright": "#2c2c2c",
+              "on-secondary-container": "#c1bfbe",
+              "outline": "#767575",
+              "on-error-container": "#ff9993",
+              "on-error": "#490106",
+              "primary-dim": "#98b8ff",
+              "outline-variant": "#484848",
+              "surface-container-low": "#131313",
+              "on-primary-fixed": "#003c86",
+              "surface-dim": "#0e0e0e",
+              "on-surface-variant": "#acabaa",
+              "tertiary-dim": "#c5c0e0",
+              "primary-container": "#004395",
+              "on-background": "#e7e5e4",
+              "on-tertiary-fixed-variant": "#504e69",
+              "tertiary-fixed-dim": "#c5c0e0",
+              "error-container": "#7f2927",
+              "secondary-dim": "#9f9d9d",
+              "secondary-fixed-dim": "#d6d4d3",
+              "surface": "#0e0e0e",
+              "tertiary": "#e1dcfd",
+              "background": "#0e0e0e",
+              "inverse-on-surface": "#565554",
+              "on-primary": "#003d88",
+              "on-tertiary-container": "#47445f",
+              "surface-container-lowest": "#000000",
+              "on-surface": "#e7e5e4",
+              "secondary": "#9f9d9d",
+              "surface-container": "#191a1a",
+              "secondary-container": "#3c3b3b",
+              "primary-fixed-dim": "#c3d4ff",
+              "on-primary-container": "#bdd0ff",
+              "inverse-primary": "#005bc4",
+              "surface-variant": "#252626",
+              "on-tertiary": "#504d68",
+              "surface-container-high": "#1f2020",
+              "on-primary-fixed-variant": "#0057bd"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"],
+              "mono": ["Geist Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .grid-pattern {
+            background-image: linear-gradient(to right, #484848 1px, transparent 1px),
+                              linear-gradient(to bottom, #484848 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(circle at center, black, transparent 80%);
+            opacity: 0.15;
+        }
+        .text-tight { letter-spacing: -0.04em; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full border-b border-[#484848] border-opacity-100 bg-[#0e0e0e] text-[#adc6ff] font-['Inter'] tracking-tight antialiased flex items-center justify-between px-6 h-14 w-full z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#e7e5e4]">MONOLITH</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-[#adc6ff] font-medium hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 px-2 py-1 rounded" href="#">Documentation</a>
+<a class="text-[#acabaa] hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 px-2 py-1 rounded" href="#">Changelog</a>
+<a class="text-[#acabaa] hover:bg-[#2c2c2c] hover:text-[#e7e5e4] transition-colors duration-150 px-2 py-1 rounded" href="#">Status</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#acabaa] hover:text-[#e7e5e4] text-sm font-medium px-3 py-1.5 transition-colors">Sign In</button>
+<button class="bg-primary text-on-primary text-sm font-bold px-4 py-1.5 rounded-lg hover:bg-primary-dim transition-colors">Deploy</button>
+</div>
+</nav>
+<main class="relative min-h-screen pt-14 overflow-hidden">
+<!-- Background Grid -->
+<div class="absolute inset-0 grid-pattern pointer-events-none"></div>
+<!-- Hero Section -->
+<section class="relative z-10 max-w-7xl mx-auto px-6 pt-32 pb-48 lg:pt-48 lg:pb-64">
+<div class="flex flex-col items-start space-y-8">
+<!-- Version Pill -->
+<div class="inline-flex items-center gap-2 px-2.5 py-0.5 border border-outline-variant bg-surface-container-lowest text-primary text-xs font-mono rounded-full">
+<span class="flex h-1.5 w-1.5 rounded-full bg-primary"></span>
+                    v2.0-stable
+                </div>
+<!-- Headline -->
+<h1 class="text-5xl md:text-8xl font-black text-on-surface tracking-tighter leading-[0.9] max-w-4xl text-tight">
+                    The Logic of <br/>
+<span class="text-primary-dim">Identity.</span>
+</h1>
+<!-- Subtext -->
+<p class="text-on-surface-variant text-lg md:text-xl max-w-xl font-normal leading-relaxed">
+                    A high-precision authentication layer carved for developers. Stateless architecture, cryptographic certainty, and zero-latency execution.
+                </p>
+<!-- Actions -->
+<div class="flex flex-wrap gap-4 pt-4">
+<button class="bg-primary text-on-primary font-bold px-8 py-3 rounded-lg hover:bg-primary-dim transition-colors flex items-center gap-2 group">
+                        Get Started
+                        <span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+<button class="border border-outline-variant text-on-surface font-medium px-8 py-3 rounded-lg hover:bg-surface-bright transition-all">
+                        Documentation
+                    </button>
+</div>
+</div>
+</section>
+<!-- Feature Bento Row -->
+<section class="relative z-10 border-t border-outline-variant bg-surface-container-lowest">
+<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-outline-variant">
+<!-- Card 1 -->
+<div class="p-8 space-y-4 hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined">terminal</span>
+<span class="font-mono text-xs uppercase tracking-widest">Protocol</span>
+</div>
+<h3 class="text-xl font-bold tracking-tight">Bare-Metal Auth</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                        Eliminate middleware bloat. Directly integrate with our low-level API for sub-10ms validation latency.
+                    </p>
+</div>
+<!-- Card 2 -->
+<div class="p-8 space-y-4 hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined">encrypted</span>
+<span class="font-mono text-xs uppercase tracking-widest">Security</span>
+</div>
+<h3 class="text-xl font-bold tracking-tight">Zero-Trust Origin</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                        Hardware-level security keys and biometric passkey support baked into the core primitive.
+                    </p>
+</div>
+<!-- Card 3 -->
+<div class="p-8 space-y-4 hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined">database</span>
+<span class="font-mono text-xs uppercase tracking-widest">Edge</span>
+</div>
+<h3 class="text-xl font-bold tracking-tight">Global Persistence</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                        Data replicated across 32 regional clusters. Identity follows your users wherever they compute.
+                    </p>
+</div>
+</div>
+</section>
+<!-- Code Snippet Section -->
+<section class="relative z-10 border-t border-outline-variant py-24 px-6 bg-surface">
+<div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div class="space-y-6">
+<h2 class="text-3xl md:text-4xl font-bold tracking-tight">Built for your stack.</h2>
+<p class="text-on-surface-variant max-w-md">
+                        Deploy your first instance in seconds. Monolith provides native SDKs for every major environment, optimized for performance.
+                    </p>
+<ul class="space-y-3 font-mono text-sm">
+<li class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                            Next.js &amp; React Native
+                        </li>
+<li class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                            Rust &amp; WebAssembly
+                        </li>
+<li class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                            Go &amp; gRPC Support
+                        </li>
+</ul>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-6 rounded-lg font-mono text-sm overflow-hidden relative group">
+<div class="flex items-center gap-2 mb-4 border-b border-outline-variant pb-4">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<div class="w-2 h-2 rounded-full bg-primary-container"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<span class="ml-4 text-on-surface-variant text-xs">monolith-init.sh</span>
+</div>
+<div class="space-y-1">
+<p class="text-secondary-dim"># Install the CLI</p>
+<p class="text-on-surface"><span class="text-primary">curl</span> -sSL https://get.monolith.run | sh</p>
+<p class="text-on-surface-variant"> </p>
+<p class="text-secondary-dim"># Authenticate your terminal</p>
+<p class="text-on-surface"><span class="text-primary">monolith</span> login</p>
+<p class="text-on-surface-variant"> </p>
+<p class="text-secondary-dim"># Create new production instance</p>
+<p class="text-on-surface"><span class="text-primary">monolith</span> deploy --region <span class="text-primary-dim">us-east-1</span></p>
+<p class="text-on-surface-variant"> </p>
+<p class="text-on-primary-container font-bold animate-pulse">_ Deploying monolith-v2.0...</p>
+</div>
+<!-- Decorative Element -->
+<div class="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+<span class="material-symbols-outlined text-9xl">rocket_launch</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Simple Footer -->
+<footer class="relative z-10 border-t border-outline-variant bg-surface-container-lowest py-12 px-6">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex items-center gap-4">
+<span class="text-lg font-black tracking-tighter text-[#e7e5e4]">MONOLITH</span>
+<span class="text-xs font-mono text-on-surface-variant">© 2024 PRECISION LOGIC SYSTEMS</span>
+</div>
+<div class="flex gap-8 text-sm font-medium text-on-surface-variant">
+<a class="hover:text-primary transition-colors" href="#">Privacy</a>
+<a class="hover:text-primary transition-colors" href="#">Security</a>
+<a class="hover:text-primary transition-colors" href="#">Twitter</a>
+<a class="hover:text-primary transition-colors" href="#">GitHub</a>
+</div>
+</div>
+</footer>
+</body></html>
