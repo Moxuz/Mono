@@ -210,7 +210,7 @@ console.log('│                                                         │');
 console.log('│ # Google OAuth (Update with your credentials)           │');
 console.log('│ GOOGLE_CLIENT_ID=your_google_client_id                  │');
 console.log('│ GOOGLE_CLIENT_SECRET=your_google_client_secret          │');
-console.log('│ GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback');
+console.log('│ GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback');
 console.log('│                                                         │');
 console.log('│ # CORS Configuration                                    │');
 console.log('│ CORS_ORIGIN=http://localhost:3000,http://localhost:4000 │');
@@ -284,7 +284,7 @@ EMAIL_PASSWORD=your_email_password
 # Google OAuth
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
 
 # CORS
 CORS_ORIGIN=http://localhost:3000,http://localhost:4000

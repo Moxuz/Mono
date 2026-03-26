@@ -393,9 +393,6 @@ async function getDashboardStats(req, res) {
         // Active sessions
         const activeSessions = await Session.countDocuments({ isActive: true });
 
-        // 2FA enabled users
-        const twoFAEnabled = await User.countDocuments({ twoFactorEnabled: true });
-
         // Account lockouts (last 24h)
         const accountLockouts = await SecurityAudit.countDocuments({
             action: 'account_locked',
@@ -432,8 +429,6 @@ async function getDashboardStats(req, res) {
                     active: activeSessions
                 },
                 security: {
-                    twoFAEnabled,
-                    twoFAPercentage: totalUsers > 0 ? ((twoFAEnabled / totalUsers) * 100).toFixed(1) : 0,
                     accountLockouts24h: accountLockouts,
                     passwordChanges30d: passwordChanges
                 },

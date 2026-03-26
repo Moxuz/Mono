@@ -11,12 +11,6 @@
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get('token');
 
-  // ─── Check Token ────────────────────────────────────────────────────────────
-  if (!token) {
-    showAlert('Invalid or missing reset token', 'error');
-    submitBtn.disabled = true;
-  }
-
   // ─── Alert ──────────────────────────────────────────────────────────────────
   const showAlert = (message, type = 'error') => {
     alertEl.className    = `alert alert-${type}`;
@@ -28,6 +22,12 @@
     alertEl.style.display = 'none';
     alertEl.textContent   = '';
   };
+
+  // ─── Check Token ────────────────────────────────────────────────────────────
+  if (!token) {
+    showAlert('Invalid or missing reset token', 'error');
+    submitBtn.disabled = true;
+  }
 
   // ─── Field Error ────────────────────────────────────────────────────────────
   const showFieldError = (fieldId, message) => {
@@ -50,17 +50,12 @@
       showFieldError('password', 'Password must be at least 8 characters');
       return false;
     }
-    
-    // ตรวจสอบความแข็งแรงของรหัสผ่าน
-    const hasUpperCase = /[A-Z]/.test(value);
-    const hasLowerCase = /[a-z]/.test(value);
-    const hasNumber = /[0-9]/.test(value);
-    
-    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
-      showFieldError('password', 'Password must contain uppercase, lowercase, and number');
+
+    if (!/[0-9]/.test(value)) {
+      showFieldError('password', 'Password must contain at least 1 number');
       return false;
     }
-    
+
     showFieldError('password', '');
     return true;
   };
@@ -125,7 +120,7 @@
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to reset password');
+        throw new Error(data.message || data.error || 'Failed to reset password');
       }
 
       showAlert('Password reset successful! Redirecting to login...', 'success');

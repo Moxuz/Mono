@@ -43,53 +43,66 @@ function validatePassword(password) {
             missing: ['at least 8 characters']
         };
     }
-    
+
+    if (!/[0-9]/.test(password)) {
+        return {
+            isValid: false,
+            missing: ['at least 1 number']
+        };
+    }
+
     return {
         isValid: true,
         missing: []
     };
 }
 
-// Calculate password strength (simplified)
+// Calculate password strength — 4 levels based on character variety
 function calculatePasswordStrength(password) {
-    if (!password) return { 
-        strength: '', 
-        text: 'Enter password...', 
-        width: '0%', 
-        color: 'var(--outline-variant)' 
+    if (!password) return {
+        strength: '',
+        text: 'Enter password...',
+        width: '0%',
+        color: 'var(--outline-variant)'
     };
-    
-    const length = password.length;
-    
-    if (length < 8) {
-        return { 
-            strength: 'weak', 
-            text: 'TOO_SHORT', 
-            width: '25%', 
-            color: 'var(--error)' 
+
+    if (password.length < 8) {
+        return {
+            strength: 'weak',
+            text: 'TOO_SHORT — min 8 characters',
+            width: '25%',
+            color: 'var(--error)'
         };
     }
-    if (length < 10) {
-        return { 
-            strength: 'fair', 
-            text: 'FAIR_STRENGTH', 
-            width: '50%', 
-            color: '#ff9800' 
+
+    // Score by character variety (each type present = +1)
+    const hasLower   = /[a-z]/.test(password);
+    const hasUpper   = /[A-Z]/.test(password);
+    const hasDigit   = /[0-9]/.test(password);
+    const hasSymbol  = /[^a-zA-Z0-9]/.test(password);
+    const score = [hasLower, hasUpper, hasDigit, hasSymbol].filter(Boolean).length;
+
+    if (score === 1) {
+        return {
+            strength: 'fair',
+            text: 'FAIR — add numbers or symbols',
+            width: '50%',
+            color: '#ff9800'
         };
     }
-    if (length < 12) {
-        return { 
-            strength: 'good', 
-            text: 'GOOD_STRENGTH', 
-            width: '75%', 
-            color: 'var(--secondary)' 
+    if (score === 2 || score === 3) {
+        return {
+            strength: 'good',
+            text: 'GOOD — add more variety to strengthen',
+            width: '75%',
+            color: 'var(--secondary)'
         };
     }
-    return { 
-        strength: 'strong', 
-        text: 'STRONG_SECURE', 
-        width: '100%', 
-        color: 'var(--primary)' 
+    return {
+        strength: 'strong',
+        text: 'STRONG — excellent password',
+        width: '100%',
+        color: 'var(--primary)'
     };
 }
 

@@ -1,8 +1,8 @@
 // public/js/user-activity.js
 
 // Check authentication
-const token = localStorage.getItem('token');
-const user = JSON.parse(localStorage.getItem('user') || '{}');
+const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
+const user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || '{}');
 
 if (!token) {
     window.location.href = '/login.html';
@@ -206,35 +206,35 @@ function createSessionCard(session) {
 }
 
 async function revokeSessionHandler(sessionId) {
-    if (!confirm('⚠️ TERMINATE THIS SESSION?\n\nThis action cannot be undone.')) {
+    if (!confirm(typeof t === 'function' ? t('activity.confirmTerminate') : '⚠️ TERMINATE THIS SESSION?\n\nThis action cannot be undone.')) {
         return;
     }
-    
+
     try {
         const response = await sessionService.revokeSession(sessionId);
-        
+
         if (response.success) {
-            showToast('Session terminated successfully', 'success');
+            showToast(typeof t === 'function' ? t('activity.sessionTerminated') : 'Session terminated successfully', 'success');
             await loadActiveSessions();
         } else {
             throw new Error(response.error || 'Failed to terminate session');
         }
     } catch (error) {
         console.error('Revoke session error:', error);
-        showToast('Failed to terminate session: ' + error.message, 'error');
+        showToast((typeof t === 'function' ? t('activity.sessionFailed') : 'Failed to terminate session') + ': ' + error.message, 'error');
     }
 }
 
 async function revokeAllOtherSessionsHandler() {
-    if (!confirm('⚠️ TERMINATE ALL OTHER SESSIONS?\n\nYou will be logged out from all other devices.\nThis action cannot be undone.')) {
+    if (!confirm(typeof t === 'function' ? t('activity.confirmTerminateAll') : '⚠️ TERMINATE ALL OTHER SESSIONS?\n\nYou will be logged out from all other devices.\nThis action cannot be undone.')) {
         return;
     }
-    
+
     try {
         const response = await sessionService.revokeAllOtherSessions();
-        
+
         if (response.success) {
-            showToast(response.message || 'All other sessions terminated', 'success');
+            showToast(response.message || (typeof t === 'function' ? t('activity.allTerminated') : 'All other sessions terminated'), 'success');
             await loadActiveSessions();
         } else {
             throw new Error(response.error || 'Failed to terminate sessions');
@@ -258,7 +258,7 @@ async function revokeAllOtherSessionsHandler() {
                 window.location.href = '/login.html';
             }
         } else {
-            showToast('Failed to terminate sessions: ' + error.message, 'error');
+            showToast((typeof t === 'function' ? t('activity.terminateFailed') : 'Failed to terminate sessions') + ': ' + error.message, 'error');
         }
     }
 }
@@ -334,10 +334,7 @@ async function loadAuditLogs() {
             
             const isSuccess = log.status === 'success' || (!log.action.includes('failed') && !log.action.includes('blocked'));
             
-            // ใช้ ipHelper ถ้ามี
-            const displayIP = typeof cleanIPAddress === 'function' 
-                ? cleanIPAddress(log.ip) 
-                : log.ip;
+            const displayIP = maskIP(log.ip);
             
             const row = document.createElement('tr');
             row.className = 'audit-row';
@@ -358,7 +355,7 @@ async function loadAuditLogs() {
                 <td style="text-align: right;">
                     <button class="view-trace-btn" data-log-index="${index}">
                         <span class="material-symbols-outlined" style="font-size: 0.875rem;">visibility</span>
-                        VIEW_TRACE
+                        ${typeof t === 'function' ? t('activity.viewTrace') : 'VIEW_TRACE'}
                     </button>
                 </td>
             `;
@@ -396,7 +393,7 @@ async function loadAuditLogs() {
 }
 
 function exportLogs() {
-    showToast('Exporting logs...', 'success');
+    showToast(typeof t === 'function' ? t('activity.exportingLogs') : 'Exporting logs...', 'success');
     
     fetch('/api/auth/security-audit', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -418,17 +415,17 @@ function exportLogs() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        showToast('✅ Logs exported successfully', 'success');
+        showToast(typeof t === 'function' ? t('activity.logsExported') : '✅ Logs exported successfully', 'success');
     })
     .catch(error => {
         console.error('Export error:', error);
-        showToast('❌ Failed to export logs: ' + error.message, 'error');
+        showToast((typeof t === 'function' ? t('activity.exportFailed') : '❌ Failed to export logs: ') + error.message, 'error');
     });
 }
 
 function viewTrace(logData) {
     if (!logData) {
-        showToast('No trace data available', 'error');
+        showToast(typeof t === 'function' ? t('activity.noTraceData') : 'No trace data available', 'error');
         return;
     }
     
@@ -468,12 +465,12 @@ function viewTrace(logData) {
     header.innerHTML = `
         <div class="trace-modal-title">
             <span class="material-symbols-outlined">bug_report</span>
-            <h3>Security Trace Log</h3>
+            <h3>${typeof t === 'function' ? t('activity.traceTitle') : 'Security Trace Log'}</h3>
         </div>
         <div class="trace-modal-actions">
             <button class="trace-modal-btn" id="copyTraceBtn">
                 <span class="material-symbols-outlined">content_copy</span>
-                Copy
+                ${typeof t === 'function' ? t('activity.traceCopy') : 'Copy'}
             </button>
             <button class="trace-modal-btn trace-modal-btn-close" id="closeTraceBtn">
                 <span class="material-symbols-outlined">close</span>
@@ -570,22 +567,22 @@ function viewTrace(logData) {
             copyBtn.classList.add('copied');
             copyBtn.innerHTML = `
                 <span class="material-symbols-outlined">check</span>
-                Copied!
+                ${typeof t === 'function' ? t('activity.traceCopied') : 'Copied!'}
             `;
-            
-            showToast('Trace data copied to clipboard', 'success');
+
+            showToast(typeof t === 'function' ? t('activity.traceCopiedOk') : 'Trace data copied to clipboard', 'success');
             
             // Reset button after 2 seconds
             setTimeout(() => {
                 copyBtn.classList.remove('copied');
                 copyBtn.innerHTML = `
                     <span class="material-symbols-outlined">content_copy</span>
-                    Copy
+                    ${typeof t === 'function' ? t('activity.traceCopy') : 'Copy'}
                 `;
             }, 2000);
         } catch (error) {
             console.error('Copy failed:', error);
-            showToast('Failed to copy to clipboard', 'error');
+            showToast(typeof t === 'function' ? t('activity.traceCopyFailed') : 'Failed to copy to clipboard', 'error');
         }
     });
     
@@ -638,9 +635,9 @@ async function refreshDataWithFeedback() {
                 loadAuditLogs()
             ]);
             
-            showToast('Data refreshed successfully', 'success');
+            showToast(typeof t === 'function' ? t('activity.refreshed') : 'Data refreshed successfully', 'success');
         } catch (error) {
-            showToast('Failed to refresh data', 'error');
+            showToast(typeof t === 'function' ? t('activity.refreshFailed') : 'Failed to refresh data', 'error');
         } finally {
             // คืนค่าปุ่ม
             if (refreshBtn) {
@@ -681,7 +678,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (exportBtn) {
         exportBtn.innerHTML = `
             <span class="material-symbols-outlined" style="font-size: 0.875rem;">download</span>
-            EXPORT_JSON
+            ${typeof t === 'function' ? t('activity.exportJson') : 'EXPORT_JSON'}
         `;
         exportBtn.addEventListener('click', exportLogs);
     }
@@ -690,7 +687,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (refreshBtn) {
         refreshBtn.innerHTML = `
             <span class="material-symbols-outlined" style="font-size: 0.875rem;">refresh</span>
-            REFRESH_STREAM
+            ${typeof t === 'function' ? t('activity.refreshStream') : 'REFRESH_STREAM'}
         `;
         refreshBtn.addEventListener('click', refreshDataWithFeedback);
     }
@@ -708,7 +705,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function logout() {
-    if (confirm('Are you sure you want to logout?')) {
+    if (confirm(typeof t === 'function' ? t('activity.logoutConfirm') : 'Are you sure you want to logout?')) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login.html';

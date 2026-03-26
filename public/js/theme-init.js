@@ -1,21 +1,15 @@
-// ✅ Theme Initialization - ต้องโหลดก่อน CSS
+// Theme Initialization — runs before CSS renders
+// Only manages the .dark class. Light theme CSS is toggled via <link disabled> in each page.
 (function() {
   'use strict';
-  
-  // ดึง theme จาก localStorage หรือใช้ 'dark' เป็น default
+
   const savedTheme = localStorage.getItem('theme') || 'dark';
-  
-  // Apply theme ทันที
-  if (savedTheme === 'dark') {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = savedTheme === 'dark' || (savedTheme === 'auto' && prefersDark);
+
+  if (isDark) {
     document.documentElement.classList.add('dark');
-  } else if (savedTheme === 'light') {
+  } else {
     document.documentElement.classList.remove('dark');
-  } else if (savedTheme === 'auto') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (prefersDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
   }
 })();

@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Activity — AuthSys</title>
-     <script src="/scripts/theme-init.js"></script>
+     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css">
+    <link id="lighttheme-css" rel="stylesheet" href="/css/lighttheme.css" disabled>
+    <script>if(localStorage.getItem("theme")==="light"){document.getElementById("lighttheme-css").disabled=false;}</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 </head>
@@ -14,12 +16,12 @@
     <header class="topbar fixed top-0 left-64 right-0 h-14 bg-surface-dim border-b border-outline-variant z-30 flex items-center justify-between px-6">
         <div class="system-status">
             <span class="status-pulse"></span>
-            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl">System Normal</span>
+            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl" data-i18n="topbar.status">System Normal</span>
         </div>
         <div class="flex items-center gap-6">
             <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
                 <span id="userEmailTop" class="text-xs font-mono text-on-surface-variant"></span>
-                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop">Logout</button>
+                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop" data-i18n="topbar.logout">Logout</button>
             </div>
         </div>
     </header>
@@ -34,23 +36,23 @@
         <nav class="flex-1 space-y-1">
             <a href="/dashboard.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">insights</span>
-                <span class="text-sm tracking-tight">Console</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.console">Console</span>
             </a>
             <a href="/user-activity.html" class="sidebar-link active flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
-                <span class="text-sm tracking-tight">Activity</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.activity">Activity</span>
             </a>
             <a href="/api-keys.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">key</span>
-                <span class="text-sm tracking-tight">API Keys</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.apikeys">API Keys</span>
             </a>
             <a href="/profile.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">person</span>
-                <span class="text-sm tracking-tight">Profile</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.profile">Profile</span>
             </a>
             <a href="/settings.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">settings</span>
-                <span class="text-sm tracking-tight">Settings</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.settings">Settings</span>
             </a>
         </nav>
         
@@ -72,15 +74,15 @@
         <div class="p-8 max-w-1600 mx-auto">
             <!-- Page Header -->
             <div class="mb-10">
-                <h2 class="text-3xl font-bold tracking-tighter text-on-surface">Activity Monitor</h2>
-                <p class="text-on-surface-variant mt-2 text-sm italic">Real-time session tracking and security event stream for your identity.</p>
+                <h2 class="text-3xl font-bold tracking-tighter text-on-surface" data-i18n="activity.title">Activity Monitor</h2>
+                <p class="text-on-surface-variant mt-2 text-sm italic" data-i18n="activity.subtitle">Real-time session tracking and security event stream for your identity.</p>
             </div>
 
             <!-- 🆕 Active Sessions Section -->
             <div class="sessions-section mb-10">
                 <div class="activity-header mb-6">
                     <div>
-                        <h3 class="activity-title">Active Sessions</h3>
+                        <h3 class="activity-title" data-i18n="activity.activeSessions">Active Sessions</h3>
                         <p style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--on-surface-variant); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em;">
                             IDENTITY_MONITORS • DEVICE_TRACKING • TERMINATION_CTRL
                         </p>
@@ -105,7 +107,7 @@
                 <div class="audit-header">
                     <div class="flex gap-4">
                         <div class="audit-title">
-                            <h3 class="text-xl font-bold tracking-tighter text-on-surface">Security Audit Log</h3>
+                            <h3 class="text-xl font-bold tracking-tighter text-on-surface" data-i18n="activity.auditLog">Security Audit Log</h3>
                             <span class="live-tag">STREAM</span>
                         </div>
                     </div>
@@ -118,11 +120,11 @@
                     <table class="audit-table">
                         <thead>
                             <tr>
-                                <th>Timestamp</th>
-                                <th>Status</th>
-                                <th>Source IP</th>
-                                <th>Event Message</th>
-                                <th style="text-align: right;">Trace</th>
+                                <th data-i18n="activity.timestamp">Timestamp</th>
+                                <th data-i18n="activity.status">Status</th>
+                                <th data-i18n="activity.sourceIp">Source IP</th>
+                                <th data-i18n="activity.eventMessage">Event Message</th>
+                                <th style="text-align: right;" data-i18n="activity.trace">Trace</th>
                             </tr>
                         </thead>
                         <tbody id="activityLog">
@@ -141,6 +143,7 @@
     
     <script src="/js/ipHelper.js"></script>
     <script src="/js/sessionService.js"></script>
+    <script src="/js/i18n.js"></script>
     <script src="/js/user-activity.js"></script>
 </body>
 </html>

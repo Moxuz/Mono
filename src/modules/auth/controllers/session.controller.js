@@ -22,13 +22,20 @@ exports.getSessions = async (req, res, next) => {
         const currentSessionId = req.authSession?.sessionId;
         
         const result = await sessionService.getUserSessions(userId, currentSessionId);
-        
+
+        logger.info('getSessions: active sessions fetched', {
+            function: 'getSessions',
+            userId,
+            count: result.count,
+            currentSessionId
+        });
+
         res.json({
             success: true,
             data: result
         });
     } catch (error) {
-        logger.error('Get sessions error:', error);
+        logger.error('getSessions failed', { function: 'getSessions', error: error.message });
         res.status(500).json({
             success: false,
             error: 'Failed to get sessions'
@@ -52,21 +59,28 @@ exports.revokeSession = async (req, res, next) => {
         }
         
         const result = await sessionService.revokeSession(sessionId, userId, 'user_logout');
-        
+
+        logger.security('revokeSession: session terminated by user', {
+            function: 'revokeSession',
+            userId,
+            sessionId,
+            ip: req.ip
+        });
+
         await securityAuditService.logSecurityEvent({
             userId,
             action: 'token_revoked',
             status: 'success',
             ipAddress: req.ip,
-            metadata: { sessionId, reason: 'user_logout' }
+            metadata: { sessionId, reason: 'user_logout', function: 'revokeSession' }
         });
-        
+
         res.json({
             success: true,
             message: result.message
         });
     } catch (error) {
-        logger.error('Revoke session error:', error);
+        logger.error('revokeSession failed', { function: 'revokeSession', error: error.message, sessionId: req.params?.sessionId, userId: req.user?.id });
         
         if (error.message === 'Session not found') {
             return res.status(404).json({
@@ -109,21 +123,28 @@ exports.revokeAllOtherSessions = async (req, res, next) => {
         }
         
         const result = await sessionService.revokeAllOtherSessions(userId, currentSessionId, 'user_logout');
-        
+
+        logger.security('revokeAllOtherSessions: all other sessions revoked', {
+            function: 'revokeAllOtherSessions',
+            userId,
+            keptSessionId: currentSessionId,
+            ip: req.ip
+        });
+
         await securityAuditService.logSecurityEvent({
             userId,
             action: 'token_revoked',
             status: 'success',
             ipAddress: req.ip,
-            metadata: { action: 'revoke_all_other_sessions' }
+            metadata: { action: 'revoke_all_other_sessions', keptSessionId: currentSessionId }
         });
-        
+
         res.json({
             success: true,
             message: result.message
         });
     } catch (error) {
-        logger.error('Revoke all other sessions error:', error);
+        logger.error('revokeAllOtherSessions failed', { function: 'revokeAllOtherSessions', error: error.message, userId: req.user?.id });
         res.status(500).json({
             success: false,
             error: 'Failed to revoke sessions'

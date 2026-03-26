@@ -344,9 +344,6 @@ async function getMetricsSummary(req, res) {
         // Active sessions
         const activeSessions = await Session.countDocuments({ isActive: true });
 
-        // 2FA statistics
-        const twoFAEnabled = await User.countDocuments({ twoFactorEnabled: true });
-
         res.json({
             success: true,
             data: {
@@ -365,9 +362,7 @@ async function getMetricsSummary(req, res) {
                 },
                 security: {
                     eventsToday: securityEventsToday,
-                    accountLockouts: accountLockoutsToday,
-                    twoFAEnabled,
-                    twoFAPercentage: totalUsers > 0 ? ((twoFAEnabled / totalUsers) * 100).toFixed(1) : 0
+                    accountLockouts: accountLockoutsToday
                 },
                 sessions: {
                     active: activeSessions

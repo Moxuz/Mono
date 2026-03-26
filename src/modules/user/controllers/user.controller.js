@@ -1,5 +1,6 @@
 const userService = require('../services/user.service');
 const logger = require('../../../shared/utils/logger');
+const securityAuditService = require('../../../shared/services/securityAudit.service');
 
 /**
  * Get current user profile
@@ -46,6 +47,17 @@ exports.updateProfile = async (req, res, next) => {
         }
 
         const user = await userService.updateUser(userId, updateData);
+
+        await securityAuditService.logSecurityEvent({
+            userId,
+            action: 'profile_updated',
+            status: 'success',
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'],
+            metadata: { fields: Object.keys(updateData) }
+        });
+
+        logger.info('updateProfile: profile updated', { function: 'updateProfile', userId, fields: Object.keys(updateData) });
 
         res.json({
             success: true,

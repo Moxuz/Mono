@@ -250,7 +250,7 @@ sessionSchema.statics.revokeAllSessions = async function(userId, reason, exclude
         const query = { userId, isActive: true };
         
         if (excludeSessionId) {
-            query._id = { $ne: excludeSessionId };
+            query._id = { $ne: new mongoose.Types.ObjectId(excludeSessionId) };
         }
 
         const result = await this.updateMany(

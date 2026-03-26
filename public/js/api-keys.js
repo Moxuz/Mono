@@ -1,16 +1,16 @@
 // Check authentication
-const token = localStorage.getItem('token');
-const user = JSON.parse(localStorage.getItem('user') || '{}');
+const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
+const user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || '{}');
 
 if (!token) {
     window.location.href = '/login.html';
 }
 
-// Load API keys from localStorage
-let apiKeys = JSON.parse(localStorage.getItem('apiKeys') || '[]');
+// Load API keys from backend
+let apiKeys = [];
 
 // Update UI with user info
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     if (user.username) {
         document.getElementById('userNameSide').textContent = user.username;
     }
@@ -21,13 +21,54 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('userRoleSide').textContent = user.role.toUpperCase();
     }
 
-    // Load API keys
-    loadApiKeys();
+    // Load API keys from backend
+    await fetchApiKeys();
     updateStats();
     
     // Setup event listeners
     setupEventListeners();
 });
+
+async function fetchApiKeys() {
+    try {
+        const response = await fetch('/api/oauth/clients', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const result = await response.json();
+        if (result.success) {
+            // Map backend client data to frontend apiKeys format
+            apiKeys = result.data.clients.map(client => ({
+                id: client.client_id,
+                name: client.client_name,
+                environment: client.application_type === 'web' ? 'production' : 'development',
+                clientId: client.client_id,
+                clientSecret: '••••••••••••••••••••••••••••', // Secret not returned in list
+                scopes: (client.scope || 'openid profile email').split(' '),
+                createdAt: client.createdAt,
+                lastUsed: client.lastUsed ? formatTimeAgo(client.lastUsed) : 'Never',
+                requests24h: 0,
+                totalRequests: client.totalRequests || 0,
+                rateLimit: '1000/hr',
+                secretVisible: false
+            }));
+            loadApiKeys();
+            updateStats();
+        }
+    } catch (error) {
+        console.error('Fetch keys error:', error);
+    }
+}
+
+// Format time ago for consistency with other pages
+function formatTimeAgo(date) {
+    const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+}
 
 // Setup all event listeners
 function setupEventListeners() {
@@ -85,8 +126,8 @@ function loadApiKeys() {
         container.innerHTML = `
             <div class="api-keys-empty">
                 <span class="material-symbols-outlined">vpn_key_off</span>
-                <p>No API keys yet</p>
-                <small>Create your first API key to get started</small>
+                <p>${typeof t === 'function' ? t('apikeys.noKeys') : 'No API keys yet'}</p>
+                <small>${typeof t === 'function' ? t('apikeys.noKeysHint') : 'Create your first API key to get started'}</small>
             </div>
         `;
         return;
@@ -114,7 +155,7 @@ function loadApiKeys() {
             </div>
             <div class="api-key-body">
                 <div class="api-key-credential">
-                    <span class="api-key-credential-label">Client ID</span>
+                    <span class="api-key-credential-label">${typeof t === 'function' ? t('apikeys.clientId') : 'Client ID'}</span>
                     <div class="api-key-credential-value">
                         <span class="api-key-credential-text">${key.clientId}</span>
                         <button class="api-key-credential-btn" data-copy-direct="${key.clientId}">
@@ -123,7 +164,7 @@ function loadApiKeys() {
                     </div>
                 </div>
                 <div class="api-key-credential">
-                    <span class="api-key-credential-label">Client Secret</span>
+                    <span class="api-key-credential-label">${typeof t === 'function' ? t('apikeys.clientSecret') : 'Client Secret'}</span>
                     <div class="api-key-credential-value">
                         <span class="api-key-credential-text" id="secret-${key.id}">${key.secretVisible ? key.clientSecret : '••••••••••••••••••••••••••••'}</span>
                         <button class="api-key-credential-btn" data-action="toggle-secret" data-key-id="${key.id}">
@@ -135,22 +176,22 @@ function loadApiKeys() {
                     </div>
                 </div>
                 <div class="api-key-credential">
-                    <span class="api-key-credential-label">Scopes</span>
+                    <span class="api-key-credential-label">${typeof t === 'function' ? t('apikeys.scopes') : 'Scopes'}</span>
                     <div class="api-key-scopes">
                         ${key.scopes.map(scope => `<span class="api-key-scope">${scope}</span>`).join('')}
                     </div>
                 </div>
                 <div class="api-key-usage">
                     <div class="api-key-usage-item">
-                        <span class="api-key-usage-label">Requests (24h)</span>
+                        <span class="api-key-usage-label">${typeof t === 'function' ? t('apikeys.requests') : 'Requests (24h)'}</span>
                         <span class="api-key-usage-value">${key.requests24h || 0}</span>
                     </div>
                     <div class="api-key-usage-item">
-                        <span class="api-key-usage-label">Total Requests</span>
+                        <span class="api-key-usage-label">${typeof t === 'function' ? t('apikeys.totalRequests') : 'Total Requests'}</span>
                         <span class="api-key-usage-value">${key.totalRequests || 0}</span>
                     </div>
                     <div class="api-key-usage-item">
-                        <span class="api-key-usage-label">Rate Limit</span>
+                        <span class="api-key-usage-label">${typeof t === 'function' ? t('apikeys.rateLimit') : 'Rate Limit'}</span>
                         <span class="api-key-usage-value">${key.rateLimit || '1000/hr'}</span>
                     </div>
                 </div>
@@ -246,54 +287,87 @@ function closeCreateModal() {
 }
 
 // Create API key
-function createApiKey() {
+async function createApiKey() {
     const name = document.getElementById('keyName').value.trim();
     const environment = document.getElementById('keyEnvironment').value;
     const scopeInputs = document.querySelectorAll('.scope-checkbox input:checked');
     const scopes = Array.from(scopeInputs).map(input => input.value);
 
     if (!name) {
-        showToast('Please enter a key name', 'error');
+        showToast(typeof t === 'function' ? t('apikeys.needName') : 'Please enter a key name', 'error');
         return;
     }
 
     if (scopes.length === 0) {
-        showToast('Please select at least one scope', 'error');
+        showToast(typeof t === 'function' ? t('apikeys.needScope') : 'Please select at least one scope', 'error');
         return;
     }
 
-    const prefix = environment === 'production' ? 'pk_live' : 'pk_test';
-    const secretPrefix = environment === 'production' ? 'sk_live' : 'sk_test';
-    
-    const newKey = {
-        id: 'key_' + Date.now(),
-        name: name,
-        environment: environment,
-        clientId: `${prefix}_${generateRandomString(32)}`,
-        clientSecret: `${secretPrefix}_${generateRandomString(32)}`,
-        scopes: scopes,
-        createdAt: new Date().toISOString(),
-        lastUsed: null,
-        requests24h: 0,
-        totalRequests: 0,
-        rateLimit: '1000/hr',
-        secretVisible: false
-    };
+    const submitBtn = document.getElementById('submitCreateKeyBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = typeof t === 'function' ? t('apikeys.creating') : 'CREATING...';
 
-    apiKeys.unshift(newKey);
-    localStorage.setItem('apiKeys', JSON.stringify(apiKeys));
+    try {
+        const response = await fetch('/api/oauth/clients', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                client_name: name,
+                description: `Managed API key for ${environment}`,
+                redirect_uris: ['http://localhost:3000/callback'], // Default placeholder
+                application_type: environment === 'production' ? 'web' : 'native',
+                contact_email: user.email,
+                scope: scopes.join(' ')
+            })
+        });
 
-    closeCreateModal();
-    
-    // Show secret modal
-    document.getElementById('newClientId').textContent = newKey.clientId;
-    document.getElementById('newClientSecret').textContent = newKey.clientSecret;
-    openSecretModal();
+        const result = await response.json();
 
-    loadApiKeys();
-    updateStats();
-    
-    showToast('API key created successfully', 'success');
+        if (result.success) {
+            const client = result.data;
+            
+            // Add to local list for immediate display
+            const newKey = {
+                id: client.client_id,
+                name: client.client_name,
+                environment: environment,
+                clientId: client.client_id,
+                clientSecret: client.client_secret, // Returned ONLY on creation
+                scopes: scopes,
+                createdAt: client.created_at || new Date().toISOString(),
+                lastUsed: 'Never',
+                requests24h: 0,
+                totalRequests: 0,
+                rateLimit: '1000/hr',
+                secretVisible: true
+            };
+
+            apiKeys.unshift(newKey);
+
+            closeCreateModal();
+            
+            // Show secret modal
+            document.getElementById('newClientId').textContent = newKey.clientId;
+            document.getElementById('newClientSecret').textContent = newKey.clientSecret;
+            openSecretModal();
+
+            loadApiKeys();
+            updateStats();
+            
+            showToast(typeof t === 'function' ? t('apikeys.created') : 'API key created successfully', 'success');
+        } else {
+            showToast(result.error || (typeof t === 'function' ? t('apikeys.createFailed') : 'Failed to create API key'), 'error');
+        }
+    } catch (error) {
+        console.error('Create key error:', error);
+        showToast(typeof t === 'function' ? t('apikeys.networkError') : 'Network error creating API key', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'GENERATE KEY';
+    }
 }
 
 // Open secret modal
@@ -315,7 +389,6 @@ function toggleSecret(keyId) {
     const key = apiKeys.find(k => k.id === keyId);
     if (key) {
         key.secretVisible = !key.secretVisible;
-        localStorage.setItem('apiKeys', JSON.stringify(apiKeys));
         loadApiKeys();
     }
 }
@@ -323,8 +396,8 @@ function toggleSecret(keyId) {
 // Copy to clipboard (renamed to avoid conflicts)
 function copyKeyToClipboard(text, button) {
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Copied to clipboard', 'success');
-        
+        showToast(typeof t === 'function' ? t('apikeys.copied') : 'Copied to clipboard', 'success');
+
         // Visual feedback
         if (button) {
             const icon = button.querySelector('.material-symbols-outlined');
@@ -346,8 +419,8 @@ function copyToClipboard(elementId) {
     const text = element.textContent;
     
     navigator.clipboard.writeText(text).then(() => {
-        showToast('Copied to clipboard', 'success');
-        
+        showToast(typeof t === 'function' ? t('apikeys.copied') : 'Copied to clipboard', 'success');
+
         // Visual feedback
         const button = element.parentElement.querySelector('.secret-copy-btn');
         if (button) {
@@ -366,34 +439,37 @@ function copyToClipboard(elementId) {
 
 // Regenerate key
 function regenerateKey(keyId) {
-    if (!confirm('⚠️ Regenerating this key will invalidate the current secret.\n\nAny applications using the old secret will stop working.\n\nContinue?')) {
-        return;
-    }
-
-    const key = apiKeys.find(k => k.id === keyId);
-    if (key) {
-        const secretPrefix = key.environment === 'production' ? 'sk_live' : 'sk_test';
-        key.clientSecret = `${secretPrefix}_${generateRandomString(32)}`;
-        key.secretVisible = true;
-        localStorage.setItem('apiKeys', JSON.stringify(apiKeys));
-        
-        loadApiKeys();
-        showToast('API key regenerated successfully', 'success');
-    }
+    showToast('Regeneration is currently handled via support', 'info');
 }
 
 // Revoke key
-function revokeKey(keyId) {
-    if (!confirm('⚠️ Are you sure you want to revoke this API key?\n\nThis action cannot be undone.')) {
+async function revokeKey(keyId) {
+    if (!confirm(typeof t === 'function' ? t('apikeys.revokeConfirm') : '⚠️ Are you sure you want to revoke this API key?\n\nThis action cannot be undone.')) {
         return;
     }
 
-    apiKeys = apiKeys.filter(k => k.id !== keyId);
-    localStorage.setItem('apiKeys', JSON.stringify(apiKeys));
-    
-    loadApiKeys();
-    updateStats();
-    showToast('API key revoked', 'success');
+    try {
+        const response = await fetch(`/api/oauth/clients/${keyId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            apiKeys = apiKeys.filter(k => k.id !== keyId);
+            loadApiKeys();
+            updateStats();
+            showToast(typeof t === 'function' ? t('apikeys.revoked') : 'API key revoked', 'success');
+        } else {
+            showToast(result.error || 'Failed to revoke API key', 'error');
+        }
+    } catch (error) {
+        console.error('Revoke key error:', error);
+        showToast(typeof t === 'function' ? t('apikeys.revokeError') : 'Network error revoking API key', 'error');
+    }
 }
 
 // Toast notification
@@ -418,7 +494,7 @@ function showToast(message, type = 'success') {
 
 // Logout
 function logout() {
-    if (confirm('Are you sure you want to logout?')) {
+    if (confirm(typeof t === 'function' ? t('apikeys.logoutConfirm') : 'Are you sure you want to logout?')) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login.html';

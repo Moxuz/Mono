@@ -1,6 +1,16 @@
+// ✅ Handle token from URL (from social login redirect)
+const urlParams = new URLSearchParams(window.location.search);
+const tokenFromUrl = urlParams.get('token');
+if (tokenFromUrl) {
+    localStorage.setItem('token', tokenFromUrl);
+    // Cleanup URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 // Check authentication
-const token = localStorage.getItem('token');
-let user = JSON.parse(localStorage.getItem('user') || 'null');
+// const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
+const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
+let user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || 'null');
 
 if (!token) {
     window.location.href = '/login.html';
@@ -169,7 +179,7 @@ function loadRecentEventsFromCache() {
         tbody.innerHTML = `
             <tr>
                 <td colspan="4" style="text-align: center; padding: 3rem; color: var(--on-surface-variant);">
-                    No events recorded yet.
+                    ${typeof t === 'function' ? t('dashboard.noEvents') : 'No events recorded yet.'}
                 </td>
             </tr>
         `;
@@ -206,16 +216,13 @@ function displayEvents(events, tbody) {
         const row = document.createElement('tr');
         row.className = 'activity-row';
         
-        const isSuccess = event.action 
+        const isSuccess = event.action
             ? (!event.action.includes('failed') && !event.action.includes('blocked'))
-            : (event.status === 'SUCCESS');
-        
+            : (event.status === 'success');
+
         const eventName = event.action || event.type || 'unknown.event';
-        
-        // 🆕 ใช้ ipHelper
-        const ipAddress = typeof cleanIPAddress === 'function' 
-            ? cleanIPAddress(event.ip) 
-            : (event.ip || '0.0.0.0');
+
+        const ipAddress = cleanIPForDisplay(event.ip);
         
         const timeAgo = formatTimeAgo(event.createdAt || event.timestamp);
         
@@ -229,7 +236,7 @@ function displayEvents(events, tbody) {
             <td class="event-ip">${ipAddress}</td>
             <td class="event-time">${timeAgo}</td>
             <td>
-                <span class="status-tag ${isSuccess ? '' : 'status-tag-error'}">${isSuccess ? 'SUCCESS' : 'FAILURE'}</span>
+                <span class="status-tag ${isSuccess ? '' : 'status-tag-error'}">${isSuccess ? (typeof t === 'function' ? t('dashboard.status.success') : 'SUCCESS') : (typeof t === 'function' ? t('dashboard.status.failure') : 'FAILURE')}</span>
             </td>
         `;
         
@@ -241,7 +248,7 @@ function exportLogs() {
     const events = JSON.parse(localStorage.getItem('recentEvents') || '[]');
     
     if (events.length === 0) {
-        alert('No events to export.');
+        alert(typeof t === 'function' ? t('dashboard.noExport') : 'No events to export.');
         return;
     }
     
@@ -264,7 +271,7 @@ function exportLogs() {
     URL.revokeObjectURL(url);
     
     // Show confirmation
-    showToast('Events exported successfully', 'success');
+    showToast(typeof t === 'function' ? t('dashboard.exported') : 'Events exported successfully', 'success');
 }
 
 // Toast notification
@@ -476,22 +483,22 @@ function createSessionCard(session) {
  * Revoke specific session (handler for onclick)
  */
 async function revokeSessionHandler(sessionId) {
-    if (!confirm('⚠️ TERMINATE THIS SESSION?\n\nThis action cannot be undone.')) {
+    if (!confirm(typeof t === 'function' ? t('dashboard.confirmTerminate') : '⚠️ TERMINATE THIS SESSION?\n\nThis action cannot be undone.')) {
         return;
     }
-    
+
     try {
         const response = await sessionService.revokeSession(sessionId);
-        
+
         if (response.success) {
-            showToast('Session terminated successfully', 'success');
+            showToast(typeof t === 'function' ? t('dashboard.sessionTerminated') : 'Session terminated successfully', 'success');
             await loadActiveSessions(); // Reload sessions
         } else {
             throw new Error(response.error || 'Failed to terminate session');
         }
     } catch (error) {
         console.error('Revoke session error:', error);
-        showToast('Failed to terminate session', 'error');
+        showToast(typeof t === 'function' ? t('dashboard.sessionFailed') : 'Failed to terminate session', 'error');
     }
 }
 
@@ -499,22 +506,22 @@ async function revokeSessionHandler(sessionId) {
  * Revoke all other sessions (handler for button)
  */
 async function revokeAllOtherSessionsHandler() {
-    if (!confirm('⚠️ TERMINATE ALL OTHER SESSIONS?\n\nYou will be logged out from all other devices.\nThis action cannot be undone.')) {
+    if (!confirm(typeof t === 'function' ? t('dashboard.confirmTerminateAll') : '⚠️ TERMINATE ALL OTHER SESSIONS?\n\nYou will be logged out from all other devices.\nThis action cannot be undone.')) {
         return;
     }
-    
+
     try {
         const response = await sessionService.revokeAllOtherSessions();
-        
+
         if (response.success) {
-            showToast(response.message || 'All other sessions terminated', 'success');
+            showToast(response.message || (typeof t === 'function' ? t('dashboard.allTerminated') : 'All other sessions terminated'), 'success');
             await loadActiveSessions(); // Reload sessions
         } else {
             throw new Error(response.error || 'Failed to terminate sessions');
         }
     } catch (error) {
         console.error('Revoke all sessions error:', error);
-        showToast('Failed to terminate sessions', 'error');
+        showToast(typeof t === 'function' ? t('dashboard.terminateFailed') : 'Failed to terminate sessions', 'error');
     }
 }
 
@@ -595,13 +602,13 @@ async function loadLoginActivity() {
             let trendClass = '';
 
             if (stats.trend === 'up') {
-                trendText = '↗ Increasing';
+                trendText = typeof t === 'function' ? t('dashboard.trendUp') : '↗ Increasing';
                 trendClass = 'metric-trend-up';
             } else if (stats.trend === 'down') {
-                trendText = '↘ Decreasing';
+                trendText = typeof t === 'function' ? t('dashboard.trendDown') : '↘ Decreasing';
                 trendClass = 'metric-trend-down';
             } else {
-                trendText = '→ Stable';
+                trendText = typeof t === 'function' ? t('dashboard.trendStable') : '→ Stable';
                 trendClass = 'metric-trend-stable';
             }
 
@@ -725,7 +732,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Logout
 function logout() {
-    const confirmed = confirm('Are you sure you want to logout?');
+    const confirmed = confirm(typeof t === 'function' ? t('dashboard.logoutConfirm') : 'Are you sure you want to logout?');
     if (confirmed) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');

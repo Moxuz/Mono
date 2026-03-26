@@ -20,7 +20,6 @@ router.post('/refresh-token',                          authController.refreshTok
 router.post('/validate-token',                         authController.validateToken);
 //router.post('/change-password',authenticate,           authController.changePassword);
 router.get('/audit-logs',      authenticate,           authController.getAuditLogs);
-router.post('/verify-2fa',     tokenLimiter,           authController.verify2FA);
 
 // Email Verification
 router.get('/verify-email',                            authController.verifyEmail);
@@ -29,7 +28,7 @@ router.post('/resend-verification',                    authController.resendVeri
 
 // Password reset
 
-router.post('/forgot-password', authController.forgotPassword);           
+router.post('/forgot-password', forgotPasswordLimiter, authController.forgotPassword);
 router.post('/reset-password/:token', authController.resetPassword);  
 router.post('/change-password', authenticate, authController.changePassword);
 
@@ -47,5 +46,8 @@ router.delete('/delete-account', authenticate, authController.deleteAccount);
 
 router.get('/preferences', authenticate, authController.getPreferences);
 router.put('/preferences', authenticate, authController.updatePreferences);
+
+// OAuth session bridge — validates JWT, sets server session, then redirects to returnTo
+router.get('/oauth-session', authController.setOAuthSession);
 
 module.exports = router;

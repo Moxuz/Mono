@@ -31,35 +31,28 @@ if (!GITHUB_ENABLED) {
         });
 
         // Check if user exists by GitHub ID
-        let user = await User.findOne({ 'socialAccounts.github.id': profile.id });
+        let user = await User.findOne({ githubId: profile.id });
 
         if (user) {
             console.log('[GitHub OAuth] Existing user found:', user.email);
             // Update last login
             user.lastLogin = new Date();
-            user.socialAccounts.github.lastLogin = new Date();
             await user.save();
             return done(null, user);
         }
 
         // Check if user exists by email
         const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
-        
+
         if (email) {
             user = await User.findOne({ email });
-            
+
             if (user) {
                 console.log('[GitHub OAuth] Linking GitHub to existing user:', email);
                 // Link GitHub account to existing user
-                user.socialAccounts.github = {
-                    id: profile.id,
-                    username: profile.username,
-                    accessToken,
-                    refreshToken,
-                    linkedAt: new Date(),
-                    lastLogin: new Date()
-                };
+                user.githubId = profile.id;
                 user.lastLogin = new Date();
+                if (profile.photos && profile.photos[0]) user.avatar = profile.photos[0].value;
                 await user.save();
                 return done(null, user);
             }
@@ -73,17 +66,9 @@ if (!GITHUB_ENABLED) {
         user = new User({
             username,
             email: userEmail,
-            emailVerified: !!email, // Verified if GitHub provided email
-            socialAccounts: {
-                github: {
-                    id: profile.id,
-                    username: profile.username,
-                    accessToken,
-                    refreshToken,
-                    linkedAt: new Date(),
-                    lastLogin: new Date()
-                }
-            },
+            githubId: profile.id,
+            avatar: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+            emailVerified: !!email,
             pdpaConsent: {
                 essentialAccepted: true,
                 essentialAcceptedAt: new Date(),

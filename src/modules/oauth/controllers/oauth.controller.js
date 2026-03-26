@@ -206,8 +206,9 @@ exports.showAuthorizeForm = async (req, res, next) => {
             baseParams.set('user_email', sessionUser.email);
 
         } else {
-            // ─── ยังไม่ login ─────────────────────────────────────
-            baseParams.set('mode', 'login');
+            // ─── ยังไม่ login → redirect ไป login.html พร้อม returnTo ──
+            const returnTo = `/api/oauth/authorize?${baseParams.toString()}`;
+            return res.redirect(`/login.html?returnTo=${encodeURIComponent(returnTo)}`);
         }
 
         // redirect ไป consent.html พร้อม params
@@ -304,7 +305,12 @@ exports.authorize = async (req, res, next) => {
             pkce
         );
 
-        logger.info('Authorization granted', { userId, client: client_id });
+        logger.info(`OAuth Authorization granted: user=${userId} client=${client_id}`, {
+            userId,
+            client_id,
+            scope: sanitizedScope,
+            redirect_uri
+        });
 
         res.json({
             success: true,
@@ -313,7 +319,11 @@ exports.authorize = async (req, res, next) => {
         });
 
     } catch (error) {
-        logger.error('Authorization error:', error);
+        logger.error('Authorization error:', { 
+            error: error.message,
+            client_id: req.body.client_id,
+            userId: req.session?.user?.id 
+        });
         next(error);
     }
 };
@@ -346,6 +356,12 @@ exports.token = async (req, res, next) => {
                 });
             }
             const result = await oauthService.refreshAccessToken(refresh_token, { sessionToken: session_token });
+            
+            logger.info(`OAuth Token refreshed: client=${client_id}`, {
+                client_id,
+                grant_type: 'refresh_token'
+            });
+
             return res.json(result);
         }
 
@@ -372,11 +388,19 @@ exports.token = async (req, res, next) => {
             code_verifier
         );
 
-        logger.info('Tokens issued', { client_id });
+        logger.info(`OAuth Token issued: client=${client_id}`, {
+            client_id,
+            grant_type: 'authorization_code'
+        });
+
         res.json(tokens);
 
     } catch (error) {
-        logger.error('Token endpoint error:', error);
+        logger.error('Token endpoint error:', {
+            error: error.message,
+            client_id: req.body.client_id,
+            grant_type: req.body.grant_type
+        });
         res.status(400).json({
             error: 'invalid_grant',
             error_description: error.message

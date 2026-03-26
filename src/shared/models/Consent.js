@@ -44,7 +44,7 @@ consentSchema.statics.hasConsented = async function(userId, clientId, scope) {
 
 // ─── บันทึก consent ───────────────────────────────────────────────
 consentSchema.statics.saveConsent = async function(userId, clientId, scope) {
-    await this.findOneAndUpdate(
+    return this.findOneAndUpdate(
         { userId, clientId },
         {
             userId,

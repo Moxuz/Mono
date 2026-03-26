@@ -40,11 +40,6 @@ async function getUserStats(req, res) {
             createdAt: { $gte: last30Days }
         });
 
-        // Users with 2FA enabled
-        const usersWith2FA = await User.countDocuments({
-            twoFactorEnabled: true
-        });
-
         // Users by role
         const usersByRole = await User.aggregate([
             { $group: { _id: '$role', count: { $sum: 1 } } }
@@ -65,10 +60,6 @@ async function getUserStats(req, res) {
                     last24h: newUsers24h,
                     last7d: newUsers7d,
                     last30d: newUsers30d
-                },
-                twoFA: {
-                    enabled: usersWith2FA,
-                    percentage: totalUsers > 0 ? ((usersWith2FA / totalUsers) * 100).toFixed(1) : 0
                 },
                 roles: usersByRole.reduce((acc, item) => {
                     acc[item._id] = item.count;

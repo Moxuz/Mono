@@ -7,6 +7,8 @@ const User = require('../../../shared/models/User');
 const bcrypt = require('bcryptjs');
 const Session = require('../../../shared/models/Session');
 const SecurityAudit = require('../../../shared/models/SecurityAudit');
+const jwt = require('jsonwebtoken');
+const config = require('../../../shared/config/config');
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 exports.register = async (req, res, next) => {
@@ -75,10 +77,15 @@ exports.register = async (req, res, next) => {
 // ─── Login ────────────────────────────────────────────────────────────────────
 exports.login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
-        const result = await authService.login({ email, password, req });
+        const { email, password, remember } = req.body;
+        const result = await authService.login({ email, password, remember, req });
 
-        logger.info(`User logged in: ${email}`);
+        const loginIp = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress;
+        logger.info(`User logged in: ${email}`, { 
+            ip: loginIp,
+            userAgent: req.headers['user-agent'],
+            userId: result.data?.user?.id || result.user?.id
+        });
 
         res.status(200).json({
             success: true,
@@ -86,7 +93,12 @@ exports.login = async (req, res, next) => {
             data:    result
         });
     } catch (error) {
-        logger.error('Login error:', error.message);
+        const loginIp = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress;
+        logger.error(`Login failed for: ${req.body.email}`, { 
+            error: error.message,
+            ip: loginIp,
+            userAgent: req.headers['user-agent']
+        });
 
         if (error.message === 'Invalid credentials' ||
             error.message === 'User not found') {
@@ -195,16 +207,27 @@ exports.getSecurityAudit = async (req, res) => {
         // Get last 50 audit logs for this user
         const logs = await securityAuditService.getUserAuditLogs(userId, 50);
         
-        // Format response (แปลง ipAddress → ip สำหรับ frontend)
-        const formattedLogs = logs.map(log => ({
-            _id: log._id,
-            action: log.action,
-            status: log.status,
-            ip: log.ipAddress, 
-            userAgent: log.userAgent,
-            details: log.metadata?.reason || '',
-            createdAt: log.createdAt
-        }));
+        // Format response — build a human-readable details string from metadata
+        const formattedLogs = logs.map(log => {
+            const meta = log.metadata || {};
+            let details = '';
+            if (meta.reason)       details = meta.reason;
+            else if (meta.method)  details = `via ${meta.method}`;
+            else if (meta.email)   details = meta.email;
+            else if (meta.action)  details = meta.action;
+            else if (meta.sessionId) details = `session ${String(meta.sessionId).slice(0, 8)}`;
+
+            return {
+                _id: log._id,
+                action: log.action,
+                status: log.status,
+                ip: log.ipAddress,
+                userAgent: log.userAgent,
+                details,
+                metadata: meta,
+                createdAt: log.createdAt
+            };
+        });
         
         res.json({
             success: true,
@@ -220,59 +243,25 @@ exports.getSecurityAudit = async (req, res) => {
     }
 };
 
-// ─── Verify 2FA (for login) ───────────────────────────────────────────────────
-exports.verify2FA = async (req, res, next) => {
-    try {
-        const { tempToken, twoFactorToken, backupCode } = req.body;
-        
-        if (!tempToken) {
-            return res.status(400).json({
-                success: false,
-                error: 'Temp token is required'
-            });
-        }
-        
-        const result = await authService.verify2FAAndLogin({
-            tempToken,
-            twoFactorToken,
-            backupCode,
-            req
-        });
-        
-        logger.info('2FA verified and login successful');
-        
-        res.json({
-            success: true,
-            message: 'Login successful',
-            data: result
-        });
-    } catch (error) {
-        logger.error('Verify 2FA error:', error);
-        
-        if (error.message.includes('Invalid 2FA token') || 
-            error.message.includes('Invalid temp token')) {
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid 2FA verification'
-            });
-        }
-        
-        res.status(400).json({
-            success: false,
-            error: error.message
-        });
-    }
-};
-
 // ─── Logout ───────────────────────────────────────────────────────────────────
 exports.logout = async (req, res, next) => {
     try {
+        const userId = req.user?.id;
+        const email = req.user?.email;
+
         req.logout((err) => {
             if (err) return next(err);
             if (req.session) req.session.destroy();
+
+            logger.info(`User logged out: ${email || userId}`, { 
+                userId, 
+                ip: req.ip || req.connection.remoteAddress 
+            });
+
             res.json({ success: true, message: 'Logged out successfully' });
         });
     } catch (error) {
+        logger.error('Logout error:', error);
         next(error);
     }
 };
@@ -281,9 +270,12 @@ exports.logout = async (req, res, next) => {
 exports.deleteAccount = async (req, res) => {
     try {
         const userId = req.user._id || req.user.id;
+        const email = req.user.email;
         const { password } = req.body;
 
-        console.log('🗑️ Delete account request for user:', userId);
+        const clientIp = req.ip || req.socket?.remoteAddress;
+
+        logger.security(`Account deletion attempt for: ${email}`, { function: 'deleteAccount', userId, ip: clientIp });
 
         if (!password) {
             return res.status(400).json({
@@ -293,7 +285,7 @@ exports.deleteAccount = async (req, res) => {
         }
 
         const user = await User.findById(userId).select('+password');
-        
+
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -301,28 +293,26 @@ exports.deleteAccount = async (req, res) => {
             });
         }
 
-        console.log('User found:', user.email);
-
         const isPasswordValid = await bcrypt.compare(password, user.password);
-        
+
         if (!isPasswordValid) {
-            console.log('❌ Invalid password for account deletion');
+            logger.warn('deleteAccount: invalid password supplied', { function: 'deleteAccount', userId });
             return res.status(401).json({
                 success: false,
                 error: 'Invalid password'
             });
         }
 
-        // ลบ sessions ทั้งหมด
+        // Revoke all sessions
         await Session.deleteMany({ userId });
-        console.log('✅ Deleted all sessions');
+        logger.info('deleteAccount: all sessions removed', { function: 'deleteAccount', userId });
 
-        // ✅ บันทึก audit log ก่อนลบ - ใช้ SecurityAudit.logEvent()
+        // Audit log before deletion (userId reference will be orphaned after delete)
         await SecurityAudit.logEvent({
             userId,
-            action: 'account_deactivated', // ใช้ enum ที่มีอยู่แล้ว
+            action: 'account_deactivated',
             status: 'success',
-            ipAddress: req.ip || req.connection.remoteAddress,
+            ipAddress: clientIp,
             userAgent: req.headers['user-agent'],
             metadata: {
                 email: user.email,
@@ -331,9 +321,8 @@ exports.deleteAccount = async (req, res) => {
             }
         });
 
-        // ลบ user
         await User.findByIdAndDelete(userId);
-        console.log('✅ User account deleted:', user.email);
+        logger.security(`Account permanently deleted: ${user.email}`, { function: 'deleteAccount', userId });
 
         res.json({
             success: true,
@@ -341,11 +330,10 @@ exports.deleteAccount = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Delete account error:', error);
+        logger.error('deleteAccount failed', { function: 'deleteAccount', error: error.message, userId: req.user?._id || req.user?.id });
         res.status(500).json({
             success: false,
-            error: 'Failed to delete account',
-            details: error.message
+            error: 'Failed to delete account'
         });
     }
 };
@@ -708,7 +696,6 @@ exports.getProfile = async (req, res, next) => {
                 email: user.email,
                 role: user.role,
                 isEmailVerified: user.isEmailVerified,
-                twoFactorEnabled: user.twoFactorEnabled || false,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin
             }
@@ -719,6 +706,37 @@ exports.getProfile = async (req, res, next) => {
             success: false,
             error: 'Failed to get profile'
         });
+    }
+};
+
+// ─── OAuth Session Bridge ─────────────────────────────────────────────────────
+// Validates JWT from localStorage, sets server session, then redirects to returnTo
+exports.setOAuthSession = async (req, res) => {
+    const { token, returnTo } = req.query;
+    const safeReturn = returnTo || '/login.html';
+
+    if (!token) return res.redirect(`/login.html?error=missing_token`);
+
+    try {
+        const decoded = jwt.verify(token, config.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (!user || !user.isActive) return res.redirect('/login.html?error=invalid_token');
+
+        req.session.user = {
+            id:       user._id.toString(),
+            email:    user.email,
+            username: user.username,
+            role:     user.role
+        };
+
+        await new Promise((resolve, reject) =>
+            req.session.save(err => err ? reject(err) : resolve())
+        );
+
+        res.redirect(safeReturn);
+    } catch (err) {
+        logger.error('OAuth session bridge error:', err.message);
+        res.redirect('/login.html?error=invalid_token');
     }
 };
 

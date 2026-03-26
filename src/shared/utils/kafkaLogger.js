@@ -61,8 +61,7 @@ const connectKafka = async () => {
       });
 
       producer = kafka.producer({
-        transactionTimeout: 30000,
-        idempotent: true
+        allowAutoTopicCreation: true
       });
 
       await producer.connect();

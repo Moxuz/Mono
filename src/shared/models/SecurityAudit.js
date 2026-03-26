@@ -25,7 +25,7 @@ const securityAuditSchema = new mongoose.Schema({
             'profile_updated',
             'account_created',
             'account_deactivated',
-            'password_reset_completed',
+            'account_deleted',
         ],
         index: true
     },

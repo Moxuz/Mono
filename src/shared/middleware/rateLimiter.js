@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const RedisStore = require('rate-limit-redis');
+const { RedisStore } = require('rate-limit-redis');
 const Redis = require('ioredis');
 const config = require('../config/config');
 
@@ -163,38 +163,60 @@ const emailIpKeyGenerator = (req) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create rate limiter with Redis or memory fallback
+ * Create rate limiter with Redis or memory fallback.
+ * Store is resolved lazily on first request so that Redis has time to connect
+ * before any limiter tries to use it. If Redis connects after startup the
+ * limiter will automatically upgrade from memory → Redis on the next request.
  * @param {Object} options - Rate limit options
  * @param {string} prefix - Redis key prefix
  * @returns {Function} Express middleware
  */
 function createLimiter(options, prefix = 'rl') {
-    const store = createRedisStore(prefix);
-    
-    // Get whitelisted IPs from config
     const whitelistedIPs = config.RATE_LIMIT_WHITELIST || ['127.0.0.1'];
 
-    return rateLimit({
-        store: store || undefined, // Use memory store if Redis unavailable
-        windowMs: options.windowMs,
-        max: options.max,
-        keyGenerator: options.keyGenerator || ((req) => getIpFromRequest(req)),
-        standardHeaders: true,
-        legacyHeaders: false,
-        skip: (req) => {
-            // Skip rate limiting for whitelisted IPs
-            const ip = getIpFromRequest(req);
-            return whitelistedIPs.includes(ip);
-        },
-        handler: options.handler || ((req, res) => {
-            res.status(429).json({
-                success: false,
-                error: 'Too Many Requests',
-                message: options.message || 'Too many requests, please try again later',
-                retryAfter: Math.round(options.windowMs / 1000)
+    // Cached limiter instance and whether it was created with Redis
+    let limiterInstance = null;
+    let instanceUsesRedis = false;
+
+    function getLimiter() {
+        const redisNowReady = isRedisReady();
+
+        // (Re)create limiter when: first call, or Redis just became available
+        if (!limiterInstance || (redisNowReady && !instanceUsesRedis)) {
+            const store = redisNowReady ? createRedisStore(prefix) : null;
+            instanceUsesRedis = !!store;
+
+            limiterInstance = rateLimit({
+                store: store || undefined,
+                windowMs: options.windowMs,
+                max: options.max,
+                keyGenerator: options.keyGenerator || ((req) => getIpFromRequest(req)),
+                standardHeaders: true,
+                legacyHeaders: false,
+                skip: (req) => {
+                    const ip = getIpFromRequest(req);
+                    return whitelistedIPs.includes(ip);
+                },
+                handler: options.handler || ((req, res) => {
+                    res.status(429).json({
+                        success: false,
+                        error: 'Too Many Requests',
+                        message: options.message || 'Too many requests, please try again later',
+                        retryAfter: Math.round(options.windowMs / 1000)
+                    });
+                })
             });
-        })
-    });
+
+            if (store) {
+                console.info(`[RateLimit] ${prefix}: using Redis store`);
+            }
+        }
+
+        return limiterInstance;
+    }
+
+    // Return a wrapper middleware that resolves the real limiter on each request
+    return (req, res, next) => getLimiter()(req, res, next);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

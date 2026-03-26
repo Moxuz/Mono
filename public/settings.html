@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings — AuthSys</title>
-     <script src="/scripts/theme-init.js"></script>
+     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css">
+    <link id="lighttheme-css" rel="stylesheet" href="/css/lighttheme.css" disabled>
+    <script>if(localStorage.getItem("theme")==="light"){document.getElementById("lighttheme-css").disabled=false;}</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 </head>
@@ -14,12 +16,12 @@
     <header class="topbar fixed top-0 left-64 right-0 h-14 bg-surface-dim border-b border-outline-variant z-30 flex items-center justify-between px-6">
         <div class="system-status">
             <span class="status-pulse"></span>
-            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl">System Normal</span>
+            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl" data-i18n="topbar.status">System Normal</span>
         </div>
         <div class="flex items-center gap-6">
             <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
                 <span id="userEmailTop" class="text-xs font-mono text-on-surface-variant">Loading...</span>
-                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop">Logout</button>
+                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop" data-i18n="topbar.logout">Logout</button>
             </div>
         </div>
     </header>
@@ -34,23 +36,23 @@
         <nav class="flex-1 space-y-1">
             <a href="/dashboard.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">insights</span>
-                <span class="text-sm tracking-tight">Console</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.console">Console</span>
             </a>
             <a href="/user-activity.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">receipt_long</span>
-                <span class="text-sm tracking-tight">Activity</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.activity">Activity</span>
             </a>
             <a href="/api-keys.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">key</span>
-                <span class="text-sm tracking-tight">API Keys</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.apikeys">API Keys</span>
             </a>
             <a href="/profile.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">person</span>
-                <span class="text-sm tracking-tight">Profile</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.profile">Profile</span>
             </a>
             <a href="/settings.html" class="sidebar-link active flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
-                <span class="text-sm tracking-tight">Settings</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.settings">Settings</span>
             </a>
         </nav>
         
@@ -72,8 +74,8 @@
         <div class="p-8 max-w-1200 mx-auto">
             <!-- Page Header -->
             <div class="mb-10">
-                <h2 class="text-3xl font-bold tracking-tighter text-on-surface mb-2">Settings</h2>
-                <p class="text-on-surface-variant text-sm italic">Manage your account preferences and security settings.</p>
+                <h2 class="text-3xl font-bold tracking-tighter text-on-surface mb-2" data-i18n="settings.title">Settings</h2>
+                <p class="text-on-surface-variant text-sm italic" data-i18n="settings.subtitle">Manage your account preferences and security settings.</p>
             </div>
 
             <!-- Alert -->
@@ -86,29 +88,29 @@
                     <div class="settings-section-header">
                         <span class="material-symbols-outlined">tune</span>
                         <div>
-                            <h3 class="settings-section-title">Preferences</h3>
-                            <p class="settings-section-desc">Customize your experience</p>
+                            <h3 class="settings-section-title" data-i18n="settings.prefsTitle">Preferences</h3>
+                            <p class="settings-section-desc" data-i18n="settings.prefsDesc">Customize your experience</p>
                         </div>
                     </div>
                     <div class="settings-section-body">
                         <!-- Theme -->
                         <div class="settings-item">
                             <div class="settings-item-info">
-                                <span class="settings-item-label">Theme</span>
-                                <span class="settings-item-desc">Interface appearance mode</span>
+                                <span class="settings-item-label" data-i18n="settings.theme">Theme</span>
+                                <span class="settings-item-desc" data-i18n="settings.themeDesc">Interface appearance mode</span>
                             </div>
                             <select class="settings-select" id="themeSelect">
-                                <option value="dark" selected>Dark Mode</option>
-                                <option value="light">Light Mode</option>
-                                <option value="auto">System Default</option>
+                                <option value="dark" selected data-i18n="settings.themeDark">Dark Mode</option>
+                                <option value="light" data-i18n="settings.themeLight">Light Mode</option>
+                                <option value="auto" data-i18n="settings.themeAuto">System Default</option>
                             </select>
                         </div>
 
                         <!-- Language -->
                         <div class="settings-item">
                             <div class="settings-item-info">
-                                <span class="settings-item-label">Language</span>
-                                <span class="settings-item-desc">Display language preference</span>
+                                <span class="settings-item-label" data-i18n="settings.language">Language</span>
+                                <span class="settings-item-desc" data-i18n="settings.languageDesc">Display language preference</span>
                             </div>
                             <select class="settings-select" id="languageSelect">
                                 <option value="en" selected>English</option>
@@ -123,16 +125,16 @@
                     <div class="settings-section-header">
                         <span class="material-symbols-outlined">notifications</span>
                         <div>
-                            <h3 class="settings-section-title">Notifications</h3>
-                            <p class="settings-section-desc">Configure alert preferences</p>
+                            <h3 class="settings-section-title" data-i18n="settings.notifTitle">Notifications</h3>
+                            <p class="settings-section-desc" data-i18n="settings.notifDesc">Configure alert preferences</p>
                         </div>
                     </div>
                     <div class="settings-section-body">
                         <!-- Email Notifications -->
                         <div class="settings-item">
                             <div class="settings-item-info">
-                                <span class="settings-item-label">Email Notifications</span>
-                                <span class="settings-item-desc">Receive updates via email</span>
+                                <span class="settings-item-label" data-i18n="settings.emailNotif">Email Notifications</span>
+                                <span class="settings-item-desc" data-i18n="settings.emailNotifDesc">Receive updates via email</span>
                             </div>
                             <label class="settings-toggle">
                                 <input type="checkbox" id="emailNotif" checked>
@@ -143,8 +145,8 @@
                         <!-- Login Alerts -->
                         <div class="settings-item">
                             <div class="settings-item-info">
-                                <span class="settings-item-label">Login Alerts</span>
-                                <span class="settings-item-desc">Notify on new device login</span>
+                                <span class="settings-item-label" data-i18n="settings.loginAlerts">Login Alerts</span>
+                                <span class="settings-item-desc" data-i18n="settings.loginAlertsDesc">Notify on new device login</span>
                             </div>
                             <label class="settings-toggle">
                                 <input type="checkbox" id="loginAlerts" checked>
@@ -159,20 +161,20 @@
                     <div class="settings-section-header">
                         <span class="material-symbols-outlined">manage_accounts</span>
                         <div>
-                            <h3 class="settings-section-title">Account Management</h3>
-                            <p class="settings-section-desc">Manage your account</p>
+                            <h3 class="settings-section-title" data-i18n="settings.accountTitle">Account Management</h3>
+                            <p class="settings-section-desc" data-i18n="settings.accountDesc">Manage your account</p>
                         </div>
                     </div>
                     <div class="settings-section-body">
                         <!-- Delete Account -->
                         <div class="settings-item">
                             <div class="settings-item-info">
-                                <span class="settings-item-label">Delete Account</span>
-                                <span class="settings-item-desc">Permanently delete your account and all data</span>
+                                <span class="settings-item-label" data-i18n="settings.deleteAccount">Delete Account</span>
+                                <span class="settings-item-desc" data-i18n="settings.deleteAccountDesc">Permanently delete your account and all data</span>
                             </div>
                             <button class="btn btn-danger btn-sm" id="deleteAccountBtn">
                                 <span class="material-symbols-outlined">delete_forever</span>
-                                Delete Account
+                                <span data-i18n="settings.deleteAccount">Delete Account</span>
                             </button>
                         </div>
                     </div>
@@ -183,12 +185,13 @@
             <div class="settings-footer">
                 <button class="btn btn-primary" id="saveSettingsBtn">
                     <span class="material-symbols-outlined">save</span>
-                    Save Changes
+                    <span data-i18n="settings.saveBtn">Save Changes</span>
                 </button>
             </div>
         </div>
     </main>
 
+    <script src="/js/i18n.js"></script>
     <script src="/js/settings.js"></script>
 </body>
 </html>

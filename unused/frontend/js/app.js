@@ -2,12 +2,12 @@
 
 // Check if user is authenticated
 function isAuthenticated() {
-    return !!localStorage.getItem('token');
+    return !!(localStorage.getItem('token') || sessionStorage.getItem('token'));
 }
 
 // Get current user
 function getCurrentUser() {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
 }
 
@@ -20,7 +20,7 @@ function requireAuth() {
 
 // API request helper
 async function apiRequest(url, options = {}) {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     
     const defaultOptions = {
         headers: {

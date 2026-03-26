@@ -29,7 +29,6 @@ try {
 const authRoutes  = require('./modules/auth/routes/auth.routes');
 const oauthRoutes = require('./modules/oauth/routes/oauth.routes');
 const userRoutes  = require('./modules/user/routes/user.routes');
-const twoFARoutes = require('./modules/auth/routes/2fa.routes');
 const sessionRoutes = require('./modules/auth/routes/session.routes');
 const socialRoutes = require('./modules/auth/routes/social.routes');
 
@@ -192,7 +191,6 @@ app.use('/api/auth',  authRoutes);
 
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/2fa',   twoFARoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/auth',  socialRoutes);
 app.use('/api/dashboard', dashboardRoutes);

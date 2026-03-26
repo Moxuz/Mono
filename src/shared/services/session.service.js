@@ -59,6 +59,7 @@ async function createSession(userId, accessToken, refreshToken, req) {
         const result = await Session.createSession(sessionData);
         
         logger.info(`Session created for user ${userId}`, {
+            function: 'createSession',
             sessionId: result.sessionId,
             device: deviceInfo.browser,
             os: deviceInfo.os,
@@ -140,7 +141,7 @@ async function revokeSession(sessionId, userId, reason = 'user_logout') {
         
         await session.revoke(reason);
         
-        logger.info(`Session revoked: ${sessionId}`, { userId, reason });
+        logger.info(`Session revoked: ${sessionId}`, { function: 'revokeSession', userId, sessionId, reason });
         
         return { success: true, message: 'Session revoked successfully' };
     } catch (error) {
@@ -156,8 +157,8 @@ async function revokeAllOtherSessions(userId, currentSessionId, reason = 'user_l
     try {
         await Session.revokeAllSessions(userId, reason, currentSessionId);
         
-        logger.info(`All other sessions revoked for user ${userId}`);
-        
+        logger.info(`All other sessions revoked for user ${userId}`, { function: 'revokeAllOtherSessions', userId, excludedSessionId: currentSessionId });
+
         return { success: true, message: 'All other sessions revoked' };
     } catch (error) {
         logger.error('Revoke all sessions error:', error);

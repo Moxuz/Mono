@@ -35,9 +35,12 @@ const {
  */
 if (GOOGLE_ENABLED) {
   router.get('/google', (req, res, next) => {
+    if (req.query.redirect) {
+      req.session.oauthRedirect = req.query.redirect;
+    }
     passport.authenticate('google', {
       scope: ['profile', 'email'],
-      prompt: 'select_account' // ✅ ใช้ได้กับ Google
+      prompt: 'select_account'
     })(req, res, next);
   });
 
@@ -91,8 +94,9 @@ if (GOOGLE_ENABLED) {
           maxAge: 3600000 // 1 hour
         });
 
-        // Redirect to dashboard
-        res.redirect(`/dashboard.html?token=${token}`);
+        const redirectTo = req.session.oauthRedirect;
+        delete req.session.oauthRedirect;
+        res.redirect(redirectTo ? `${redirectTo}?token=${token}` : `/dashboard.html?token=${token}`);
 
       } catch (error) {
         logger.error('❌ Google callback error:', error);
@@ -115,9 +119,11 @@ if (GOOGLE_ENABLED) {
  */
 if (GITHUB_ENABLED) {
   router.get('/github', (req, res, next) => {
+    if (req.query.redirect) {
+      req.session.oauthRedirect = req.query.redirect;
+    }
     passport.authenticate('github', {
-      scope: ['user:email'] // ✅ GitHub ใช้ scope แบบนี้
-      // ❌ ไม่ใช้ prompt: 'select_account' (นั่นเป็นของ Google)
+      scope: ['user:email']
     })(req, res, next);
   });
 
@@ -172,8 +178,9 @@ if (GITHUB_ENABLED) {
           maxAge: 3600000 // 1 hour
         });
 
-        // Redirect to dashboard
-        res.redirect(`/dashboard.html?token=${token}`);
+        const redirectTo = req.session.oauthRedirect;
+        delete req.session.oauthRedirect;
+        res.redirect(redirectTo ? `${redirectTo}?token=${token}` : `/dashboard.html?token=${token}`);
 
       } catch (error) {
         logger.error('❌ GitHub callback error:', error);

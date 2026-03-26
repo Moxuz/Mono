@@ -82,7 +82,7 @@ function handleCookieConsent(accepted) {
 // Send consent to backend
 async function sendConsentToBackend(analyticsAccepted) {
     try {
-        const token = localStorage.getItem('token');
+        const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
         
         if (!token) {
             console.log('No token found - skipping backend sync');

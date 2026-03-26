@@ -22,7 +22,6 @@ async function getUserById(userId) {
             email: user.email,
             role: user.role,
             emailVerified: user.emailVerified,
-            twoFactorEnabled: user.twoFactorEnabled,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };
@@ -107,10 +106,6 @@ async function deleteUser(userId, reason = 'user_request') {
         user.passwordResetExpires = undefined;
         user.emailVerificationToken = undefined;
         user.emailVerificationExpires = undefined;
-        user.twoFactorSecret = undefined;
-        user.twoFactorTempSecret = undefined;
-        user.twoFactorBackupCodes = [];
-        
         // Keep PDPA consent record for compliance
         user.pdpaConsent = {
             ...user.pdpaConsent,
@@ -161,12 +156,6 @@ async function exportUserData(userId) {
             },
             // Consent Records
             pdpaConsent: user.pdpaConsent,
-            // Security Settings (excluding secrets)
-            securitySettings: {
-                twoFactorEnabled: user.twoFactorEnabled,
-                twoFactorVerifiedAt: user.twoFactorVerifiedAt,
-                twoFactorBackupCodesGeneratedAt: user.twoFactorBackupCodesGeneratedAt
-            },
             // Account Status
             accountStatus: {
                 isActive: user.isActive,

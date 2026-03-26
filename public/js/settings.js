@@ -18,7 +18,7 @@
   const deleteAccountBtn = document.getElementById('deleteAccountBtn');
 
   // ─── Auth Check ──────────────────────────────────────────────────────────────
-  const token = localStorage.getItem('token');
+  const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
   if (!token) {
     window.location.href = '/login.html';
     return;
@@ -42,7 +42,7 @@
 
     } catch (error) {
       console.error('Load profile error:', error);
-      showAlert('Failed to load profile', 'error');
+      showAlert(typeof t === 'function' ? t('settings.loadFailed') : 'Failed to load profile', 'error');
     }
   }
 
@@ -95,26 +95,24 @@
   }
 
   function applyTheme(theme) {
-    if (theme === 'dark') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = theme === 'dark' || (theme === 'auto' && prefersDark);
+
+    if (isDark) {
       document.documentElement.classList.add('dark');
-    } else if (theme === 'light') {
+    } else {
       document.documentElement.classList.remove('dark');
-    } else if (theme === 'auto') {
-      // Use system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (prefersDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
     }
+
+    const el = document.getElementById('lighttheme-css');
+    if (el) el.disabled = (theme !== 'light');
   }
 
   // ─── Save Settings ───────────────────────────────────────────────────────────
   async function saveSettings() {
     try {
       saveSettingsBtn.disabled = true;
-      saveSettingsBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Saving...';
+      saveSettingsBtn.innerHTML = `<span class="material-symbols-outlined">hourglass_empty</span> ${typeof t === 'function' ? t('settings.saving') : 'Saving...'}`;
 
       const preferences = {
         theme: themeSelect.value,
@@ -148,19 +146,20 @@
       // Apply theme
       applyTheme(preferences.theme);
 
-      showAlert('Settings saved successfully', 'success');
+      showAlert(typeof t === 'function' ? t('settings.saveSuccess') : 'Settings saved successfully', 'success');
 
     } catch (error) {
       console.error('Save settings error:', error);
-      showAlert('Failed to save settings', 'error');
+      showAlert(typeof t === 'function' ? t('settings.saveFailed') : 'Failed to save settings', 'error');
     } finally {
       saveSettingsBtn.disabled = false;
-      saveSettingsBtn.innerHTML = '<span class="material-symbols-outlined">save</span> Save Changes';
+      saveSettingsBtn.innerHTML = `<span class="material-symbols-outlined">save</span> ${typeof t === 'function' ? t('settings.saveBtn') : 'Save Changes'}`;
     }
   }
 
   // ─── Delete Account ──────────────────────────────────────────────────────────
   function deleteAccount() {
+    const _t = typeof t === 'function' ? t : (k) => k;
     const modalHTML = `
       <div class="modal open" id="deleteAccountModal">
         <div class="modal-overlay" data-close-modal></div>
@@ -168,19 +167,19 @@
           <div class="modal-header">
             <h3 class="modal-title">
               <span class="material-symbols-outlined" style="color: var(--error); vertical-align: middle; margin-right: 0.5rem;">warning</span>
-              Delete Account
+              ${_t('settings.deleteTitle')}
             </h3>
             <button class="modal-close" data-close-modal>
               <span class="material-symbols-outlined">close</span>
             </button>
           </div>
-          
+
           <div class="modal-body">
             <div class="secret-warning">
               <span class="material-symbols-outlined">warning</span>
               <p>
-                <strong>This action cannot be undone.</strong><br>
-                All your data will be permanently deleted including profile, sessions, and activity logs.
+                <strong>${_t('settings.deleteWarning')}</strong><br>
+                ${_t('settings.deleteWarningDesc')}
               </p>
             </div>
 
@@ -189,28 +188,28 @@
             <form id="deleteAccountForm">
               <div class="form-group">
                 <label for="deletePassword" class="input-label">
-                  Confirm with Password
+                  ${_t('settings.deletePasswordLabel')}
                 </label>
-                <input 
-                  type="password" 
-                  id="deletePassword" 
-                  class="input" 
-                  placeholder="Enter your password"
+                <input
+                  type="password"
+                  id="deletePassword"
+                  class="input"
+                  placeholder="${_t('settings.deletePasswordPlaceholder')}"
                   required
                   autofocus
                 />
                 <p class="text-xs text-on-surface-variant" style="margin-top: 0.5rem;">
-                  Enter your password to confirm account deletion
+                  ${_t('settings.deletePasswordHint')}
                 </p>
               </div>
 
               <div class="modal-footer" style="margin-top: 1.5rem; padding: 0; border: none; background: none;">
                 <button type="button" class="btn btn-ghost" data-close-modal>
-                  Cancel
+                  ${_t('settings.deleteCancel')}
                 </button>
                 <button type="submit" class="btn btn-danger" id="confirmDeleteBtn">
                   <span class="material-symbols-outlined">delete_forever</span>
-                  Delete Account
+                  ${_t('settings.deleteConfirmBtn')}
                 </button>
               </div>
             </form>
@@ -246,17 +245,18 @@
 
   async function handleDeleteAccount(e) {
     e.preventDefault();
+    const _t = typeof t === 'function' ? t : (k) => k;
 
     const password = document.getElementById('deletePassword').value;
     const submitBtn = document.getElementById('confirmDeleteBtn');
 
     if (!password) {
-      showModalAlert('Please enter your password', 'error');
+      showModalAlert(_t('settings.deletePassError'), 'error');
       return;
     }
 
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Deleting...';
+    submitBtn.innerHTML = `<span class="material-symbols-outlined">hourglass_empty</span> ${_t('settings.deleting')}`;
 
     try {
       const res = await fetch('/api/auth/delete-account', {
@@ -274,7 +274,7 @@
         throw new Error(data.error || 'Failed to delete account');
       }
 
-      showModalAlert('Account deleted successfully. Redirecting...', 'success');
+      showModalAlert(_t('settings.deleteSuccess'), 'success');
       
       setTimeout(() => {
         localStorage.clear();
@@ -285,7 +285,7 @@
       console.error('Delete account error:', error);
       showModalAlert(error.message, 'error');
       submitBtn.disabled = false;
-      submitBtn.innerHTML = '<span class="material-symbols-outlined">delete_forever</span> Delete Account';
+      submitBtn.innerHTML = `<span class="material-symbols-outlined">delete_forever</span> ${_t('settings.deleteConfirmBtn')}`;
     }
   }
 
@@ -293,25 +293,24 @@
   
 function applyTheme(theme) {
   const html = document.documentElement;
-  
-  if (theme === 'dark') {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = theme === 'dark' || (theme === 'auto' && prefersDark);
+
+  if (isDark) {
     html.classList.add('dark');
-  } else if (theme === 'light') {
+  } else {
     html.classList.remove('dark');
-  } else if (theme === 'auto') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (prefersDark) {
-      html.classList.add('dark');
-    } else {
-      html.classList.remove('dark');
-    }
   }
+
+  const el = document.getElementById('lighttheme-css');
+  if (el) el.disabled = (theme !== 'light');
 }
 
     // ✅ เพิ่ม Event Listener สำหรับ Dropdown
     themeSelect.addEventListener('change', (e) => {
     applyTheme(e.target.value);
     });
+
 
     // ✅ เพิ่ม Auto Theme Listener
     if (themeSelect.value === 'auto') {

@@ -20,12 +20,13 @@ async function logSecurityEvent({ userId, action, status, ipAddress, userAgent, 
             metadata
         });
 
-        const logLevel = status === 'failure' ? 'warn' : 'info';
-        logger[logLevel](`Security Event: ${action}`, {
+        // Route all security events to the security-events Kafka topic via logger.security()
+        logger.security(`Security Event: ${action}`, {
             userId,
             status,
             ipAddress,
-            action
+            action,
+            function: 'logSecurityEvent'
         });
 
         return audit;

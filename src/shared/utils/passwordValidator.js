@@ -39,6 +39,10 @@ function validatePassword(password) {
     score += 1;
   }
 
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least 1 number');
+  }
+
   // ✅ ลบการเช็คที่บังคับ uppercase, lowercase, number, special char
   // เหลือแค่นับ score สำหรับ UI feedback (ไม่บล็อก)
 

@@ -429,6 +429,12 @@ p {
     margin-bottom: var(--spacing-2);
 }
 
+/* Hide browser's built-in password reveal button (Edge/Chrome) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
+
 input[type="email"],
 input[type="password"],
 input[type="text"] {

@@ -1,6 +1,6 @@
 // Check authentication
-const token = localStorage.getItem('token');
-const user = JSON.parse(localStorage.getItem('user') || '{}');
+const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
+const user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || '{}');
 
 if (!token) {
     window.location.href = '/login.html';
@@ -29,11 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const changePasswordBtn = document.getElementById('changePasswordBtn');
     if (changePasswordBtn) {
         changePasswordBtn.addEventListener('click', changePassword);
-    }
-    
-    const enable2FABtn = document.getElementById('enable2FABtn');
-    if (enable2FABtn) {
-        enable2FABtn.addEventListener('click', enable2FA);
     }
     
     const manageSessionsBtn = document.getElementById('manageSessionsBtn');
@@ -83,7 +78,7 @@ function loadProfileData() {
         const date = new Date(lastLogin);
         document.getElementById('lastLogin').textContent = formatRelativeTime(date);
     } else {
-        document.getElementById('lastLogin').textContent = 'Just now';
+        document.getElementById('lastLogin').textContent = typeof t === 'function' ? t('profile.justNow') : 'Just now';
     }
     
     // Active Sessions
@@ -99,7 +94,7 @@ async function handleProfileUpdate(e) {
     
     // Validate bio length
     if (bio.length > 160) {
-        showAlert('Bio must be 160 characters or less', 'error');
+        showAlert(typeof t === 'function' ? t('profile.bioError') : 'Bio must be 160 characters or less', 'error');
         return;
     }
     
@@ -121,27 +116,158 @@ async function handleProfileUpdate(e) {
         document.getElementById('userNameSide').textContent = displayName;
     }
     
-    showAlert('Profile updated successfully', 'success');
+    showAlert(typeof t === 'function' ? t('profile.updateSuccess') : 'Profile updated successfully', 'success');
 }
 
 // ============================================
 // QUICK ACTIONS
 // ============================================
 
-// Change Password - Redirect to forgot password page
+// Change Password - open modal
 function changePassword() {
-    window.location.href = '/forgot-password.html';
+    openChangePasswordModal();
+}
+
+function openChangePasswordModal() {
+    const _t = typeof t === 'function' ? t : (k) => k;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'delete-modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'delete-modal';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'delete-modal-header';
+    header.innerHTML = `
+        <div class="delete-modal-title">
+            <span class="material-symbols-outlined">lock_reset</span>
+            <h3>${_t('profile.changePassModalTitle')}</h3>
+        </div>
+        <button class="delete-modal-close" id="closeChangePassModal">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+    `;
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'delete-modal-body';
+    body.innerHTML = `
+        <div id="changePassAlert" class="alert" style="display:none; margin-bottom:1rem;"></div>
+        <form id="changePassForm">
+            <div class="delete-form-group">
+                <label for="currentPassword" class="delete-form-label">${_t('profile.currentPassLabel')}</label>
+                <input type="password" id="currentPassword" class="delete-form-input"
+                    placeholder="${_t('profile.currentPassPlaceholder')}" autocomplete="current-password" required />
+            </div>
+            <div class="delete-form-group">
+                <label for="newPassword" class="delete-form-label">${_t('profile.newPassLabel')}</label>
+                <input type="password" id="newPassword" class="delete-form-input"
+                    placeholder="${_t('profile.newPassPlaceholder')}" autocomplete="new-password" required />
+            </div>
+            <div class="delete-form-group">
+                <label for="confirmPassword" class="delete-form-label">${_t('profile.confirmPassLabel')}</label>
+                <input type="password" id="confirmPassword" class="delete-form-input"
+                    placeholder="${_t('profile.confirmPassPlaceholder')}" autocomplete="new-password" required />
+            </div>
+        </form>
+    `;
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.className = 'delete-modal-footer';
+    footer.innerHTML = `
+        <button class="delete-modal-btn delete-modal-btn-cancel" id="cancelChangePassBtn">
+            <span class="material-symbols-outlined">close</span>
+            ${_t('profile.changePassCancel')}
+        </button>
+        <button class="delete-modal-btn delete-modal-btn-delete" id="confirmChangePassBtn" type="button" style="background: var(--primary);">
+            <span class="material-symbols-outlined">lock_reset</span>
+            ${_t('profile.changePassBtn')}
+        </button>
+    `;
+
+    modal.appendChild(header);
+    modal.appendChild(body);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    const closeBtn = document.getElementById('closeChangePassModal');
+    const cancelBtn = document.getElementById('cancelChangePassBtn');
+    const confirmBtn = document.getElementById('confirmChangePassBtn');
+    const alertEl = document.getElementById('changePassAlert');
+
+    function closeModal() {
+        overlay.style.animation = 'fadeOut 0.2s ease';
+        setTimeout(() => {
+            if (document.body.contains(overlay)) document.body.removeChild(overlay);
+            document.body.style.overflow = '';
+        }, 200);
+    }
+
+    function showModalAlert(message, type) {
+        alertEl.className = `alert alert-${type}`;
+        alertEl.textContent = message;
+        alertEl.style.display = 'block';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+    const escHandler = (e) => {
+        if (e.key === 'Escape') { closeModal(); document.removeEventListener('keydown', escHandler); }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    confirmBtn.addEventListener('click', async () => {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPasswordVal = document.getElementById('confirmPassword').value;
+
+        if (!currentPassword) { showModalAlert(_t('profile.currentPassRequired'), 'error'); return; }
+        if (!newPassword) { showModalAlert(_t('profile.newPassRequired'), 'error'); return; }
+        if (newPassword.length < 8) { showModalAlert(_t('profile.newPassShort'), 'error'); return; }
+        if (newPassword !== confirmPasswordVal) { showModalAlert(_t('profile.passNoMatch'), 'error'); return; }
+
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `<span class="material-symbols-outlined">hourglass_empty</span> ${_t('profile.changing')}`;
+
+        try {
+            const response = await fetch('/api/auth/change-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || data.message || 'Failed to change password');
+            }
+
+            showModalAlert(_t('profile.changePassSuccess'), 'success');
+            setTimeout(() => closeModal(), 2000);
+
+        } catch (error) {
+            showModalAlert(_t('profile.changePassFailed') + ': ' + error.message, 'error');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `<span class="material-symbols-outlined">lock_reset</span> ${_t('profile.changePassBtn')}`;
+        }
+    });
+
+    setTimeout(() => document.getElementById('currentPassword')?.focus(), 300);
 }
 
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('action') === 'changePassword') {
-  // Open change password modal
-  openChangePasswordModal();
-}
-
-// Enable 2FA
-function enable2FA() {
-    showAlert('Two-factor authentication setup coming soon', 'warning');
+    openChangePasswordModal();
 }
 
 // Manage Sessions
@@ -185,7 +311,7 @@ function formatRelativeTime(date) {
 
 // Logout
 function logout() {
-    if (confirm('Are you sure you want to logout?')) {
+    if (confirm(typeof t === 'function' ? t('profile.logoutConfirm') : 'Are you sure you want to logout?')) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('userProfile');
@@ -200,27 +326,28 @@ function deleteAccount() {
 
 // ✅ สร้าง Delete Account Modal
 function showDeleteAccountModal() {
+    const _t = typeof t === 'function' ? t : (k) => k;
     // สร้าง modal overlay
     const overlay = document.createElement('div');
     overlay.className = 'delete-modal-overlay';
-    
+
     // สร้าง modal
     const modal = document.createElement('div');
     modal.className = 'delete-modal';
-    
+
     // Modal Header
     const header = document.createElement('div');
     header.className = 'delete-modal-header';
     header.innerHTML = `
         <div class="delete-modal-title">
             <span class="material-symbols-outlined">warning</span>
-            <h3>Delete Account</h3>
+            <h3>${_t('profile.deleteTitle')}</h3>
         </div>
         <button class="delete-modal-close" id="closeDeleteModal">
             <span class="material-symbols-outlined">close</span>
         </button>
     `;
-    
+
     // Modal Body
     const body = document.createElement('div');
     body.className = 'delete-modal-body';
@@ -228,64 +355,62 @@ function showDeleteAccountModal() {
         <div class="delete-warning">
             <div class="delete-warning-title">
                 <span class="material-symbols-outlined">error</span>
-                Warning: This action is irreversible!
+                ${_t('profile.deleteWarningTitle')}
             </div>
-            <p class="delete-warning-text">
-                You are about to permanently delete your account. This will remove:
-            </p>
+            <p class="delete-warning-text">${_t('profile.deleteWarningDesc')}</p>
             <ul class="delete-warning-list">
-                <li>Profile information</li>
-                <li>Active sessions</li>
-                <li>API keys</li>
-                <li>Activity logs</li>
-                <li>All associated data</li>
+                <li>${_t('profile.deleteItem1')}</li>
+                <li>${_t('profile.deleteItem2')}</li>
+                <li>${_t('profile.deleteItem3')}</li>
+                <li>${_t('profile.deleteItem4')}</li>
+                <li>${_t('profile.deleteItem5')}</li>
             </ul>
         </div>
-        
+
         <form class="delete-form" id="deleteAccountForm">
             <div class="delete-form-group">
                 <label for="deleteConfirmation" class="delete-form-label">
-                    Type "DELETE" to confirm
+                    ${_t('profile.deleteTypeLabel')}
                 </label>
-                <input 
-                    type="text" 
-                    id="deleteConfirmation" 
-                    class="delete-form-input" 
+                <input
+                    type="text"
+                    id="deleteConfirmation"
+                    class="delete-form-input"
                     placeholder="DELETE"
                     autocomplete="off"
                     required
                 />
-                <span class="delete-form-hint">Please type DELETE in capital letters</span>
+                <span class="delete-form-hint">${_t('profile.deleteTypeHint')}</span>
             </div>
-            
+
             <div class="delete-form-group">
                 <label for="deletePassword" class="delete-form-label">
-                    Enter your password
+                    ${_t('profile.deletePasswordLabel')}
                 </label>
-                <input 
-                    type="password" 
-                    id="deletePassword" 
-                    class="delete-form-input" 
-                    placeholder="Your password"
+                <input
+                    type="password"
+                    id="deletePassword"
+                    class="delete-form-input"
+                    placeholder="${_t('profile.deletePasswordPlaceholder')}"
                     autocomplete="current-password"
                     required
                 />
-                <span class="delete-form-hint">Confirm your identity to proceed</span>
+                <span class="delete-form-hint">${_t('profile.deletePasswordHint')}</span>
             </div>
         </form>
     `;
-    
+
     // Modal Footer
     const footer = document.createElement('div');
     footer.className = 'delete-modal-footer';
     footer.innerHTML = `
         <button class="delete-modal-btn delete-modal-btn-cancel" id="cancelDeleteBtn">
             <span class="material-symbols-outlined">close</span>
-            Cancel
+            ${_t('profile.deleteCancel')}
         </button>
         <button class="delete-modal-btn delete-modal-btn-delete" id="confirmDeleteBtn" type="button">
             <span class="material-symbols-outlined">delete_forever</span>
-            Delete Account
+            ${_t('profile.deleteConfirmBtn')}
         </button>
     `;
     
@@ -363,12 +488,12 @@ function showDeleteAccountModal() {
         
         // Validate
         if (confirmation !== 'DELETE') {
-            showAlert('Please type DELETE to confirm', 'error');
+            showAlert(_t('profile.deleteTypeError'), 'error');
             return;
         }
-        
+
         if (!password) {
-            showAlert('Please enter your password', 'error');
+            showAlert(_t('profile.deletePassError'), 'error');
             return;
         }
         
@@ -377,7 +502,7 @@ function showDeleteAccountModal() {
         confirmBtn.classList.add('loading');
         confirmBtn.innerHTML = `
             <span class="material-symbols-outlined">refresh</span>
-            Deleting...
+            ${_t('profile.deleting')}
         `;
         
         try {
@@ -398,7 +523,7 @@ function showDeleteAccountModal() {
             }
             
             // Success
-            showAlert('Account deleted successfully. Redirecting...', 'success');
+            showAlert(_t('profile.deleteSuccess'), 'success');
             
             // Clear localStorage
             localStorage.clear();
@@ -413,14 +538,14 @@ function showDeleteAccountModal() {
             
         } catch (error) {
             console.error('Delete account error:', error);
-            showAlert(' Failed to delete account: ' + error.message, 'error');
+            showAlert(_t('profile.deleteFailed') + ': ' + error.message, 'error');
             
             // Reset button
             confirmBtn.disabled = false;
             confirmBtn.classList.remove('loading');
             confirmBtn.innerHTML = `
                 <span class="material-symbols-outlined">delete_forever</span>
-                Delete Account
+                ${_t('profile.deleteConfirmBtn')}
             `;
         }
     });

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authorize Application — Monolith Cloud</title>
+    <title>Authorize Application — AuthSys</title>
+    <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -246,7 +247,7 @@
                 </div>
                 <h1 class="app-name" id="clientName">ShopHub Client</h1>
                 <p class="app-description">
-                    is requesting access to your Monolith Cloud account
+                    is requesting access to your AuthSys account
                 </p>
                 <div class="pkce-badge">
                     <span class="material-symbols-outlined filled">security</span>
@@ -293,19 +294,21 @@
             </div>
 
             <!-- Actions -->
-            <form id="consentForm" method="POST" action="/api/oauth/consent">
+            <form id="consentForm">
                 <input type="hidden" name="client_id" id="clientId" value="">
+                <input type="hidden" name="redirect_uri" id="redirectUri" value="">
                 <input type="hidden" name="scope" id="scope" value="">
                 <input type="hidden" name="state" id="state" value="">
                 <input type="hidden" name="code_challenge" id="codeChallenge" value="">
-                
+                <input type="hidden" name="code_challenge_method" id="codeChallengeMethod" value="S256">
+
                 <div class="consent-actions">
-                    <button type="submit" name="consent" value="allow" class="btn-allow">
+                    <button type="button" id="btnAllow" class="btn-allow">
                         <span class="material-symbols-outlined filled">check_circle</span>
                         Allow Access
                     </button>
-                    
-                    <button type="submit" name="consent" value="deny" class="btn-deny">
+
+                    <button type="button" id="btnDeny" class="btn-deny">
                         <span class="material-symbols-outlined">cancel</span>
                         Deny
                     </button>
@@ -316,9 +319,8 @@
             <div class="consent-footer">
                 <p>
                     By allowing, you agree to our<br>
-                    <a href="/privacy-policy.html" target="_blank">Privacy Policy</a>
-                    and
-                    <a href="/terms.html" target="_blank">Terms of Service</a>
+                    <a href="/privacy-policy.html" target="_blank">Privacy Policy and Terms of Service</a>
+                  
                 </p>
                 <p style="font-size: 0.625rem; color: var(--outline);">
                     You can revoke access at any time from your account settings
@@ -328,48 +330,62 @@
     </div>
 
     <script>
-        // Parse URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const clientId = urlParams.get('client_id');
-        const scope = urlParams.get('scope');
-        const state = urlParams.get('state');
-        const codeChallenge = urlParams.get('code_challenge');
-        
-        // Set hidden form values
-        if (clientId) document.getElementById('clientId').value = clientId;
-        if (scope) document.getElementById('scope').value = scope;
-        if (state) document.getElementById('state').value = state;
-        if (codeChallenge) document.getElementById('codeChallenge').value = codeChallenge;
-        
-        // Update client name based on client_id (in production, fetch from API)
-        const clientNames = {
-            'mock_client_id_12345': 'ShopHub Client',
-            '3cbc1409a2716608ebf01a7d962e69cf': 'ShopHub Client App',
-            'default': 'Unknown Application'
-        };
-        
-        const clientName = clientNames[clientId] || clientNames['default'];
-        document.getElementById('clientName').textContent = clientName;
-        
-        // Parse and display scopes
-        const scopeDescriptions = {
-            'openid': 'Authenticate with OpenID Connect',
-            'profile': 'View your profile information',
-            'email': 'View your email address'
-        };
-        
-        // Form submission
-        document.getElementById('consentForm').addEventListener('submit', function(e) {
-            const submitter = e.submitter;
-            if (submitter && submitter.value === 'deny') {
-                // Redirect with error
-                const redirectUrl = new URL(clientId ? '/api/auth/callback' : '/');
-                redirectUrl.searchParams.set('error', 'access_denied');
-                redirectUrl.searchParams.set('error_description', 'User denied access');
-                if (state) redirectUrl.searchParams.set('state', state);
-                window.location.href = redirectUrl.toString();
+        const clientId        = urlParams.get('client_id');
+        const redirectUri     = urlParams.get('redirect_uri');
+        const scope           = urlParams.get('scope');
+        const state           = urlParams.get('state');
+        const codeChallenge   = urlParams.get('code_challenge');
+        const challengeMethod = urlParams.get('code_challenge_method') || 'S256';
+        const clientName      = urlParams.get('client_name');
+
+        // Populate hidden fields
+        if (clientId)        document.getElementById('clientId').value = clientId;
+        if (redirectUri)     document.getElementById('redirectUri').value = redirectUri;
+        if (scope)           document.getElementById('scope').value = scope;
+        if (state)           document.getElementById('state').value = state;
+        if (codeChallenge)   document.getElementById('codeChallenge').value = codeChallenge;
+        if (challengeMethod) document.getElementById('codeChallengeMethod').value = challengeMethod;
+        if (clientName)      document.getElementById('clientName').textContent = clientName;
+
+        async function submitConsent(action) {
+            const body = {
+                client_id:             clientId,
+                redirect_uri:          redirectUri,
+                scope:                 scope,
+                state:                 state,
+                code_challenge:        codeChallenge,
+                code_challenge_method: challengeMethod,
+                action
+            };
+
+            if (action === 'deny') {
+                const sep = redirectUri.includes('?') ? '&' : '?';
+                window.location.href = `${redirectUri}${sep}error=access_denied${state ? `&state=${encodeURIComponent(state)}` : ''}`;
+                return;
             }
-        });
+
+            try {
+                const res = await fetch('/api/oauth/authorize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('Authorization failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Consent error:', err);
+                alert('Something went wrong. Please try again.');
+            }
+        }
+
+        document.getElementById('btnAllow').addEventListener('click', () => submitConsent('allow'));
+        document.getElementById('btnDeny').addEventListener('click',  () => submitConsent('deny'));
     </script>
 </body>
 </html>

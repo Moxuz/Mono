@@ -171,6 +171,26 @@ app.post('/api/refresh', async (req, res) => {
     }
 });
 
+// Social Login Callback — receives JWT from auth server after Google/GitHub login
+app.get('/social-callback', async (req, res) => {
+    const { token } = req.query;
+    if (!token) return res.redirect('/?error=missing_token');
+
+    try {
+        const userRes = await axios.get(
+            `${config.oauthProvider}/api/auth/profile`,
+            { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+
+        req.session.user        = userRes.data.data || userRes.data;
+        req.session.accessToken = token;
+        res.redirect('/dashboard');
+    } catch (err) {
+        console.error('Social callback error:', err.response?.data || err.message);
+        res.redirect('/?error=auth_failed');
+    }
+});
+
 // Logout
 app.get('/logout', (req, res) => {
     req.session.destroy(err => {

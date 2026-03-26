@@ -7,7 +7,6 @@ const crypto = require('crypto');
 const { validatePassword } = require('../../../shared/utils/passwordValidator');
 const emailVerificationService = require('../../../shared/services/emailVerification.service');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
-const twoFAService = require('../../../shared/services/2fa.service');
 const sessionService = require('../../../shared/services/session.service');
 const logger = require('../../../shared/utils/logger');
 
@@ -110,12 +109,12 @@ class AuthService {
         }
     }
 
-    async login({ email, password, req }) {
+    async login({ email, password, remember, req }) {
         try {
             logger.info(`Login attempt for user: ${email}`);
 
             // Find user
-            const user = await User.findOne({ email }).select('+password +twoFactorEnabled +twoFactorSecret');
+            const user = await User.findOne({ email }).select('+password');
             if (!user) {
                 logger.warn(`Login failed - user not found: ${email}`);
                 await securityAuditService.logLoginFailed(email, req, 'user_not_found');
@@ -159,30 +158,12 @@ class AuthService {
                 logger.error('Login alert email failed:', { email: user.email, error: err.message });
             });
 
-            // Check if 2FA is enabled
-            if (user.twoFactorEnabled) {
-                logger.info(`2FA required for user: ${email}`);
-                const tempToken = this.createTempToken(user);
-                await securityAuditService.logLoginSuccess(user, req);
-
-                return {
-                    user: {
-                        id: user._id,
-                        username: user.username,
-                        email: user.email,
-                        role: user.role
-                    },
-                    requiresTwoFactor: true,
-                    tempToken
-                };
-            }
-
             // Log successful login
             await securityAuditService.logLoginSuccess(user, req);
             logger.info(`Login successful for user: ${email}`);
 
             // Generate token
-            const token = this.createToken(user);
+            const token = this.createToken(user, remember);
             const refreshToken = this.generateRefreshToken(user);
 
             // Create session
@@ -206,7 +187,6 @@ class AuthService {
                     email: user.email,
                     role: user.role
                 },
-                requiresTwoFactor: false,
                 token,
                 refreshToken,
                 sessionId: session?.sessionId || null
@@ -217,77 +197,17 @@ class AuthService {
         }
     }
 
-    async verify2FAAndLogin({ tempToken, twoFactorToken, backupCode, req }) {
-        try {
-            logger.info(`2FA verification attempt for temp token`);
-
-            const decoded = jwt.verify(tempToken, config.JWT_SECRET);
-            if (decoded.type !== 'temp_token') {
-                logger.warn('Invalid temp token type');
-                throw new Error('Invalid temp token');
-            }
-
-            const user = await User.findById(decoded.id).select('+twoFactorSecret +twoFactorBackupCodes');
-            if (!user || !user.twoFactorEnabled) {
-                logger.warn('2FA verification failed - 2FA not required');
-                throw new Error('2FA not required');
-            }
-
-            let verified = false;
-            if (backupCode) {
-                logger.info(`Verifying 2FA backup code for user: ${user.email}`);
-                verified = await twoFAService.verifyBackupCode(user, backupCode);
-            } else if (twoFactorToken) {
-                logger.info(`Verifying 2FA token for user: ${user.email}`);
-                verified = await twoFAService.verify2FAToken(user, twoFactorToken);
-            }
-
-            if (!verified) {
-                logger.warn(`2FA verification failed for user: ${user.email}`);
-                throw new Error('Invalid 2FA token or backup code');
-            }
-
-            logger.info(`2FA verification successful for user: ${user.email}`);
-
-            const token = this.createToken(user);
-            await securityAuditService.logLoginSuccess(user, req);
-
-            return {
-                user: {
-                    id: user._id,
-                    username: user.username,
-                    email: user.email,
-                    role: user.role
-                },
-                token
-            };
-        } catch (error) {
-            logger.error('2FA verification failed:', error.message);
-            throw error;
-        }
-    }
-
-    createTempToken(user) {
+    createToken(user, remember = false) {
+        const expiresIn = remember ? '30d' : (config.JWT_EXPIRE || '1h');
         return jwt.sign(
             {
                 id: user._id,
                 email: user.email,
-                type: 'temp_token'
+                role: user.role,
+                provider: user.googleId ? 'google' : user.githubId ? 'github' : 'local'
             },
             config.JWT_SECRET,
-            { expiresIn: '5m' }
-        );
-    }
-
-    createToken(user) {
-        return jwt.sign(
-            {
-                id: user._id,
-                email: user.email,
-                role: user.role
-            },
-            config.JWT_SECRET,
-            { expiresIn: config.JWT_EXPIRE || '1h' }
+            { expiresIn }
         );
     }
 
@@ -391,15 +311,15 @@ class AuthService {
 
             if (sessionId) {
                 const Session = require('../../../shared/models/Session');
-                const session = await Session.findOne({ sessionId, userId: user._id, isActive: true });
-                
+                const session = await Session.findOne({ _id: sessionId, userId: user._id, isActive: true });
+
                 if (!session) {
                     logger.warn('Refresh token failed - session not found or inactive');
                     await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'user_logout');
                     throw new Error('Session has expired or been revoked');
                 }
 
-                session.lastActivity = new Date();
+                session.lastActiveAt = new Date();
                 if (deviceInfo) {
                     session.deviceInfo = { ...session.deviceInfo, ...deviceInfo };
                 }
@@ -407,19 +327,24 @@ class AuthService {
                 logger.info(`Session activity updated for user: ${user.email}`);
             }
 
+            const Session = require('../../../shared/models/Session');
+            const oldRefreshHash = Session.hashRefreshToken(refreshToken);
+
             await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'user_logout');
             logger.info(`Old refresh token blacklisted for user: ${user.email} (rotation)`);
 
             const newAccessToken = this.createToken(user);
             const newRefreshToken = this.generateRefreshToken(user);
 
-            if (sessionId) {
-                const Session = require('../../../shared/models/Session');
-                await Session.findOneAndUpdate(
-                    { sessionId },
-                    { refreshToken: newRefreshToken }
-                );
-            }
+            // Update session with new tokens so req.authSession stays valid
+            await Session.findOneAndUpdate(
+                { refreshTokenHash: oldRefreshHash, isActive: true },
+                {
+                    sessionToken: newAccessToken,
+                    refreshTokenHash: Session.hashRefreshToken(newRefreshToken),
+                    lastActiveAt: new Date()
+                }
+            );
 
             const securityAuditService = require('../../../shared/services/securityAudit.service');
             await securityAuditService.logSecurityEvent({
@@ -492,8 +417,8 @@ class AuthService {
             
             const sessions = await Session.find(
                 { userId, isActive: true },
-                { sessionId, deviceInfo, lastActivity, createdAt, expiresAt }
-            ).sort({ lastActivity: -1 });
+                { deviceInfo: 1, lastActiveAt: 1, createdAt: 1 }
+            ).sort({ lastActiveAt: -1 });
 
             logger.info(`Retrieved ${sessions.length} active sessions for user ${userId}`);
 
@@ -509,7 +434,7 @@ class AuthService {
             const Session = require('../../../shared/models/Session');
             const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 
-            const session = await Session.findOne({ sessionId, userId });
+            const session = await Session.findOne({ _id: sessionId, userId });
 
             if (!session) {
                 throw new Error('Session not found');
@@ -539,7 +464,7 @@ class AuthService {
             const sessions = await Session.find({
                 userId,
                 isActive: true,
-                sessionId: { $ne: currentSessionId }
+                _id: { $ne: currentSessionId }
             });
 
             for (const session of sessions) {
@@ -804,9 +729,13 @@ class AuthService {
 // ✅ Helper function สำหรับส่ง login alert
 async function sendLoginAlertIfEnabled(user, req) {
     try {
-        // เช็คว่า user เปิด login alerts หรือไม่
+        // Check master email toggle first, then the specific loginAlerts toggle
+        if (!user.preferences?.notifications?.email) {
+            logger.info(`Login alert skipped - email notifications disabled by user: ${user.email}`);
+            return;
+        }
         if (!user.preferences?.notifications?.loginAlerts) {
-            logger.info(`Login alert skipped - disabled by user: ${user.email}`);
+            logger.info(`Login alert skipped - login alerts disabled by user: ${user.email}`);
             return;
         }
 

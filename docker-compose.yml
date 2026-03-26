@@ -151,6 +151,8 @@ services:
       - USE_KAFKA_LOGGING=true
       - KAFKA_BROKER=kafka:29092
       - KAFKA_CLIENT_ID=auth-app
+      # Rate limit whitelist — includes Docker bridge gateway so test scripts are not throttled
+      - RATE_LIMIT_WHITELIST=127.0.0.1,::1,172.25.0.1,::ffff:172.25.0.1
     depends_on:
       mongodb:
         condition: service_started

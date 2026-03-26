@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enterprise Console — AuthSys</title>
-     <script src="/scripts/theme-init.js"></script>
+     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css">
+    <link id="lighttheme-css" rel="stylesheet" href="/css/lighttheme.css" disabled>
+    <script>if(localStorage.getItem("theme")==="light"){document.getElementById("lighttheme-css").disabled=false;}</script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 </head>
@@ -14,12 +16,12 @@
     <header class="topbar fixed top-0 left-64 right-0 h-14 bg-surface-dim border-b border-outline-variant z-30 flex items-center justify-between px-6">
         <div class="system-status">
             <span class="status-pulse"></span>
-            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl">System Normal</span>
+            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl" data-i18n="topbar.status">System Normal</span>
         </div>
         <div class="flex items-center gap-6">
             <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
                 <span id="userEmailTop" class="text-xs font-mono text-on-surface-variant">Loading...</span>
-                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop">Logout</button>
+                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop" data-i18n="topbar.logout">Logout</button>
             </div>
         </div>
     </header>
@@ -34,23 +36,23 @@
         <nav class="flex-1 space-y-1">
             <a href="/dashboard.html" class="sidebar-link active flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">insights</span>
-                <span class="text-sm tracking-tight">Console</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.console">Console</span>
             </a>
             <a href="/user-activity.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">receipt_long</span>
-                <span class="text-sm tracking-tight">Activity</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.activity">Activity</span>
             </a>
             <a href="/api-keys.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">key</span>
-                <span class="text-sm tracking-tight">API Keys</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.apikeys">API Keys</span>
             </a>
             <a href="/profile.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">person</span>
-                <span class="text-sm tracking-tight">Profile</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.profile">Profile</span>
             </a>
             <a href="/settings.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">settings</span>
-                <span class="text-sm tracking-tight">Settings</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.settings">Settings</span>
             </a>
         </nav>
         
@@ -72,8 +74,8 @@
         <div class="dashboard-container p-8 max-w-1600 mx-auto">
             <!-- Page Header -->
             <div class="dashboard-header mb-10">
-                <h2 class="dashboard-title text-3xl font-bold tracking-tighter text-on-surface">Console Dashboard</h2>
-                <p class="dashboard-subtitle text-on-surface-variant mt-2 text-sm italic">Real-time identity metrics and security overview for your account.</p>
+                <h2 class="dashboard-title text-3xl font-bold tracking-tighter text-on-surface" data-i18n="dashboard.title">Console Dashboard</h2>
+                <p class="dashboard-subtitle text-on-surface-variant mt-2 text-sm italic" data-i18n="dashboard.subtitle">Real-time identity metrics and security overview for your account.</p>
             </div>
 
             <!-- Metrics Grid -->
@@ -81,14 +83,14 @@
                 <!-- Login Activity Chart -->
                 <div class="metric-card metric-large">
                     <div class="metric-label">
-                        <span>Login Activity</span>
+                        <span data-i18n="dashboard.loginActivity">Login Activity</span>
                         <span class="material-symbols-outlined">bar_chart</span>
                     </div>
                     <div class="metric-value-container">
                         <span class="metric-value" id="loginTotal">0</span>
                         <span class="metric-trend" id="loginTrend">loading...</span>
                     </div>
-                    <div class="metric-subtitle">Last 7 days</div>
+                    <div class="metric-subtitle" data-i18n="dashboard.last7days">Last 7 days</div>
                     
                     <!-- Chart Container -->
                     <div class="login-chart" id="loginChart">
@@ -101,7 +103,7 @@
                 <!-- Current User -->
                 <div class="metric-card">
                     <div class="metric-label">
-                        <span>Current User</span>
+                        <span data-i18n="dashboard.currentUser">Current User</span>
                         <span class="material-symbols-outlined">person</span>
                     </div>
                     <div class="metric-user-info">
@@ -118,17 +120,17 @@
             <!-- Activity Section -->
             <div class="activity-section">
                 <div class="activity-header">
-                    <h3 class="activity-title">Recent Identity Events</h3>
-                    <button class="activity-export-btn" id="exportLogsBtn">Export Logs</button>
+                    <h3 class="activity-title" data-i18n="dashboard.recentEvents">Recent Identity Events</h3>
+                    <button class="activity-export-btn" id="exportLogsBtn" data-i18n="dashboard.exportLogs">Export Logs</button>
                 </div>
                 <div class="activity-table-wrapper">
                     <table class="activity-table">
                         <thead>
                             <tr>
-                                <th>Event Type</th>
-                                <th>Source IP</th>
-                                <th>Timestamp</th>
-                                <th>Status</th>
+                                <th data-i18n="dashboard.eventType">Event Type</th>
+                                <th data-i18n="dashboard.sourceIp">Source IP</th>
+                                <th data-i18n="dashboard.timestamp">Timestamp</th>
+                                <th data-i18n="dashboard.status">Status</th>
                             </tr>
                         </thead>
                         <tbody id="recentEventsBody">
@@ -146,6 +148,7 @@
     </main>
 
     <script src="/js/ipHelper.js"></script>
+    <script src="/js/i18n.js"></script>
     <script src="/js/dashboard.js"></script>
 </body>
 </html>
