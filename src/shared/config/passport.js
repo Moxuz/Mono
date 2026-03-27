@@ -3,7 +3,6 @@
 const passport       = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('./passport/github.strategy.js');
-const FacebookStrategy = require('./passport/facebook.strategy.js');
 const User           = require('../models/User');
 const logger         = require('../utils/logger');
 
@@ -15,10 +14,6 @@ const GOOGLE_ENABLED =
 const GITHUB_ENABLED =
   !!process.env.GITHUB_CLIENT_ID &&
   !!process.env.GITHUB_CLIENT_SECRET;
-
-const FACEBOOK_ENABLED =
-  !!process.env.FACEBOOK_APP_ID &&
-  !!process.env.FACEBOOK_APP_SECRET;
 
 // Google OAuth
 
@@ -97,16 +92,6 @@ if (GITHUB_ENABLED && GitHubStrategy) {
   logger.warn('⚠️  GitHub OAuth disabled — GITHUB_CLIENT_ID not set');
 }
 
-// Facebook OAuth
-if (FACEBOOK_ENABLED && FacebookStrategy) {
-  passport.use(FacebookStrategy);
-  logger.info('✅ Facebook OAuth enabled');
-} else if (FACEBOOK_ENABLED && !FacebookStrategy) {
-  logger.warn('⚠️  Facebook OAuth enabled but strategy not loaded');
-} else {
-  logger.warn('⚠️  Facebook OAuth disabled — FACEBOOK_APP_ID not set');
-}
-
 passport.serializeUser((user, done)       => done(null, user.id));
 passport.deserializeUser(async (id, done) => {
   try {
@@ -117,9 +102,8 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-module.exports = { 
-  passport, 
+module.exports = {
+  passport,
   GOOGLE_ENABLED,
-  GITHUB_ENABLED,   
-  FACEBOOK_ENABLED  
+  GITHUB_ENABLED
 };

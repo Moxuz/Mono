@@ -19,7 +19,7 @@
       const data = await res.json();
 
       if (data.success) {
-        const { google, github, facebook } = data.data;
+        const { google, github } = data.data;
 
         // ✅ ซ่อนปุ่ม Google ถ้าไม่ได้เปิด
         if (!google) {
@@ -39,17 +39,8 @@
           }
         }
 
-        // ✅ ซ่อนปุ่ม Facebook ถ้าไม่ได้เปิด (ถ้ามี)
-        if (!facebook) {
-          const facebookBtn = document.getElementById('facebookLoginBtn');
-          if (facebookBtn) {
-            facebookBtn.style.display = 'none';
-            console.info('Facebook OAuth is disabled');
-          }
-        }
-
         // ✅ ถ้าไม่มี OAuth ใดๆ เปิดเลย ให้ซ่อนส่วน Social Login ทั้งหมด
-        if (!google && !github && !facebook) {
+        if (!google && !github) {
           const socialLogin = document.querySelector('.social-login');
           const divider = document.querySelector('.divider');
           

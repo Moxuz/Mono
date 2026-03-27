@@ -204,7 +204,8 @@ class AuthService {
                 id: user._id,
                 email: user.email,
                 role: user.role,
-                provider: user.googleId ? 'google' : user.githubId ? 'github' : 'local'
+                provider: user.googleId ? 'google' : user.githubId ? 'github' : 'local',
+                jti: crypto.randomBytes(16).toString('hex')
             },
             config.JWT_SECRET,
             { expiresIn }
@@ -215,7 +216,8 @@ class AuthService {
         return jwt.sign(
             {
                 id: user._id,
-                type: 'refresh_token'
+                type: 'refresh_token',
+                jti: crypto.randomBytes(16).toString('hex')
             },
             config.JWT_SECRET,
             { expiresIn: '30d' }
@@ -695,15 +697,21 @@ class AuthService {
                 throw new Error('User not found');
             }
 
-            const isMatch = await bcrypt.compare(currentPassword, user.password);
-            if (!isMatch) {
-                logger.warn(`Password change failed - current password incorrect: ${user.email}`);
-                throw new Error('Current password is incorrect');
-            }
-
-            if (await bcrypt.compare(newPassword, user.password)) {
-                logger.warn(`Password change failed - new password same as current: ${user.email}`);
-                throw new Error('New password must be different from current password');
+            if (user.password) {
+                if (!currentPassword) {
+                    throw new Error('Current password is required');
+                }
+                const isMatch = await bcrypt.compare(currentPassword, user.password);
+                if (!isMatch) {
+                    logger.warn(`Password change failed - current password incorrect: ${user.email}`);
+                    throw new Error('Current password is incorrect');
+                }
+                if (await bcrypt.compare(newPassword, user.password)) {
+                    logger.warn(`Password change failed - new password same as current: ${user.email}`);
+                    throw new Error('New password must be different from current password');
+                }
+            } else {
+                logger.info(`OAuth user setting initial password: ${user.email}`);
             }
 
             user.password = newPassword;
@@ -729,12 +737,13 @@ class AuthService {
 // ✅ Helper function สำหรับส่ง login alert
 async function sendLoginAlertIfEnabled(user, req) {
     try {
-        // Check master email toggle first, then the specific loginAlerts toggle
-        if (!user.preferences?.notifications?.email) {
+        // Only skip if the preference is explicitly set to false.
+        // If preferences/notifications are missing, default to sending the alert.
+        if (user.preferences?.notifications?.email === false) {
             logger.info(`Login alert skipped - email notifications disabled by user: ${user.email}`);
             return;
         }
-        if (!user.preferences?.notifications?.loginAlerts) {
+        if (user.preferences?.notifications?.loginAlerts === false) {
             logger.info(`Login alert skipped - login alerts disabled by user: ${user.email}`);
             return;
         }
@@ -790,3 +799,4 @@ function getOS(userAgent) {
 }
 
 module.exports = new AuthService();
+module.exports.sendLoginAlertIfEnabled = sendLoginAlertIfEnabled;

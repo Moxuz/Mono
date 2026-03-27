@@ -3,6 +3,8 @@ const urlParams = new URLSearchParams(window.location.search);
 const tokenFromUrl = urlParams.get('token');
 if (tokenFromUrl) {
     localStorage.setItem('token', tokenFromUrl);
+    const refreshTokenFromUrl = urlParams.get('refreshToken');
+    if (refreshTokenFromUrl) localStorage.setItem('refreshToken', refreshTokenFromUrl);
     // Cleanup URL
     window.history.replaceState({}, document.title, window.location.pathname);
 }

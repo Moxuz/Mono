@@ -14,13 +14,13 @@ router.get('/', sessionController.getSessions);
 // Get session count
 router.get('/count', sessionController.getSessionCount);
 
-// Revoke specific session
-router.delete('/:sessionId', sessionController.revokeSession);
-
-// Revoke all other sessions (keep current) 
+// Revoke all other sessions (keep current) — must be before /:sessionId
 router.delete('/others/all', requireSession, sessionController.revokeAllOtherSessions);
 
-// Revoke all sessions (logout everywhere)
+// Revoke all sessions (logout everywhere) — must be before /:sessionId
 router.delete('/all', sessionController.revokeAllSessions);
+
+// Revoke specific session
+router.delete('/:sessionId', sessionController.revokeSession);
 
 module.exports = router;

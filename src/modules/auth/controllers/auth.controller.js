@@ -271,18 +271,11 @@ exports.deleteAccount = async (req, res) => {
     try {
         const userId = req.user._id || req.user.id;
         const email = req.user.email;
-        const { password } = req.body;
+        const { password, reauth_token } = req.body;
 
         const clientIp = req.ip || req.socket?.remoteAddress;
 
         logger.security(`Account deletion attempt for: ${email}`, { function: 'deleteAccount', userId, ip: clientIp });
-
-        if (!password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Password is required for account deletion'
-            });
-        }
 
         const user = await User.findById(userId).select('+password');
 
@@ -293,14 +286,41 @@ exports.deleteAccount = async (req, res) => {
             });
         }
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-
-        if (!isPasswordValid) {
-            logger.warn('deleteAccount: invalid password supplied', { function: 'deleteAccount', userId });
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid password'
-            });
+        if (user.password) {
+            if (!password) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Password is required for account deletion'
+                });
+            }
+            const isPasswordValid = await bcrypt.compare(password, user.password);
+            if (!isPasswordValid) {
+                logger.warn('deleteAccount: invalid password supplied', { function: 'deleteAccount', userId });
+                return res.status(401).json({
+                    success: false,
+                    error: 'Invalid password'
+                });
+            }
+        } else {
+            // OAuth user — require a short-lived reauth token from the provider
+            if (!reauth_token) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Re-authentication required. Please verify your identity with your OAuth provider.'
+                });
+            }
+            try {
+                const payload = jwt.verify(reauth_token, config.JWT_SECRET);
+                if (payload.purpose !== 'delete_account' || payload.userId !== userId.toString()) {
+                    throw new Error('Invalid reauth token');
+                }
+            } catch (err) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Re-authentication token is invalid or expired. Please verify again.'
+                });
+            }
+            logger.info('deleteAccount: OAuth re-authentication verified', { function: 'deleteAccount', userId });
         }
 
         // Revoke all sessions
@@ -492,10 +512,10 @@ exports.changePassword = async (req, res, next) => {
         
         const { currentPassword, newPassword } = req.body;
         
-        if (!currentPassword || !newPassword) {
+        if (!newPassword) {
             return res.status(400).json({
                 success: false,
-                error: 'Current password and new password are required'
+                error: 'New password is required'
             });
         }
         
@@ -679,7 +699,7 @@ exports.getProfile = async (req, res, next) => {
             });
         }
 
-        const user = await User.findById(userId).select('-password');
+        const user = await User.findById(userId).select('+password');
 
         if (!user) {
             return res.status(404).json({
@@ -697,7 +717,8 @@ exports.getProfile = async (req, res, next) => {
                 role: user.role,
                 isEmailVerified: user.isEmailVerified,
                 createdAt: user.createdAt,
-                lastLogin: user.lastLogin
+                lastLogin: user.lastLogin,
+                hasPassword: !!user.password
             }
         });
     } catch (error) {

@@ -478,7 +478,7 @@ exports.revokeToken = async (req, res, next) => {
             });
         }
 
-        await oauthService.revokeToken(token, userId, 'user_request');
+        await oauthService.revokeToken(token, userId, 'user_logout');
 
         logger.info('Token revoked', { user: userId });
 

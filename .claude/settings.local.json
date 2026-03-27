@@ -23,7 +23,28 @@
       "Bash(node:*)",
       "Bash(docker compose:*)",
       "Bash(docker exec:*)",
-      "Bash(docker network:*)"
+      "Bash(docker network:*)",
+      "Bash(curl -s http://localhost:5000/health)",
+      "Bash(find /c/Users/ASUS/Documents/TEST/TESTMONO/tests -type f -name *.js)",
+      "Bash(curl -s http://localhost:5000/api/dashboard/health/redis)",
+      "Bash(python3 -m json.tool)",
+      "Bash(npx jest:*)",
+      "Bash(head -20 echo \"---\" grep -n \"regenerat\\\\|Regenerat\\\\|regen\" /c/Users/ASUS/Documents/TEST/TESTMONO/public/api-keys.html)",
+      "Bash(curl -s http://localhost:5000/api/auth/oauth/status)",
+      "Bash(curl:*)",
+      "Bash(docker run:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(docker run --rm -e JWT_SECRET=\"\" -e SESSION_SECRET=\"dummy\" testmono-app node -e \":*)",
+      "Bash(printenv GOOGLE_CLIENT_ID)",
+      "Bash(do echo:*)",
+      "Bash(mv tests/all-routes.test.js tests/all-functions.test.js tests/use-case-comprehensive.test.js tests/email-delivery.test.js tests/kafka-logging.test.js tests/test-admin-functions.js tests/analytics.test.js tests/dashboard-features.test.js tests/rate-limit.test.js tests/redis-rate-limit.test.js tests/complete-oauth-flow.test.js tests/comprehensive.test.js tests/api-integration.test.js tests/new-features.test.js tests/unused/)",
+      "Bash(mv tests/integration/api-flow.test.js tests/integration/complete-auth-flow.test.js tests/unused/)",
+      "Bash(mv tests/unit/services.test.js tests/unused/)",
+      "Bash(mv scripts/test-functions.js scripts/unused/)",
+      "Bash(find C:UsersASUSDocuments -maxdepth 4 -type d -name *final*)",
+      "Bash(find /c/Users/ASUS -maxdepth 5 -type d -name *final*)",
+      "Bash(pip show:*)",
+      "Bash(python:*)"
     ]
   }
 }

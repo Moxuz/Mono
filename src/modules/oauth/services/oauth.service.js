@@ -180,6 +180,7 @@ class OAuthService {
                 client_id,
                 client_secret, // Only time it's shown
                 client_name: client.client_name,
+                scope:       client.scope,
                 created_at:  client.createdAt
             };
         } catch (error) {
@@ -204,12 +205,12 @@ class OAuthService {
     async listClients(ownerId, page = 1, limit = 10) {
         try {
             const skip = (page - 1) * limit;
-            const clients = await Client.find({ owner: ownerId })
+            const clients = await Client.find({ owner: ownerId, isActive: { $ne: false } })
                 .select('-client_secret')
                 .sort('-createdAt')
                 .skip(skip)
                 .limit(limit);
-            const total = await Client.countDocuments({ owner: ownerId });
+            const total = await Client.countDocuments({ owner: ownerId, isActive: { $ne: false } });
             return {
                 clients,
                 pagination: {

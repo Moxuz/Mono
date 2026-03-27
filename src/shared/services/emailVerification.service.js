@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const config = require('../config/config');
 const emailService = require('./email.service');
+const { getVerificationTemplate } = require('./email.templates');
 const logger = require('../utils/logger');
 
 /**
@@ -54,10 +55,10 @@ async function sendVerificationEmail(userId) {
     const verificationUrl = `${config.AUTH_SERVER_URL}/api/auth/verify-email?token=${verificationToken}`;
 
     // Send email
-    await emailService.sendVerificationEmail({
+    await emailService.sendEmail({
       to: user.email,
-      username: user.username,
-      verificationUrl
+      subject: 'Verify your email address',
+      html: getVerificationTemplate({ username: user.username, verificationUrl })
     });
 
     logger.info(`Verification email sent to ${user.email}`);
@@ -139,10 +140,10 @@ async function resendVerificationEmail(email) {
     const verificationUrl = `${config.AUTH_SERVER_URL}/api/auth/verify-email?token=${verificationToken}`;
 
     // Send email
-    await emailService.sendVerificationEmail({
+    await emailService.sendEmail({
       to: user.email,
-      username: user.username,
-      verificationUrl
+      subject: 'Verify your email address',
+      html: getVerificationTemplate({ username: user.username, verificationUrl })
     });
 
     logger.info(`Verification email resent to ${user.email}`);

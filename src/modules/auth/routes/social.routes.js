@@ -4,22 +4,42 @@ const express = require('express');
 const router = express.Router();
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const config = require('../../../shared/config/config');
 const logger = require('../../../shared/utils/logger');
 const SecurityAudit = require('../../../shared/models/SecurityAudit');
+const sessionService = require('../../../shared/services/session.service');
+const { sendLoginAlertIfEnabled } = require('../services/auth.service');
+
+// Helper: generate a refresh token JWT for OAuth users
+function generateOAuthRefreshToken(user) {
+  return jwt.sign(
+    { id: user._id, type: 'refresh_token', jti: crypto.randomBytes(16).toString('hex') },
+    config.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
+
+// Helper: generate a short-lived re-auth token for account deletion
+function generateReauthToken(userId) {
+  return jwt.sign(
+    { userId: userId.toString(), purpose: 'delete_account', jti: crypto.randomBytes(16).toString('hex') },
+    config.JWT_SECRET,
+    { expiresIn: '5m' }
+  );
+}
 
 // ✅ Import enabled flags from passport config
-const { 
-  GOOGLE_ENABLED, 
-  GITHUB_ENABLED, 
-  FACEBOOK_ENABLED 
+const {
+  GOOGLE_ENABLED,
+  GITHUB_ENABLED
 } = require('../../../shared/config/passport');
 
 /**
  * @swagger
  * tags:
  *   name: Social Login
- *   description: OAuth authentication (Google, GitHub, Facebook)
+ *   description: OAuth authentication (Google, GitHub)
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -37,6 +57,10 @@ if (GOOGLE_ENABLED) {
   router.get('/google', (req, res, next) => {
     if (req.query.redirect) {
       req.session.oauthRedirect = req.query.redirect;
+    }
+    if (req.query.action === 'delete_account') {
+      req.session.oauthAction = 'delete_account';
+      req.session.oauthReturnTo = req.query.returnTo || '/profile.html';
     }
     passport.authenticate('google', {
       scope: ['profile', 'email'],
@@ -58,6 +82,16 @@ if (GOOGLE_ENABLED) {
     }),
     async (req, res) => {
       try {
+        // Handle re-authentication for account deletion
+        if (req.session.oauthAction === 'delete_account') {
+          const returnTo = req.session.oauthReturnTo || '/profile.html';
+          delete req.session.oauthAction;
+          delete req.session.oauthReturnTo;
+          logger.info(`✅ Google re-auth for account deletion: ${req.user.email}`);
+          const reauthToken = generateReauthToken(req.user._id);
+          return res.redirect(`${returnTo}?reauth_token=${reauthToken}&action=delete_account`);
+        }
+
         logger.info(`✅ Google login successful: ${req.user.email}`);
 
         // Log security event
@@ -80,11 +114,27 @@ if (GOOGLE_ENABLED) {
             id: req.user._id,
             email: req.user.email,
             role: req.user.role,
-            provider: 'google'
+            provider: 'google',
+            jti: crypto.randomBytes(16).toString('hex')
           },
           config.JWT_SECRET,
           { expiresIn: config.JWT_EXPIRE || '1h' }
         );
+
+        // Generate refresh token and create session
+        const refreshToken = generateOAuthRefreshToken(req.user);
+        let sessionId = null;
+        try {
+          const session = await sessionService.createSession(req.user._id, token, refreshToken, req);
+          sessionId = session.sessionId;
+        } catch (err) {
+          logger.warn('Google OAuth: session creation failed (non-fatal):', err.message);
+        }
+
+        // Send login alert email (non-blocking)
+        sendLoginAlertIfEnabled(req.user, req).catch(err => {
+          logger.error('Google OAuth: login alert email failed:', err.message);
+        });
 
         // Set cookie
         res.cookie('token', token, {
@@ -96,7 +146,9 @@ if (GOOGLE_ENABLED) {
 
         const redirectTo = req.session.oauthRedirect;
         delete req.session.oauthRedirect;
-        res.redirect(redirectTo ? `${redirectTo}?token=${token}` : `/dashboard.html?token=${token}`);
+        const params = new URLSearchParams({ token, refreshToken: refreshToken });
+        if (sessionId) params.set('sessionId', sessionId);
+        res.redirect(redirectTo ? `${redirectTo}?${params}` : `/dashboard.html?${params}`);
 
       } catch (error) {
         logger.error('❌ Google callback error:', error);
@@ -122,6 +174,10 @@ if (GITHUB_ENABLED) {
     if (req.query.redirect) {
       req.session.oauthRedirect = req.query.redirect;
     }
+    if (req.query.action === 'delete_account') {
+      req.session.oauthAction = 'delete_account';
+      req.session.oauthReturnTo = req.query.returnTo || '/profile.html';
+    }
     passport.authenticate('github', {
       scope: ['user:email']
     })(req, res, next);
@@ -141,6 +197,16 @@ if (GITHUB_ENABLED) {
     }),
     async (req, res) => {
       try {
+        // Handle re-authentication for account deletion
+        if (req.session.oauthAction === 'delete_account') {
+          const returnTo = req.session.oauthReturnTo || '/profile.html';
+          delete req.session.oauthAction;
+          delete req.session.oauthReturnTo;
+          logger.info(`✅ GitHub re-auth for account deletion: ${req.user.email || req.user.username}`);
+          const reauthToken = generateReauthToken(req.user._id);
+          return res.redirect(`${returnTo}?reauth_token=${reauthToken}&action=delete_account`);
+        }
+
         logger.info(`✅ GitHub login successful: ${req.user.email || req.user.username}`);
 
         // Log security event
@@ -164,11 +230,27 @@ if (GITHUB_ENABLED) {
             id: req.user._id,
             email: req.user.email,
             role: req.user.role,
-            provider: 'github'
+            provider: 'github',
+            jti: crypto.randomBytes(16).toString('hex')
           },
           config.JWT_SECRET,
           { expiresIn: config.JWT_EXPIRE || '1h' }
         );
+
+        // Generate refresh token and create session
+        const refreshToken = generateOAuthRefreshToken(req.user);
+        let sessionId = null;
+        try {
+          const session = await sessionService.createSession(req.user._id, token, refreshToken, req);
+          sessionId = session.sessionId;
+        } catch (err) {
+          logger.warn('GitHub OAuth: session creation failed (non-fatal):', err.message);
+        }
+
+        // Send login alert email (non-blocking)
+        sendLoginAlertIfEnabled(req.user, req).catch(err => {
+          logger.error('GitHub OAuth: login alert email failed:', err.message);
+        });
 
         // Set cookie
         res.cookie('token', token, {
@@ -180,90 +262,13 @@ if (GITHUB_ENABLED) {
 
         const redirectTo = req.session.oauthRedirect;
         delete req.session.oauthRedirect;
-        res.redirect(redirectTo ? `${redirectTo}?token=${token}` : `/dashboard.html?token=${token}`);
+        const params = new URLSearchParams({ token, refreshToken });
+        if (sessionId) params.set('sessionId', sessionId);
+        res.redirect(redirectTo ? `${redirectTo}?${params}` : `/dashboard.html?${params}`);
 
       } catch (error) {
         logger.error('❌ GitHub callback error:', error);
         res.redirect('/login.html?error=github_callback_error');
-      }
-    }
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// FACEBOOK OAUTH
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * @swagger
- * /api/auth/facebook:
- *   get:
- *     summary: Initiate Facebook login
- *     tags: [Social Login]
- */
-if (FACEBOOK_ENABLED) {
-  router.get('/facebook', (req, res, next) => {
-    passport.authenticate('facebook', {
-      scope: ['email']
-    })(req, res, next);
-  });
-
-  /**
-   * @swagger
-   * /api/auth/facebook/callback:
-   *   get:
-   *     summary: Facebook OAuth callback
-   *     tags: [Social Login]
-   */
-  router.get('/facebook/callback',
-    passport.authenticate('facebook', { 
-      session: false,
-      failureRedirect: '/login.html?error=facebook_failed' 
-    }),
-    async (req, res) => {
-      try {
-        logger.info(`✅ Facebook login successful: ${req.user.email}`);
-
-        // Log security event
-        await SecurityAudit.create({
-          action: 'login_success',
-          userId: req.user._id,
-          status: 'success',
-          ipAddress: req.ip || req.headers['x-forwarded-for']?.split(',')[0],
-          userAgent: req.headers['user-agent'],
-          metadata: {
-            method: 'facebook',
-            email: req.user.email,
-            provider: 'facebook'
-          }
-        });
-
-        // Generate JWT token
-        const token = jwt.sign(
-          {
-            id: req.user._id,
-            email: req.user.email,
-            role: req.user.role,
-            provider: 'facebook'
-          },
-          config.JWT_SECRET,
-          { expiresIn: config.JWT_EXPIRE || '1h' }
-        );
-
-        // Set cookie
-        res.cookie('token', token, {
-          httpOnly: true,
-          secure: config.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 3600000 // 1 hour
-        });
-
-        // Redirect to dashboard
-        res.redirect(`/dashboard.html?token=${token}`);
-
-      } catch (error) {
-        logger.error('❌ Facebook callback error:', error);
-        res.redirect('/login.html?error=facebook_callback_error');
       }
     }
   );
@@ -285,8 +290,7 @@ router.get('/oauth/status', (req, res) => {
     success: true,
     data: {
       google: GOOGLE_ENABLED,
-      github: GITHUB_ENABLED,
-      facebook: FACEBOOK_ENABLED
+      github: GITHUB_ENABLED
     }
   });
 });

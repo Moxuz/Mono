@@ -145,9 +145,6 @@ function loadApiKeys() {
                     </div>
                 </div>
                 <div class="api-key-actions">
-                    <button class="api-key-action-btn" data-action="regenerate" data-key-id="${key.id}" title="Regenerate">
-                        <span class="material-symbols-outlined">refresh</span>
-                    </button>
                     <button class="api-key-action-btn danger" data-action="revoke" data-key-id="${key.id}" title="Revoke">
                         <span class="material-symbols-outlined">delete</span>
                     </button>
@@ -205,15 +202,13 @@ function loadApiKeys() {
 
 // Attach event listeners to dynamically created elements
 function attachDynamicEventListeners() {
-    // Action buttons (regenerate, revoke)
+    // Action buttons (revoke, toggle-secret)
     document.querySelectorAll('[data-action]').forEach(btn => {
         btn.addEventListener('click', function() {
             const action = this.getAttribute('data-action');
             const keyId = this.getAttribute('data-key-id');
             
-            if (action === 'regenerate') {
-                regenerateKey(keyId);
-            } else if (action === 'revoke') {
+            if (action === 'revoke') {
                 revokeKey(keyId);
             } else if (action === 'toggle-secret') {
                 toggleSecret(keyId);
@@ -435,11 +430,6 @@ function copyToClipboard(elementId) {
         console.error('Copy failed:', err);
         showToast('Failed to copy', 'error');
     });
-}
-
-// Regenerate key
-function regenerateKey(keyId) {
-    showToast('Regeneration is currently handled via support', 'info');
 }
 
 // Revoke key

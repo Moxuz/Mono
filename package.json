@@ -16,6 +16,9 @@
     "kafka:down": "docker-compose -f docker-compose.kafka.yml down",
     "kafka:logs": "node scripts/check-kafka-logs.js",
     "test:functions": "node scripts/test-functions.js",
+    "test:session": "node tests/session-expiry.test.js",
+    "test:kafka": "node tests/kafka-logging.test.js",
+    "test:email": "node tests/email-delivery.test.js",
     "client:up": "docker-compose -f docker-compose.client.yml up -d",
     "client:down": "docker-compose -f docker-compose.client.yml down"
   },
@@ -50,7 +53,6 @@
     "morgan": "^1.10.0",
     "nodemailer": "^6.9.7",
     "passport": "^0.7.0",
-    "passport-facebook": "^3.0.0",
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
     "rate-limit-redis": "^4.2.0",

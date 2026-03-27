@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../../../shared/config/config');
 const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
+const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const logger = require('../../../shared/utils/logger');
 
 /**
@@ -14,8 +15,7 @@ exports.authenticate = async (req, res, next) => {
         let token = req.headers['authorization'] || req.query.token;
         
         if (!token) {
-            console.log('No token provided');
-            return res.status(403).json({
+            return res.status(401).json({
                 success: false,
                 message: 'No token provided'
             });
@@ -26,6 +26,14 @@ exports.authenticate = async (req, res, next) => {
         }
 
         console.log('Token received:', token.substring(0, 20) + '...');
+
+        const isBlacklisted = await TokenBlacklist.isBlacklisted(token);
+        if (isBlacklisted) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token has been revoked'
+            });
+        }
 
         const decoded = jwt.verify(token, config.JWT_SECRET);
         console.log('Token decoded:', decoded);

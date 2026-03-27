@@ -1,5 +1,10 @@
 require('dotenv').config();
 
+const missing = ['JWT_SECRET', 'SESSION_SECRET'].filter(k => !process.env[k]);
+if (missing.length) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+}
+
 module.exports = {
     NODE_ENV: process.env.NODE_ENV || 'development',
     PORT: process.env.PORT || 5000,
@@ -10,7 +15,7 @@ module.exports = {
     MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/authdb',
 
     // JWT
-    JWT_SECRET: process.env.JWT_SECRET || 'your_jwt_secret_key_change_in_production',
+    JWT_SECRET: process.env.JWT_SECRET,
     JWT_EXPIRE: process.env.JWT_EXPIRE || '1h',
 
     // OAuth
@@ -24,13 +29,8 @@ module.exports = {
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
     GITHUB_CALLBACK_URL: process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/auth/github/callback',
 
-    // Facebook OAuth
-    FACEBOOK_APP_ID: process.env.FACEBOOK_APP_ID,
-    FACEBOOK_APP_SECRET: process.env.FACEBOOK_APP_SECRET,
-    FACEBOOK_CALLBACK_URL: process.env.FACEBOOK_CALLBACK_URL || 'http://localhost:5000/api/auth/facebook/callback',
-
     // Session
-    SESSION_SECRET: process.env.SESSION_SECRET || 'your_session_secret',
+    SESSION_SECRET: process.env.SESSION_SECRET,
 
     // CORS
     CORS_ORIGIN: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:4000'],

@@ -143,16 +143,31 @@ services:
       - MONGODB_URI=mongodb://admin:adminpassword@mongodb:27017/authdb?authSource=admin
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_SECRET=your_secret_key_123456
-      - SESSION_SECRET=your_session_secret_123456
-  
+      - JWT_SECRET=${JWT_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+      # Google OAuth
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      # GitHub OAuth
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_CALLBACK_URL=${GITHUB_CALLBACK_URL}
 
       # Kafka Logging
       - USE_KAFKA_LOGGING=true
       - KAFKA_BROKER=kafka:29092
       - KAFKA_CLIENT_ID=auth-app
       # Rate limit whitelist — includes Docker bridge gateway so test scripts are not throttled
-      - RATE_LIMIT_WHITELIST=127.0.0.1,::1,172.25.0.1,::ffff:172.25.0.1
+      - RATE_LIMIT_WHITELIST=127.0.0.1,::ffff:127.0.0.1,::1,172.25.0.1,::ffff:172.25.0.1,172.26.0.1,::ffff:172.26.0.1,172.27.0.1,::ffff:172.27.0.1
+      # SMTP Email (read from .env file)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
+      - AUTH_SERVER_URL=${AUTH_SERVER_URL}
     depends_on:
       mongodb:
         condition: service_started

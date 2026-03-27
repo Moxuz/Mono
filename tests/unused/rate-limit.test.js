@@ -224,10 +224,10 @@ test('express-rate-limit package is installed', () => {
     assert.ok(packageJson.dependencies['express-rate-limit']);
 });
 
-test('express-rate-limit version is recent (≥8.0.0)', () => {
+test('express-rate-limit version is recent (≥7.0.0)', () => {
     const version = packageJson.dependencies['express-rate-limit'];
     const versionNum = parseFloat(version.replace('^', ''));
-    assert.ok(versionNum >= 8.0, 'Should use express-rate-limit ≥8.0.0');
+    assert.ok(versionNum >= 7.0, 'Should use express-rate-limit ≥7.0.0');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

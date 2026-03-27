@@ -1,13 +1,37 @@
 // Check authentication
 const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
 const user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || '{}');
+let hasPassword = true; // safe default until profile API responds
 
 if (!token) {
     window.location.href = '/login.html';
 }
 
+async function loadServerProfile() {
+    try {
+        const res = await fetch('/api/auth/profile', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!res.ok) return;
+        const data = await res.json();
+        hasPassword = data.data?.hasPassword ?? true;
+    } catch (e) { /* keep default true — safe */ }
+}
+
+function getOAuthProvider() {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.provider; // 'google', 'github', or 'local'
+    } catch { return null; }
+}
+
+function getProviderLabel(provider) {
+    if (provider === 'google') return 'Google';
+    if (provider === 'github') return 'GitHub';
+    return 'your provider';
+}
+
 // Update UI with user info
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadServerProfile();
     // Sidebar
     if (user.username) {
         document.getElementById('userNameSide').textContent = user.username;
@@ -45,6 +69,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logoutBtnTop');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', logout);
+    }
+
+    // Handle OAuth re-auth callback for account deletion
+    const _urlParams = new URLSearchParams(window.location.search);
+    if (_urlParams.get('action') === 'delete_account' && _urlParams.get('reauth_token')) {
+        const reauthToken = _urlParams.get('reauth_token');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        deleteAccount(reauthToken);
     }
 });
 
@@ -143,7 +175,7 @@ function openChangePasswordModal() {
     header.innerHTML = `
         <div class="delete-modal-title">
             <span class="material-symbols-outlined">lock_reset</span>
-            <h3>${_t('profile.changePassModalTitle')}</h3>
+            <h3>${hasPassword ? _t('profile.changePassModalTitle') : 'Set Password'}</h3>
         </div>
         <button class="delete-modal-close" id="closeChangePassModal">
             <span class="material-symbols-outlined">close</span>
@@ -156,11 +188,12 @@ function openChangePasswordModal() {
     body.innerHTML = `
         <div id="changePassAlert" class="alert" style="display:none; margin-bottom:1rem;"></div>
         <form id="changePassForm">
+            ${hasPassword ? `
             <div class="delete-form-group">
                 <label for="currentPassword" class="delete-form-label">${_t('profile.currentPassLabel')}</label>
                 <input type="password" id="currentPassword" class="delete-form-input"
                     placeholder="${_t('profile.currentPassPlaceholder')}" autocomplete="current-password" required />
-            </div>
+            </div>` : ''}
             <div class="delete-form-group">
                 <label for="newPassword" class="delete-form-label">${_t('profile.newPassLabel')}</label>
                 <input type="password" id="newPassword" class="delete-form-input"
@@ -228,7 +261,7 @@ function openChangePasswordModal() {
         const newPassword = document.getElementById('newPassword').value;
         const confirmPasswordVal = document.getElementById('confirmPassword').value;
 
-        if (!currentPassword) { showModalAlert(_t('profile.currentPassRequired'), 'error'); return; }
+        if (hasPassword && !currentPassword) { showModalAlert(_t('profile.currentPassRequired'), 'error'); return; }
         if (!newPassword) { showModalAlert(_t('profile.newPassRequired'), 'error'); return; }
         if (newPassword.length < 8) { showModalAlert(_t('profile.newPassShort'), 'error'); return; }
         if (newPassword !== confirmPasswordVal) { showModalAlert(_t('profile.passNoMatch'), 'error'); return; }
@@ -262,7 +295,12 @@ function openChangePasswordModal() {
         }
     });
 
-    setTimeout(() => document.getElementById('currentPassword')?.focus(), 300);
+    setTimeout(() => {
+        const focusEl = hasPassword
+            ? document.getElementById('currentPassword')
+            : document.getElementById('newPassword');
+        focusEl?.focus();
+    }, 300);
 }
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -320,12 +358,20 @@ function logout() {
 }
 
 // Delete Account - เปิด Modal
-function deleteAccount() {
-    showDeleteAccountModal();
+function deleteAccount(reauthToken = null) {
+    showDeleteAccountModal(reauthToken);
 }
 
 // ✅ สร้าง Delete Account Modal
-function showDeleteAccountModal() {
+function showDeleteAccountModal(reauthToken = null) {
+    if (!hasPassword) {
+        if (reauthToken) {
+            showDeleteAccountConfirmModal(reauthToken);
+        } else {
+            showDeleteAccountReauthModal();
+        }
+        return;
+    }
     const _t = typeof t === 'function' ? t : (k) => k;
     // สร้าง modal overlay
     const overlay = document.createElement('div');
@@ -383,6 +429,7 @@ function showDeleteAccountModal() {
                 <span class="delete-form-hint">${_t('profile.deleteTypeHint')}</span>
             </div>
 
+            ${hasPassword ? `
             <div class="delete-form-group">
                 <label for="deletePassword" class="delete-form-label">
                     ${_t('profile.deletePasswordLabel')}
@@ -396,7 +443,7 @@ function showDeleteAccountModal() {
                     required
                 />
                 <span class="delete-form-hint">${_t('profile.deletePasswordHint')}</span>
-            </div>
+            </div>` : ''}
         </form>
     `;
 
@@ -430,7 +477,7 @@ function showDeleteAccountModal() {
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     const deleteForm = document.getElementById('deleteAccountForm');
     const confirmationInput = document.getElementById('deleteConfirmation');
-    const passwordInput = document.getElementById('deletePassword');
+    const passwordInput = document.getElementById('deletePassword'); // null for OAuth users
     
     // Close modal function
     function closeModal() {
@@ -466,17 +513,13 @@ function showDeleteAccountModal() {
     // Validate inputs
     function validateInputs() {
         const confirmation = confirmationInput.value.trim();
-        const password = passwordInput.value.trim();
-        
-        if (confirmation === 'DELETE' && password.length > 0) {
-            confirmBtn.disabled = false;
-        } else {
-            confirmBtn.disabled = true;
-        }
+        const password = passwordInput ? passwordInput.value.trim() : '';
+        const passwordOk = !hasPassword || password.length > 0;
+        confirmBtn.disabled = !(confirmation === 'DELETE' && passwordOk);
     }
-    
+
     confirmationInput.addEventListener('input', validateInputs);
-    passwordInput.addEventListener('input', validateInputs);
+    if (passwordInput) passwordInput.addEventListener('input', validateInputs);
     
     // Initial validation
     validateInputs();
@@ -484,15 +527,15 @@ function showDeleteAccountModal() {
     // Confirm delete button click
     confirmBtn.addEventListener('click', async () => {
         const confirmation = confirmationInput.value.trim();
-        const password = passwordInput.value.trim();
-        
+        const password = passwordInput ? passwordInput.value.trim() : '';
+
         // Validate
         if (confirmation !== 'DELETE') {
             showAlert(_t('profile.deleteTypeError'), 'error');
             return;
         }
 
-        if (!password) {
+        if (hasPassword && !password) {
             showAlert(_t('profile.deletePassError'), 'error');
             return;
         }
@@ -554,4 +597,181 @@ function showDeleteAccountModal() {
     setTimeout(() => {
         confirmationInput.focus();
     }, 300);
+}
+
+// OAuth step 1: Show "Verify with Provider" modal
+function showDeleteAccountReauthModal() {
+    const _t = typeof t === 'function' ? t : (k) => k;
+    const provider = getOAuthProvider();
+    const providerLabel = getProviderLabel(provider);
+    const providerPath = provider === 'github' ? '/api/auth/github' : '/api/auth/google';
+    const returnTo = window.location.pathname;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'delete-modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'delete-modal';
+
+    modal.innerHTML = `
+        <div class="delete-modal-header">
+            <div class="delete-modal-title">
+                <span class="material-symbols-outlined">warning</span>
+                <h3>${_t('profile.deleteTitle')}</h3>
+            </div>
+            <button class="delete-modal-close" id="closeReauthModal">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="delete-modal-body">
+            <div class="delete-warning">
+                <div class="delete-warning-title">
+                    <span class="material-symbols-outlined">error</span>
+                    ${_t('profile.deleteWarningTitle')}
+                </div>
+                <p class="delete-warning-text">${_t('profile.deleteWarningDesc')}</p>
+            </div>
+            <p style="margin: 1rem 0 0.5rem; font-size: 0.95rem;">
+                To confirm your identity, please verify with <strong>${providerLabel}</strong> before deleting your account.
+            </p>
+        </div>
+        <div class="delete-modal-footer">
+            <button class="delete-modal-btn delete-modal-btn-cancel" id="cancelReauthBtn">
+                <span class="material-symbols-outlined">close</span>
+                ${_t('profile.deleteCancel')}
+            </button>
+            <button class="delete-modal-btn delete-modal-btn-delete" id="verifyWithProviderBtn" type="button">
+                <span class="material-symbols-outlined">verified_user</span>
+                Verify with ${providerLabel}
+            </button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    function closeModal() {
+        overlay.style.animation = 'fadeOut 0.2s ease';
+        setTimeout(() => {
+            if (document.body.contains(overlay)) document.body.removeChild(overlay);
+            document.body.style.overflow = '';
+        }, 200);
+    }
+
+    document.getElementById('closeReauthModal').addEventListener('click', closeModal);
+    document.getElementById('cancelReauthBtn').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+    document.getElementById('verifyWithProviderBtn').addEventListener('click', () => {
+        window.location.href = `${providerPath}?action=delete_account&returnTo=${encodeURIComponent(returnTo)}`;
+    });
+}
+
+// OAuth step 2: Identity verified — show DELETE confirmation modal
+function showDeleteAccountConfirmModal(reauthToken) {
+    const _t = typeof t === 'function' ? t : (k) => k;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'delete-modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'delete-modal';
+
+    modal.innerHTML = `
+        <div class="delete-modal-header">
+            <div class="delete-modal-title">
+                <span class="material-symbols-outlined">warning</span>
+                <h3>${_t('profile.deleteTitle')}</h3>
+            </div>
+            <button class="delete-modal-close" id="closeConfirmModal">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="delete-modal-body">
+            <div class="delete-warning" style="border-color: var(--success, #22c55e);">
+                <div class="delete-warning-title" style="color: var(--success, #22c55e);">
+                    <span class="material-symbols-outlined">verified</span>
+                    Identity Verified
+                </div>
+                <p class="delete-warning-text">Your identity has been confirmed. This action is permanent and cannot be undone.</p>
+            </div>
+            <div id="deleteConfirmAlert" class="alert" style="display:none; margin: 0.75rem 0;"></div>
+            <div class="delete-form-group" style="margin-top: 1rem;">
+                <label for="finalDeleteConfirmation" class="delete-form-label">${_t('profile.deleteTypeLabel')}</label>
+                <input type="text" id="finalDeleteConfirmation" class="delete-form-input"
+                    placeholder="DELETE" autocomplete="off" />
+                <span class="delete-form-hint">${_t('profile.deleteTypeHint')}</span>
+            </div>
+        </div>
+        <div class="delete-modal-footer">
+            <button class="delete-modal-btn delete-modal-btn-cancel" id="cancelConfirmBtn">
+                <span class="material-symbols-outlined">close</span>
+                ${_t('profile.deleteCancel')}
+            </button>
+            <button class="delete-modal-btn delete-modal-btn-delete" id="finalConfirmDeleteBtn" type="button" disabled>
+                <span class="material-symbols-outlined">delete_forever</span>
+                ${_t('profile.deleteConfirmBtn')}
+            </button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    const confirmInput = document.getElementById('finalDeleteConfirmation');
+    const confirmBtn = document.getElementById('finalConfirmDeleteBtn');
+    const alertEl = document.getElementById('deleteConfirmAlert');
+
+    function closeModal() {
+        overlay.style.animation = 'fadeOut 0.2s ease';
+        setTimeout(() => {
+            if (document.body.contains(overlay)) document.body.removeChild(overlay);
+            document.body.style.overflow = '';
+        }, 200);
+    }
+
+    function showModalAlert(message, type) {
+        alertEl.className = `alert alert-${type}`;
+        alertEl.textContent = message;
+        alertEl.style.display = 'block';
+    }
+
+    document.getElementById('closeConfirmModal').addEventListener('click', closeModal);
+    document.getElementById('cancelConfirmBtn').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+    confirmInput.addEventListener('input', () => {
+        confirmBtn.disabled = confirmInput.value.trim() !== 'DELETE';
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+        if (confirmInput.value.trim() !== 'DELETE') return;
+
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = `<span class="material-symbols-outlined">hourglass_empty</span> ${_t('profile.deleting')}`;
+
+        try {
+            const response = await fetch('/api/auth/delete-account', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ reauth_token: reauthToken })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Failed to delete account');
+
+            showModalAlert(_t('profile.deleteSuccess'), 'success');
+            localStorage.clear();
+            setTimeout(() => { window.location.href = '/login.html'; }, 2000);
+
+        } catch (error) {
+            showModalAlert(_t('profile.deleteFailed') + ': ' + error.message, 'error');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = `<span class="material-symbols-outlined">delete_forever</span> ${_t('profile.deleteConfirmBtn')}`;
+        }
+    });
+
+    setTimeout(() => confirmInput.focus(), 300);
 }

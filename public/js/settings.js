@@ -24,6 +24,8 @@
     return;
   }
 
+  let hasPassword = true; // safe default until profile loads
+
   // ─── Load User Profile ───────────────────────────────────────────────────────
   async function loadUserProfile() {
     try {
@@ -39,6 +41,7 @@
       userEmailTop.textContent = user.email;
       userNameSide.textContent = user.username;
       userRoleSide.textContent = user.role.toUpperCase();
+      hasPassword = data.data?.hasPassword ?? true;
 
     } catch (error) {
       console.error('Load profile error:', error);
@@ -157,8 +160,29 @@
     }
   }
 
+  function getOAuthProvider() {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.provider;
+    } catch { return null; }
+  }
+
+  function getProviderLabel(provider) {
+    if (provider === 'google') return 'Google';
+    if (provider === 'github') return 'GitHub';
+    return 'your provider';
+  }
+
   // ─── Delete Account ──────────────────────────────────────────────────────────
-  function deleteAccount() {
+  function deleteAccount(reauthToken = null) {
+    if (!hasPassword) {
+      if (reauthToken) {
+        showDeleteAccountConfirmModal(reauthToken);
+      } else {
+        showDeleteAccountReauthModal();
+      }
+      return;
+    }
     const _t = typeof t === 'function' ? t : (k) => k;
     const modalHTML = `
       <div class="modal open" id="deleteAccountModal">
@@ -186,6 +210,7 @@
             <div id="deleteAlert" class="alert" style="display: none; margin-bottom: 1rem;"></div>
 
             <form id="deleteAccountForm">
+              ${hasPassword ? `
               <div class="form-group">
                 <label for="deletePassword" class="input-label">
                   ${_t('settings.deletePasswordLabel')}
@@ -201,7 +226,7 @@
                 <p class="text-xs text-on-surface-variant" style="margin-top: 0.5rem;">
                   ${_t('settings.deletePasswordHint')}
                 </p>
-              </div>
+              </div>` : ''}
 
               <div class="modal-footer" style="margin-top: 1.5rem; padding: 0; border: none; background: none;">
                 <button type="button" class="btn btn-ghost" data-close-modal>
@@ -232,6 +257,155 @@
     form.addEventListener('submit', handleDeleteAccount);
   }
 
+  function showDeleteAccountReauthModal() {
+    const _t = typeof t === 'function' ? t : (k) => k;
+    const provider = getOAuthProvider();
+    const providerLabel = getProviderLabel(provider);
+    const providerPath = provider === 'github' ? '/api/auth/github' : '/api/auth/google';
+    const returnTo = window.location.pathname;
+
+    const modalHTML = `
+      <div class="modal open" id="deleteAccountModal">
+        <div class="modal-overlay" data-close-modal></div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">
+              <span class="material-symbols-outlined" style="color: var(--error); vertical-align: middle; margin-right: 0.5rem;">warning</span>
+              ${_t('settings.deleteTitle')}
+            </h3>
+            <button class="modal-close" data-close-modal>
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="secret-warning">
+              <span class="material-symbols-outlined">warning</span>
+              <p>
+                <strong>${_t('settings.deleteWarning')}</strong><br>
+                ${_t('settings.deleteWarningDesc')}
+              </p>
+            </div>
+            <p style="margin: 1rem 0 0.5rem; font-size: 0.95rem;">
+              To confirm your identity, please verify with <strong>${providerLabel}</strong> before deleting your account.
+            </p>
+            <div class="modal-footer" style="margin-top: 1.5rem; padding: 0; border: none; background: none;">
+              <button type="button" class="btn btn-ghost" data-close-modal>
+                ${_t('settings.deleteCancel')}
+              </button>
+              <button type="button" class="btn btn-danger" id="verifyWithProviderBtn">
+                <span class="material-symbols-outlined">verified_user</span>
+                Verify with ${providerLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    document.body.classList.add('modal-open');
+
+    const modal = document.getElementById('deleteAccountModal');
+    modal.querySelectorAll('[data-close-modal]').forEach(btn => {
+      btn.addEventListener('click', closeDeleteModal);
+    });
+
+    document.getElementById('verifyWithProviderBtn').addEventListener('click', () => {
+      window.location.href = `${providerPath}?action=delete_account&returnTo=${encodeURIComponent(returnTo)}`;
+    });
+  }
+
+  function showDeleteAccountConfirmModal(reauthToken) {
+    const _t = typeof t === 'function' ? t : (k) => k;
+
+    const modalHTML = `
+      <div class="modal open" id="deleteAccountModal">
+        <div class="modal-overlay" data-close-modal></div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 class="modal-title">
+              <span class="material-symbols-outlined" style="color: var(--error); vertical-align: middle; margin-right: 0.5rem;">warning</span>
+              ${_t('settings.deleteTitle')}
+            </h3>
+            <button class="modal-close" data-close-modal>
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="secret-warning" style="border-color: var(--success, #22c55e);">
+              <span class="material-symbols-outlined" style="color: var(--success, #22c55e);">verified</span>
+              <p style="color: var(--success, #22c55e);">
+                <strong>Identity Verified</strong><br>
+                Your identity has been confirmed. This action is permanent and cannot be undone.
+              </p>
+            </div>
+            <div id="deleteAlert" class="alert" style="display: none; margin-bottom: 1rem;"></div>
+            <form id="deleteAccountForm">
+              <div class="form-group">
+                <label for="finalDeleteConfirmation" class="input-label">${_t('settings.deletePasswordLabel') || 'Type DELETE to confirm'}</label>
+                <input type="text" id="finalDeleteConfirmation" class="input"
+                  placeholder="DELETE" autocomplete="off" autofocus />
+              </div>
+              <div class="modal-footer" style="margin-top: 1.5rem; padding: 0; border: none; background: none;">
+                <button type="button" class="btn btn-ghost" data-close-modal>
+                  ${_t('settings.deleteCancel')}
+                </button>
+                <button type="submit" class="btn btn-danger" id="confirmDeleteBtn" disabled>
+                  <span class="material-symbols-outlined">delete_forever</span>
+                  ${_t('settings.deleteConfirmBtn')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    document.body.classList.add('modal-open');
+
+    const modal = document.getElementById('deleteAccountModal');
+    const confirmInput = document.getElementById('finalDeleteConfirmation');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+
+    modal.querySelectorAll('[data-close-modal]').forEach(btn => {
+      btn.addEventListener('click', closeDeleteModal);
+    });
+
+    confirmInput.addEventListener('input', () => {
+      confirmBtn.disabled = confirmInput.value.trim() !== 'DELETE';
+    });
+
+    document.getElementById('deleteAccountForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const _t2 = typeof t === 'function' ? t : (k) => k;
+      if (confirmInput.value.trim() !== 'DELETE') return;
+
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = `<span class="material-symbols-outlined">hourglass_empty</span> ${_t2('settings.deleting')}`;
+
+      try {
+        const res = await fetch('/api/auth/delete-account', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ reauth_token: reauthToken })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to delete account');
+
+        showModalAlert(_t2('settings.deleteSuccess'), 'success');
+        setTimeout(() => {
+          localStorage.clear();
+          window.location.href = '/login.html?deleted=true';
+        }, 2000);
+      } catch (error) {
+        showModalAlert(error.message, 'error');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = `<span class="material-symbols-outlined">delete_forever</span> ${_t2('settings.deleteConfirmBtn')}`;
+      }
+    });
+  }
+
   function closeDeleteModal() {
     const modal = document.getElementById('deleteAccountModal');
     if (modal) {
@@ -247,10 +421,11 @@
     e.preventDefault();
     const _t = typeof t === 'function' ? t : (k) => k;
 
-    const password = document.getElementById('deletePassword').value;
+    const passwordEl = document.getElementById('deletePassword');
+    const password = passwordEl ? passwordEl.value : '';
     const submitBtn = document.getElementById('confirmDeleteBtn');
 
-    if (!password) {
+    if (hasPassword && !password) {
       showModalAlert(_t('settings.deletePassError'), 'error');
       return;
     }
@@ -358,7 +533,17 @@ function applyTheme(theme) {
   });
 
   // ─── Init ────────────────────────────────────────────────────────────────────
-  loadUserProfile();
-  loadSettings();
+  async function init() {
+    await loadUserProfile();
+    loadSettings();
+    // Handle OAuth re-auth callback for account deletion
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'delete_account' && urlParams.get('reauth_token')) {
+      const reauthToken = urlParams.get('reauth_token');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      deleteAccount(reauthToken);
+    }
+  }
+  init();
 
 })();
