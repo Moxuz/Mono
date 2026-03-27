@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../../../shared/config/config');
 
 // ─── Register ─────────────────────────────────────────────────────────────────
+// รับข้อมูลสมัครสมาชิก ตรวจสอบ consent และเรียก authService.register
 exports.register = async (req, res, next) => {
     try {
         const {
@@ -59,8 +60,8 @@ exports.register = async (req, res, next) => {
 
     } catch (error) {
         logger.error('Registration error:', error);
-        if (error.message === 'User already exists') {
-            return res.status(400).json({ success: false, error: error.message });
+        if (error.message === 'User already exists' || error.code === 11000) {
+            return res.status(400).json({ success: false, error: 'User already exists' });
         }
         if (error.code === 'WEAK_PASSWORD') {
             return res.status(400).json({
@@ -75,6 +76,7 @@ exports.register = async (req, res, next) => {
 };
 
 // ─── Login ────────────────────────────────────────────────────────────────────
+// รับ email/password และส่งต่อให้ authService.login จัดการ
 exports.login = async (req, res, next) => {
     try {
         const { email, password, remember } = req.body;
@@ -84,7 +86,7 @@ exports.login = async (req, res, next) => {
         logger.info(`User logged in: ${email}`, { 
             ip: loginIp,
             userAgent: req.headers['user-agent'],
-            userId: result.data?.user?.id || result.user?.id
+            userId: result.user?.id
         });
 
         res.status(200).json({
@@ -131,6 +133,7 @@ exports.login = async (req, res, next) => {
     }
 };
 
+// บันทึกการตั้งค่า theme, ภาษา และการแจ้งเตือนของ user
 exports.updatePreferences = async (req, res, next) => {
   try {
     const userId = req.user?.id;
@@ -165,6 +168,7 @@ exports.updatePreferences = async (req, res, next) => {
 };
 
 // ─── Get Preferences ──────────────────────────────────────────────────────────
+// ดึงการตั้งค่าของ user ที่ล็อกอินอยู่
 exports.getPreferences = async (req, res, next) => {
   try {
     const userId = req.user?.id;
@@ -193,6 +197,7 @@ exports.getPreferences = async (req, res, next) => {
 
 
 
+// ดึง audit log 50 รายการล่าสุดของ user และจัดรูปแบบข้อมูล
 exports.getSecurityAudit = async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -235,7 +240,7 @@ exports.getSecurityAudit = async (req, res) => {
             count: formattedLogs.length
         });
     } catch (error) {
-        console.error('Get security audit error:', error);
+        logger.error('Get security audit error:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to retrieve security audit logs'
@@ -249,13 +254,42 @@ exports.logout = async (req, res, next) => {
         const userId = req.user?.id;
         const email = req.user?.email;
 
+        const authHeader = req.headers['authorization'];
+        if (authHeader?.startsWith('Bearer ')) {
+            const token = authHeader.slice(7);
+            const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
+            const SessionModel = require('../../../shared/models/Session');
+
+            // Blacklist current access token
+            await TokenBlacklist.revokeToken(token, userId, null, 'user_logout');
+
+            // Find active session and blacklist its refresh token too
+            const session = await SessionModel.findOne({
+                sessionToken: token,
+                userId,
+                isActive: true
+            }).select('+refreshToken');
+
+            if (session) {
+                if (session.refreshToken) {
+                    await TokenBlacklist.revokeToken(session.refreshToken, userId, null, 'user_logout')
+                        .catch(err => logger.warn('Failed to blacklist refresh token on logout:', err.message));
+                }
+                session.isActive = false;
+                session.revokedAt = new Date();
+                session.revokeReason = 'user_logout';
+                await session.save();
+            }
+        }
+
         req.logout((err) => {
             if (err) return next(err);
             if (req.session) req.session.destroy();
+            res.clearCookie('connect.sid');
 
-            logger.info(`User logged out: ${email || userId}`, { 
-                userId, 
-                ip: req.ip || req.connection.remoteAddress 
+            logger.info(`User logged out: ${email || userId}`, {
+                userId,
+                ip: req.ip || req.connection?.remoteAddress
             });
 
             res.json({ success: true, message: 'Logged out successfully' });
@@ -266,7 +300,7 @@ exports.logout = async (req, res, next) => {
     }
 };
 
-// ✅ แก้ไขฟังก์ชัน deleteAccount
+// ตรวจสอบรหัสผ่านหรือ reauth token ก่อนลบบัญชีและข้อมูลทั้งหมดอย่างถาวร
 exports.deleteAccount = async (req, res) => {
     try {
         const userId = req.user._id || req.user.id;
@@ -359,6 +393,7 @@ exports.deleteAccount = async (req, res) => {
 };
 
 // ─── Validate Token ───────────────────────────────────────────────────────────
+// รับ token จาก body และตรวจสอบความถูกต้อง
 exports.validateToken = async (req, res, next) => {
     try {
         const { token } = req.body;
@@ -374,18 +409,26 @@ exports.validateToken = async (req, res, next) => {
 };
 
 // ─── Refresh Token ────────────────────────────────────────────────────────────
+// รับ refresh token และออก access token ใหม่
 exports.refreshToken = async (req, res, next) => {
     try {
         const { refreshToken } = req.body;
-        const result = await authService.refreshToken(refreshToken);
+        const sessionId = req.body.sessionId || req.headers['x-session-id'];
+        const deviceInfo = {
+            userAgent: req.headers['user-agent'],
+            ipAddress: req.ip || req.headers['x-forwarded-for']?.split(',')[0]
+        };
+        const result = await authService.refreshToken(refreshToken, sessionId, deviceInfo);
         res.json(result);
     } catch (error) {
+        logger.error('Refresh token error:', { error: error.message });
         res.status(401).json({ success: false, error: 'Invalid refresh token' });
     }
 };
 
 
 // ─── Cookie Consent ───────────────────────────────────────────────────────────
+// บันทึกหรืออัปเดตการยินยอม cookie ของ user ที่ล็อกอินอยู่
 exports.updateCookieConsent = async (req, res, next) => {
     try {
         const { cookieConsentAccepted, version } = req.body;
@@ -424,17 +467,24 @@ exports.updateCookieConsent = async (req, res, next) => {
 
 
 // ─── Forgot Password ──────────────────────────────────────────────────────────
+// ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมล ไม่เปิดเผยว่า email มีในระบบหรือไม่
 exports.forgotPassword = async (req, res, next) => {
     try {
         const { email } = req.body;
-        await authService.forgotPassword(email);
+        await authService.forgotPassword(email, req);
         res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
     } catch (error) {
+        // Only expose the generic message for email-enumeration-safe errors.
+        // Re-throw SMTP/config failures so they surface as 500 rather than silent success.
+        if (error.message === 'Failed to send reset email. Please try again.') {
+            return res.status(500).json({ success: false, error: error.message });
+        }
         res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
     }
 };
 
 // ─── Reset Password ───────────────────────────────────────────────────────────
+// รับ token จาก URL parameter และรหัสผ่านใหม่เพื่อรีเซ็ต
 exports.resetPassword = async (req, res, next) => {
     try {
         const { token }    = req.params;
@@ -456,6 +506,7 @@ exports.resetPassword = async (req, res, next) => {
 };
 
 // ─── Verify Email ─────────────────────────────────────────────────────────────
+// ตรวจสอบ token จาก query string และยืนยัน email ของ user
 exports.verifyEmail = async (req, res, next) => {
     try {
         const { token } = req.query;
@@ -472,6 +523,7 @@ exports.verifyEmail = async (req, res, next) => {
 };
 
 // ─── Resend Verification Email ────────────────────────────────────────────────
+// ส่งอีเมลยืนยันใหม่ให้ user ที่ยังไม่ได้ยืนยัน email
 exports.resendVerificationEmail = async (req, res, next) => {
     try {
         const { email } = req.body;
@@ -499,6 +551,7 @@ exports.resendVerificationEmail = async (req, res, next) => {
 };
 
 // ─── Change Password ──────────────────────────────────────────────────────────
+// เปลี่ยนรหัสผ่านขณะล็อกอิน ต้องผ่านการตรวจสอบรหัสเดิมก่อน
 exports.changePassword = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -552,6 +605,7 @@ exports.changePassword = async (req, res, next) => {
 };
 
 // ─── Get Audit Logs ───────────────────────────────────────────────────────────
+// ดึง audit log แบบ paginate สำหรับ user ที่ล็อกอินอยู่
 exports.getAuditLogs = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -581,6 +635,7 @@ exports.getAuditLogs = async (req, res, next) => {
 };
 
 // ─── Get Active Sessions ──────────────────────────────────────────────────────
+// ดึงรายการ session ที่ active ทั้งหมดของ user
 exports.getActiveSessions = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -613,6 +668,7 @@ exports.getActiveSessions = async (req, res, next) => {
 };
 
 // ─── Revoke Session ───────────────────────────────────────────────────────────
+// ยกเลิก session ที่ระบุ ID
 exports.revokeSession = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -650,6 +706,7 @@ exports.revokeSession = async (req, res, next) => {
 };
 
 // ─── Revoke All Other Sessions ────────────────────────────────────────────────
+// ยกเลิก session ทุกอันยกเว้น session ปัจจุบัน (logout จากอุปกรณ์อื่น)
 exports.revokeAllOtherSessions = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -688,6 +745,7 @@ exports.revokeAllOtherSessions = async (req, res, next) => {
 };
 
 
+// ดึงข้อมูลโปรไฟล์พื้นฐานของ user ที่ล็อกอินอยู่
 exports.getProfile = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -715,7 +773,7 @@ exports.getProfile = async (req, res, next) => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
-                isEmailVerified: user.isEmailVerified,
+                isEmailVerified: user.emailVerified,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin,
                 hasPassword: !!user.password
@@ -731,10 +789,11 @@ exports.getProfile = async (req, res, next) => {
 };
 
 // ─── OAuth Session Bridge ─────────────────────────────────────────────────────
-// Validates JWT from localStorage, sets server session, then redirects to returnTo
+// ตรวจสอบ JWT จาก query string ตั้งค่า server session แล้ว redirect ไปยังหน้าที่กำหนด
 exports.setOAuthSession = async (req, res) => {
     const { token, returnTo } = req.query;
-    const safeReturn = returnTo || '/login.html';
+    // Only allow relative paths to prevent open redirect attacks
+    const safeReturn = (returnTo && /^\/(?!\/)/.test(returnTo)) ? returnTo : '/login.html';
 
     if (!token) return res.redirect(`/login.html?error=missing_token`);
 
@@ -762,6 +821,7 @@ exports.setOAuthSession = async (req, res) => {
 };
 
 // ─── Emergency Lockdown (Blacklist All Tokens) ────────────────────────────────
+// ยกเลิก session และ token ทั้งหมดของ user ทันทีในกรณีฉุกเฉิน
 exports.emergencyLockdown = async (req, res, next) => {
     try {
         const userId = req.user?.id;

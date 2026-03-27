@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authorizeRole } = require('../../auth/middleware/authorization');
 const { authenticate } = require('../../auth/middleware/authenticate');
-const dashboardController = require('../controllers/dashboard.controller'); // 🆕 เพิ่มบรรทัดนี้
+const dashboardController = require('../controllers/dashboard.controller');
 
 const logRoutes = require('./log.routes');
 const userRoutes = require('./user.routes');
@@ -57,7 +57,7 @@ router.use('/health/redis', redisHealthRoutes);
  *                     stats:
  *                       type: object
  */
-// 🆕 เพิ่ม endpoint login-activity
+// ดึงข้อมูล login activity ย้อนหลัง 7 วัน ของ user ที่ล็อกอินอยู่
 router.get('/login-activity', authenticate, dashboardController.getLoginActivity);
 
 /**

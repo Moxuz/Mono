@@ -1,6 +1,9 @@
 const WebSocket = require('ws');
+const jwt = require('jsonwebtoken');
+const url = require('url');
 const SecurityAudit = require('../models/SecurityAudit');
 const logger = require('../utils/logger');
+const config = require('../config/config');
 
 let wss = null;
 const clients = new Set();
@@ -9,10 +12,40 @@ const clients = new Set();
  * Initialize WebSocket server for real-time updates
  */
 function initializeWebSocket(server) {
-    wss = new WebSocket.Server({ server, path: '/ws' });
+    // Use noServer mode so we can authenticate before accepting the upgrade
+    wss = new WebSocket.Server({ noServer: true });
 
-    wss.on('connection', (ws) => {
-        logger.info('WebSocket client connected');
+    server.on('upgrade', (request, socket, head) => {
+        if (!request.url.startsWith('/ws')) return;
+
+        const parsedUrl = url.parse(request.url, true);
+        const token = parsedUrl.query.token ||
+            (request.headers['authorization'] || '').replace('Bearer ', '');
+
+        if (!token) {
+            logger.warn('WebSocket rejected: no token provided');
+            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+            socket.destroy();
+            return;
+        }
+
+        try {
+            request.wsUser = jwt.verify(token, config.JWT_SECRET);
+        } catch {
+            logger.warn('WebSocket rejected: invalid or expired token');
+            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+            socket.destroy();
+            return;
+        }
+
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    });
+
+    wss.on('connection', (ws, request) => {
+        const user = request.wsUser;
+        logger.info('WebSocket client connected', { userId: user?.id, role: user?.role });
         clients.add(ws);
 
         ws.on('pong', () => {

@@ -4,14 +4,6 @@ const Client = require('../../../shared/models/Client');
 const logger = require('../../../shared/utils/logger');
 const Consent = require('../../../shared/models/Consent');
 
-const logRequest = (req) => {
-    console.log('=== OAuth Request ===');
-    console.log('URL:', req.url);
-    console.log('Method:', req.method);
-    console.log('Headers:', req.headers);
-    console.log('==================');
-};
-
 /**
  * Register new OAuth client
  */
@@ -185,7 +177,7 @@ exports.showAuthorizeForm = async (req, res, next) => {
             );
 
             if (alreadyConsented) {
-                // ✅ เคย consent แล้ว → ออก code เลย
+                // เคย consent แล้ว → ออก code เลย
                 const pkce = code_challenge
                     ? { code_challenge, code_challenge_method: code_challenge_method || 'S256' }
                     : null;
@@ -343,11 +335,6 @@ exports.token = async (req, res, next) => {
             session_token
         } = req.body;
 
-        console.log('=== Token Endpoint ===');
-        console.log('grant_type   :', grant_type);
-        console.log('code_verifier:', code_verifier);
-        console.log('======================');
-
         if (grant_type === 'refresh_token') {
             if (!refresh_token) {
                 return res.status(400).json({
@@ -416,7 +403,6 @@ exports.userinfo = async (req, res, next) => {
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            console.log('No valid authorization header provided');
             return res.status(401).json({
                 error: 'invalid_token',
                 error_description: 'Valid authorization header required'
@@ -426,19 +412,15 @@ exports.userinfo = async (req, res, next) => {
         const token = authHeader.split(' ')[1];
 
         if (!token) {
-            console.log('No token provided to userinfo endpoint');
             return res.status(401).json({
                 error: 'invalid_token',
                 error_description: 'No token provided'
             });
         }
 
-        console.log('UserInfo endpoint called with token');
-
         // ใช้ service เพื่อ get user info
         const userInfo = await oauthService.getUserInfo(token);
 
-        console.log('UserInfo returned successfully');
         res.json(userInfo);
 
     } catch (error) {
@@ -497,12 +479,28 @@ exports.revokeToken = async (req, res, next) => {
  */
 exports.introspectToken = async (req, res, next) => {
     try {
-        const { token } = req.body;
+        const { token, client_id, client_secret } = req.body;
 
         if (!token) {
             return res.status(400).json({
                 error: 'invalid_request',
                 error_description: 'Token is required'
+            });
+        }
+
+        // Require client authentication before allowing introspection
+        if (!client_id || !client_secret) {
+            return res.status(401).json({
+                error: 'invalid_client',
+                error_description: 'client_id and client_secret are required'
+            });
+        }
+
+        const client = await Client.findOne({ client_id, isActive: true }).select('+client_secret');
+        if (!client || !(await client.compareSecret(client_secret))) {
+            return res.status(401).json({
+                error: 'invalid_client',
+                error_description: 'Invalid client credentials'
             });
         }
 

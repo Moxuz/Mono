@@ -62,22 +62,30 @@ TESTMONO/
 
 | Feature | Implementation | Status |
 |---------|----------------|--------|
-| **Rate Limiting** | Redis-based, 5 req/15min login | ✅ Verified |
+| **Rate Limiting** | Redis-based, 5 req/15min login (11 protected endpoints) | ✅ Verified |
 | **CSRF Protection** | Token-based, 1hr expiry | ✅ Verified |
 | **Account Lockout** | 5 attempts → 15min lock | ✅ Verified |
 | **Password Hashing** | bcrypt (10 rounds) | ✅ Verified |
 | **JWT Auth** | 1hr access + 30d refresh | ✅ Verified |
-| **Refresh Token Rotation** | New token + blacklist old | ✅ Verified |
+| **Refresh Token Rotation** | New token + blacklist old (auth + OAuth paths) | ✅ Verified |
 | **Session Management** | 90d TTL, device tracking | ✅ Verified |
 | **Security Audit** | 17 event types logged | ✅ Verified |
 | **RBAC** | user/admin/moderator roles | ✅ Verified |
-| **OAuth 2.0 + PKCE** | S256 method | ✅ Verified |
-| **Token Blacklisting** | On logout/revoke | ✅ Verified |
+| **OAuth 2.0 + PKCE** | S256 only (plain rejected) | ✅ Verified |
+| **Token Blacklisting** | On logout/revoke, upsert prevents duplicate crash | ✅ Verified |
 | **PDPA Compliance** | Consent tracking | ✅ Verified |
 | **Social Login** | Google, GitHub | ✅ Verified |
 | **Email Verification** | Token-based | ✅ Verified |
 | **Security Headers** | Helmet.js (CSP, HSTS, etc.) | ✅ Verified |
 | **CORS Protection** | Origin whitelist | ✅ Verified |
+| **Input Validation** | Custom middleware (validate.js), no external deps | ✅ Verified |
+| **NoSQL Injection Prevention** | sanitizeBody strips `$`-prefixed keys recursively | ✅ Verified |
+| **WebSocket JWT Auth** | noServer mode + upgrade handler, token required | ✅ Verified |
+| **Body Size Limit** | 10kb cap on JSON + urlencoded bodies | ✅ Verified |
+| **Inactive Account Check** | `isActive` verified before password compare in login | ✅ Verified |
+| **Session Revocation on Password Reset** | All sessions/tokens blacklisted after password change | ✅ Verified |
+| **Atomic Auth Code Exchange** | findOneAndUpdate prevents replay race condition | ✅ Verified |
+| **Introspect Client Auth** | client_id + client_secret required before token introspection | ✅ Verified |
 
 ---
 
@@ -172,11 +180,11 @@ Appendices (4-6 pages) ✅
 
 ## ✅ VERIFICATION SUMMARY
 
-### Code Verification: 19/19 Features (100%)
+### Code Verification: 27/27 Features (100%)
 
 | Category | Verified | Missing |
 |----------|----------|---------|
-| Security Features | 16/16 | 0 |
+| Security Features | 24/24 | 0 |
 | Performance Features | 3/3 | 0 |
 | Architecture | ✅ Monolithic | - |
 | Dependencies | 14/14 | 0 |
@@ -392,30 +400,55 @@ del merge_thesis.py
 
 ## 🔧 TECHNICAL DEBT / KNOWN ISSUES
 
-### Code Issues
+### Code Issues (Remaining)
 1. **Google OAuth Strategy File**
    - Issue: Not in separate file (unlike GitHub)
    - Location: In `src/shared/config/passport.js` instead of `google.strategy.js`
-   - Impact: Minor - feature works, just different structure
+   - Impact: Minor — feature works, just different structure
    - Fix: Either create separate file OR update thesis reference
 
 2. **JWT Expiry Could Be Shorter**
    - Current: 1 hour access token
    - Recommended: 15-30 minutes
-   - Impact: Low - rotation mitigates risk
+   - Impact: Low — rotation mitigates risk
    - Fix: Add justification in thesis (see Quick Fixes above)
 
 3. **Session TTL Could Be Shorter**
    - Current: 90 days
    - Recommended: 30-60 days for "Remember Me"
-   - Impact: Low - access tokens still expire hourly
+   - Impact: Low — access tokens still expire hourly
    - Fix: Add clarification in thesis
 
+4. **CSP `unsafe-inline` / `unsafe-eval`**
+   - Current: Helmet CSP allows inline scripts
+   - Recommended: Nonce-based CSP
+   - Impact: Moderate — mitigated by other headers
+   - Fix: Move inline scripts to external files, use nonce
+
+5. **CSRF Store In-Memory**
+   - Current: Map-based, resets on restart
+   - Recommended: Redis-backed for multi-instance
+   - Impact: Low for single-instance deployment
+   - Fix: Migrate to Redis store when scaling
+
+### ✅ Previously Listed Issues — Now Fixed
+- ~~Rate limiters missing on change-password, verify-email, delete-account, emergency-lockdown~~ → **FIXED**
+- ~~WebSocket `/ws` unauthenticated~~ → **FIXED** (JWT required on upgrade)
+- ~~No input validation on auth/OAuth routes~~ → **FIXED** (validate.js middleware applied)
+- ~~`console.log/warn` in production code~~ → **FIXED** (all replaced with logger)
+- ~~OAuth introspect accessible without client credentials~~ → **FIXED**
+- ~~Auth code exchange vulnerable to replay race condition~~ → **FIXED** (atomic findOneAndUpdate)
+- ~~Logout didn't revoke refresh token or deactivate session~~ → **FIXED**
+- ~~PKCE accepted `plain` method~~ → **FIXED** (S256 only)
+- ~~TokenBlacklist crashed on duplicate upsert (E11000)~~ → **FIXED**
+- ~~isActive not checked on login~~ → **FIXED**
+- ~~No body size limit~~ → **FIXED** (10kb limit)
+
 ### Thesis Issues
-1. **Missing Diagrams** - Need to create in draw.io
-2. **Missing Screenshots** - Need to capture from running app
-3. **Missing Test Results** - Need to run actual tests
-4. **Some Sections Incomplete** - See "Remaining Work" above
+1. **Missing Diagrams** — Need to create in draw.io
+2. **Missing Screenshots** — Need to capture from running app
+3. **Missing Test Results** — Need to run actual tests
+4. **Some Sections Incomplete** — See "Remaining Work" above
 
 ---
 
@@ -476,7 +509,7 @@ del merge_thesis.py
 | Aspect | Status | Completion |
 |--------|--------|------------|
 | **Code Implementation** | ✅ Complete | 100% |
-| **Security Features** | ✅ Complete | 19/19 (100%) |
+| **Security Features** | ✅ Complete | 24/24 (100%) |
 | **Thesis Writing** | ✅ Complete | 95% |
 | **Fact-Checking** | ✅ Complete | 100% |
 | **External Verification** | ✅ Complete | 95% |

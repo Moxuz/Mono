@@ -16,7 +16,7 @@ const connectDB = async () => {
             useUnifiedTopology: true,
         });
 
-        logger.info(`✅ MongoDB Connected: ${conn.connection.host}`);
+        logger.info(`MongoDB Connected: ${conn.connection.host}`);
         
         mongoose.connection.on('error', (err) => {
             logger.error('MongoDB connection error:', err);
@@ -31,7 +31,7 @@ const connectDB = async () => {
         });
 
     } catch (error) {
-        logger.error('❌ MongoDB connection failed:', error.message);
+        logger.error('MongoDB connection failed:', error.message);
         // Don't exit in development
         if (config.NODE_ENV === 'production') {
             process.exit(1);

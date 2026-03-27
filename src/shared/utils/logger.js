@@ -79,6 +79,7 @@ const logger = {
     },
 
     debug: (message, meta = {}) => {
+        if (NODE_ENV === 'production') return; // suppress debug logs in production
         const timestamp = new Date().toISOString();
         const logMessage = `${timestamp} [DEBUG]: ${message} ${JSON.stringify(meta)}`;
         console.debug('\x1b[35m%s\x1b[0m', logMessage); // Magenta

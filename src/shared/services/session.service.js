@@ -268,6 +268,7 @@ async function updateRefreshToken(sessionToken, newRefreshToken) {
             throw new Error('Session not found');
         }
         
+        session.refreshToken = newRefreshToken;
         session.refreshTokenHash = Session.hashRefreshToken(newRefreshToken);
         await session.save();
         

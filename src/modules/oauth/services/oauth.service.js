@@ -8,6 +8,7 @@ const AuthorizationCode = require('../../../shared/models/AuthorizationCode');
 const Session = require('../../../shared/models/Session');
 const config = require('../../../shared/config/config');
 const sessionService = require('../../../shared/services/session.service');
+const logger = require('../../../shared/utils/logger');
 
 class OAuthService {
 
@@ -36,13 +37,15 @@ class OAuthService {
 
             await AuthorizationCode.create(authCodeData);
 
-            console.log('=== Authorization Code Created ===');
-            console.log('code_challenge        :', authCodeData.code_challenge || 'NONE');
-            console.log('code_challenge_method :', authCodeData.code_challenge_method || 'NONE');
-            console.log('==================================');
+            logger.info('Authorization code created', {
+                clientId,
+                userId,
+                hasPKCE: !!authCodeData.code_challenge
+            });
 
             return code;
         } catch (error) {
+            logger.error('generateAuthorizationCode failed:', error.message);
             throw error;
         }
     }
@@ -52,22 +55,20 @@ class OAuthService {
     // ─────────────────────────────────────────
 
     verifyPKCE(codeVerifier, codeChallenge, method = 'S256') {
-        if (method === 'S256') {
-            const hash = crypto
-                .createHash('sha256')
-                .update(codeVerifier)
-                .digest('base64')
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=/g, '');
-            return hash === codeChallenge;
+        // Only S256 is accepted — plain is insecure and rejected
+        if (method !== 'S256') {
+            logger.warn('PKCE rejected: only S256 method is supported');
+            return false;
         }
 
-        if (method === 'plain') {
-            return codeVerifier === codeChallenge;
-        }
-
-        return false;
+        const hash = crypto
+            .createHash('sha256')
+            .update(codeVerifier)
+            .digest('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, '');
+        return hash === codeChallenge;
     }
 
     // ─────────────────────────────────────────
@@ -76,22 +77,16 @@ class OAuthService {
 
     async exchangeCodeForTokens(code, clientId, clientSecret, redirectUri, codeVerifier = null) {
         try {
-            // 1) Find authorization code
-            const authCode = await AuthorizationCode.findOne({
-                code,
-                used: false,
-                expiresAt: { $gt: new Date() }
-            }).populate('userId');
+            // 1) Atomically find and mark code as used (prevents replay race condition)
+            const authCode = await AuthorizationCode.findOneAndUpdate(
+                { code, used: false, expiresAt: { $gt: new Date() } },
+                { $set: { used: true, usedAt: new Date() } },
+                { new: false }
+            ).populate('userId');
 
             if (!authCode) {
                 throw new Error('Invalid or expired authorization code');
             }
-
-            console.log('=== PKCE Check ===');
-            console.log('code_challenge in DB    :', authCode.code_challenge);
-            console.log('code_challenge_method   :', authCode.code_challenge_method);
-            console.log('code_verifier received  :', codeVerifier);
-            console.log('==================');
 
             // 2) PKCE verification
             if (authCode.code_challenge) {
@@ -103,8 +98,8 @@ class OAuthService {
                     authCode.code_challenge,
                     authCode.code_challenge_method
                 );
-                console.log('PKCE valid:', isValid);
                 if (!isValid) {
+                    logger.warn('PKCE verification failed', { clientId });
                     throw new Error('Invalid code_verifier');
                 }
             }
@@ -112,14 +107,7 @@ class OAuthService {
             // 3) Validate client
             const client = await this.validateClient(clientId, clientSecret, redirectUri);
             if (!client) {
-                // ⭐ Log เพื่อ debug ว่าตรงไหนที่ไม่ผ่าน
-                const debugClient = await Client.findOne({ client_id: clientId });
-                console.log('=== validateClient failed ===');
-                console.log('client exists         :', !!debugClient);
-                console.log('client isActive       :', debugClient?.isActive);
-                console.log('redirect_uris in DB   :', debugClient?.redirect_uris);
-                console.log('redirect_uri received :', redirectUri);
-                console.log('=============================');
+                logger.warn('exchangeCodeForTokens: client validation failed', { clientId });
                 throw new Error('Invalid client credentials');
             }
 
@@ -128,9 +116,6 @@ class OAuthService {
                 throw new Error('Authorization code does not match client');
             }
 
-            // 5) Mark code as used
-            await authCode.markAsUsed();
-
             // 6) Generate tokens
             const user = authCode.userId;
             const access_token  = this.generateAccessToken(user, clientId, authCode.scope);
@@ -138,6 +123,8 @@ class OAuthService {
             const refresh_token = this.generateRefreshToken(user, clientId);
 
             await client.incrementUsage();
+
+            logger.info('Authorization code exchanged for tokens', { clientId, userId: user._id });
 
             return {
                 access_token,
@@ -148,6 +135,7 @@ class OAuthService {
                 scope: authCode.scope
             };
         } catch (error) {
+            logger.error('exchangeCodeForTokens failed:', error.message);
             throw error;
         }
     }
@@ -262,16 +250,16 @@ class OAuthService {
                 .select('+client_secret');
 
             if (!client) {
-                console.log('validateClient: client not found:', clientId);
+                logger.warn('validateClient: client not found', { clientId });
                 return null;
             }
 
             if (!client.isActive) {
-                console.log('validateClient: client inactive');
+                logger.warn('validateClient: client inactive', { clientId });
                 return null;
             }
 
-            // ⭐ Normalize URL ก่อนเปรียบเทียบ (ป้องกัน trailing slash)
+            // Normalize URL ก่อนเปรียบเทียบ (ป้องกัน trailing slash)
             const normalizeUrl = (url) => url?.replace(/\/$/, '').toLowerCase().trim();
             const receivedUri  = normalizeUrl(redirectUri);
             const hasMatch     = client.redirect_uris.some(
@@ -279,15 +267,13 @@ class OAuthService {
             );
 
             if (!hasMatch) {
-                console.log('validateClient: redirect_uri mismatch');
-                console.log('  received :', redirectUri);
-                console.log('  allowed  :', client.redirect_uris);
+                logger.warn('validateClient: redirect_uri mismatch', { clientId });
                 return null;
             }
 
             const isValid = await client.compareSecret(clientSecret);
             if (!isValid) {
-                console.log('validateClient: secret mismatch');
+                logger.warn('validateClient: secret mismatch', { clientId });
                 return null;
             }
 
@@ -302,55 +288,55 @@ class OAuthService {
     // ─────────────────────────────────────────
 
     generateAccessToken(user, clientId, scope) {
-    const baseUrl = config.BASE_URL || 'http://localhost:5000'; // ✅ เพิ่ม
-    return jwt.sign(
-        {
-            sub:       user._id.toString(),
-            email:     user.email,
-            username:  user.username,
-            role:      user.role,
-            client_id: clientId,
-            scope,
-            type:      'access_token'
-        },
-        config.JWT_SECRET,
-        { expiresIn: '1h', issuer: baseUrl, audience: clientId } // ✅ แก้
-    );
-}
+        const baseUrl = config.BASE_URL || 'http://localhost:5000';
+        return jwt.sign(
+            {
+                sub:       user._id.toString(),
+                email:     user.email,
+                username:  user.username,
+                role:      user.role,
+                client_id: clientId,
+                scope,
+                type:      'access_token'
+            },
+            config.JWT_SECRET,
+            { expiresIn: '1h', issuer: baseUrl, audience: clientId }
+        );
+    }
 
     generateIdToken(user, clientId) {
-    const baseUrl = config.BASE_URL || 'http://localhost:5000'; // ✅ เพิ่ม
-    const now = Math.floor(Date.now() / 1000);
-    return jwt.sign(
-        {
-            sub:            user._id.toString(),
-            email:          user.email,
-            email_verified: true,
-            username:       user.username,
-            name:           user.username,
-            aud:            clientId,
-            iss:            baseUrl,                             // ✅ แก้
-            iat:            now,
-            exp:            now + 3600,
-            type:           'id_token'
-        },
-        config.JWT_SECRET
-    );
-}
+        const baseUrl = config.BASE_URL || 'http://localhost:5000';
+        const now = Math.floor(Date.now() / 1000);
+        return jwt.sign(
+            {
+                sub:            user._id.toString(),
+                email:          user.email,
+                email_verified: !!user.emailVerified,
+                username:       user.username,
+                name:           user.username,
+                aud:            clientId,
+                iss:            baseUrl,
+                iat:            now,
+                exp:            now + 3600,
+                type:           'id_token'
+            },
+            config.JWT_SECRET
+        );
+    }
 
-// ─── เปลี่ยน generateRefreshToken ────────────────────────────────
-generateRefreshToken(user, clientId) {
-    const baseUrl = config.BASE_URL || 'http://localhost:5000'; // ✅ เพิ่ม
-    return jwt.sign(
-        {
-            sub:       user._id.toString(),
-            client_id: clientId,
-            type:      'refresh_token'
-        },
-        config.JWT_SECRET,
-        { expiresIn: '30d', issuer: baseUrl, audience: clientId } // ✅ แก้
-    );
-}
+    generateRefreshToken(user, clientId) {
+        const baseUrl = config.BASE_URL || 'http://localhost:5000';
+        return jwt.sign(
+            {
+                sub:       user._id.toString(),
+                client_id: clientId,
+                type:      'refresh_token',
+                jti:       crypto.randomBytes(16).toString('hex')
+            },
+            config.JWT_SECRET,
+            { expiresIn: '30d', issuer: baseUrl, audience: clientId }
+        );
+    }
 
 
     // ─────────────────────────────────────────
@@ -382,9 +368,12 @@ generateRefreshToken(user, clientId) {
                     throw new Error('Invalid session');
                 }
 
+                // Blacklist old refresh token before issuing new one
+                await TokenBlacklist.revokeToken(refreshToken, user._id, decoded.client_id, 'user_logout');
+
                 // Generate new refresh token (rotation)
                 const newRefreshToken = this.generateRefreshToken(user, decoded.client_id);
-                
+
                 // Update session with new refresh token
                 await sessionService.updateRefreshToken(req.sessionToken, newRefreshToken);
 
@@ -400,13 +389,17 @@ generateRefreshToken(user, clientId) {
                 };
             }
 
-            // Fallback without session tracking
-            const access_token = this.generateAccessToken(
-                user, decoded.client_id, 'openid profile email'
-            );
+            // Fallback without session tracking — still rotate refresh token
+            await TokenBlacklist.revokeToken(refreshToken, user._id, decoded.client_id, 'user_logout');
 
-            return { access_token, token_type: 'Bearer', expires_in: 3600 };
+            const access_token   = this.generateAccessToken(user, decoded.client_id, 'openid profile email');
+            const new_refresh    = this.generateRefreshToken(user, decoded.client_id);
+
+            logger.info('OAuth token refreshed (no-session path)', { userId: user._id });
+
+            return { access_token, refresh_token: new_refresh, token_type: 'Bearer', expires_in: 3600 };
         } catch (error) {
+            logger.error('refreshAccessToken failed:', error.message);
             throw error;
         }
     }
@@ -443,7 +436,7 @@ generateRefreshToken(user, clientId) {
             return {
                 sub:            user._id.toString(),
                 email:          user.email,
-                email_verified: true,
+                email_verified: !!user.emailVerified,
                 username:       user.username,
                 name:           user.username,
                 role:           user.role,

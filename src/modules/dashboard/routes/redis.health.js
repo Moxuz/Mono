@@ -6,6 +6,8 @@
 const express = require('express');
 const router = express.Router();
 const { getRedisClient, isRedisReady } = require('../../../shared/middleware/rateLimiter');
+const { authenticate } = require('../../auth/middleware/authenticate');
+const { authorizeRole } = require('../../auth/middleware/authorization');
 
 /**
  * @swagger
@@ -17,7 +19,7 @@ const { getRedisClient, isRedisReady } = require('../../../shared/middleware/rat
  *       200:
  *         description: Redis health status
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticate, authorizeRole('admin'), async (req, res) => {
     try {
         const redisClient = getRedisClient();
         

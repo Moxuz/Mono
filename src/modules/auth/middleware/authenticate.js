@@ -7,9 +7,7 @@ const Session = require('../../../shared/models/Session');
 const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const logger = require('../../../shared/utils/logger');
 
-/**
- * Middleware to authenticate JWT token
- */
+// ตรวจสอบ JWT token จาก Authorization header ค้นหา user และอัปเดต session
 exports.authenticate = async (req, res, next) => {
     try {
         let token = req.headers['authorization'] || req.query.token;
@@ -25,8 +23,6 @@ exports.authenticate = async (req, res, next) => {
             token = token.slice(7);
         }
 
-        console.log('Token received:', token.substring(0, 20) + '...');
-
         const isBlacklisted = await TokenBlacklist.isBlacklisted(token);
         if (isBlacklisted) {
             return res.status(401).json({
@@ -36,24 +32,19 @@ exports.authenticate = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, config.JWT_SECRET);
-        console.log('Token decoded:', decoded);
 
         const userId = decoded.id || decoded.sub;
-        
+
         if (!userId) {
-            console.log('No user ID in token');
             return res.status(401).json({
                 success: false,
                 message: 'Invalid token format'
             });
         }
 
-        console.log('Looking for user:', userId);
-
         const user = await User.findById(userId);
-        
+
         if (!user) {
-            console.log('User not found:', userId);
             return res.status(401).json({
                 success: false,
                 message: 'User not found'
@@ -61,29 +52,19 @@ exports.authenticate = async (req, res, next) => {
         }
 
         if (!user.isActive) {
-            console.log('User is inactive:', userId);
             return res.status(401).json({
                 success: false,
                 message: 'User account is inactive'
             });
         }
 
-        console.log('User authenticated:', user.email);
-
-        // ============================================
-        // 🆕 SESSION TRACKING (เปลี่ยนชื่อ)
-        // ============================================
-        
         const session = await Session.findOne({
             sessionToken: token,
             isActive: true
         });
-        
+
         if (session) {
-            console.log('Session found:', session._id);
-            
             if (session.isExpired()) {
-                console.log('Session expired:', session._id);
                 await session.revoke('expired');
                 return res.status(401).json({
                     success: false,
@@ -91,23 +72,18 @@ exports.authenticate = async (req, res, next) => {
                     error: 'Session expired'
                 });
             }
-            
+
             try {
                 await session.updateLastActive();
-                console.log('Session activity updated:', session._id);
             } catch (error) {
                 logger.error('Failed to update session activity:', error);
             }
-            
-            // 🔧 เปลี่ยนจาก req.session → req.authSession
+
             req.authSession = {
                 sessionId: session._id.toString(),
                 sessionToken: token
             };
-            
-            console.log('Auth session attached:', req.authSession.sessionId);
         } else {
-            console.log('No session found for token (might be OAuth or old token)');
             req.authSession = null;
         }
 
@@ -121,7 +97,7 @@ exports.authenticate = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Authentication error:', error.message);
+        logger.error('Authentication error:', { message: error.message });
         
         if (error.name === 'JsonWebTokenError') {
             return res.status(401).json({
@@ -147,14 +123,9 @@ exports.authenticate = async (req, res, next) => {
     }
 };
 
-/**
- * Middleware to check user role
- */
+// ตรวจสอบว่า user มี role ที่อนุญาตหรือไม่
 exports.authorize = (...roles) => {
     return (req, res, next) => {
-        console.log('Checking authorization for roles:', roles);
-        console.log('User role:', req.user?.role);
-        
         if (!req.user) {
             return res.status(401).json({
                 success: false,
@@ -173,20 +144,16 @@ exports.authorize = (...roles) => {
     };
 };
 
-/**
- * 🆕 Middleware to require session
- */
+// บังคับให้ request ต้องมี session ที่ถูกต้อง ใช้กับ route ที่ต้องการ session tracking
 exports.requireSession = (req, res, next) => {
-    // 🔧 เปลี่ยนจาก req.session → req.authSession
     if (!req.authSession || !req.authSession.sessionId) {
         logger.warn('Session required but not found for user:', req.user?.id);
-        return res.status(400).json({
+        return res.status(401).json({
             success: false,
             message: 'Session required',
             error: 'Current session not found'
         });
     }
-    
-    console.log('Session validation passed:', req.authSession.sessionId);
+
     next();
 };

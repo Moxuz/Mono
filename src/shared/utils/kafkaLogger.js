@@ -1,11 +1,11 @@
 /**
  * Kafka Logger - Optional distributed logging
- * 
+ *
  * Usage:
  * 1. Set USE_KAFKA_LOGGING=true in .env
  * 2. Set KAFKA_BROKER=localhost:9092 (or your Kafka broker)
  * 3. Kafka logs will be sent automatically alongside file logs
- * 
+ *
  * Free alternative: Use file logging only (default)
  */
 
@@ -30,9 +30,7 @@ const TOPICS = {
   ALL: 'application-logs'
 };
 
-/**
- * Initialize Kafka producer
- */
+// เริ่มต้นเชื่อมต่อ Kafka producer
 const connectKafka = async () => {
   if (!KAFKA_ENABLED) {
     return false;
@@ -67,11 +65,11 @@ const connectKafka = async () => {
       await producer.connect();
       isConnected = true;
 
-      console.log(`✅ Kafka connected to ${KAFKA_BROKER}`);
+      console.log(`Kafka connected to ${KAFKA_BROKER}`);
       return true;
     } catch (error) {
-      console.warn(`⚠️  Kafka connection failed: ${error.message}`);
-      console.warn('📝 Falling back to file logging only');
+      console.warn(`Kafka connection failed: ${error.message}`);
+      console.warn('Falling back to file logging only');
       isConnected = false;
       connectPromise = null;
       return false;
@@ -81,13 +79,7 @@ const connectKafka = async () => {
   return connectPromise;
 };
 
-/**
- * Send log to Kafka
- * @param {string} topic - Kafka topic
- * @param {string} level - Log level (INFO, WARN, ERROR)
- * @param {string} message - Log message
- * @param {object} metadata - Additional metadata
- */
+// ส่ง log ไปยัง Kafka topic ที่ระบุ
 const logToKafka = async (topic, level, message, metadata = {}) => {
   if (!KAFKA_ENABLED || !isConnected || !producer) {
     return false;
@@ -128,9 +120,7 @@ const logToKafka = async (topic, level, message, metadata = {}) => {
   }
 };
 
-/**
- * Send multiple logs in batch
- */
+// ส่ง log หลายรายการพร้อมกันใน batch เดียว
 const logBatchToKafka = async (logs) => {
   if (!KAFKA_ENABLED || !isConnected || !producer) {
     return false;
@@ -157,9 +147,7 @@ const logBatchToKafka = async (logs) => {
   }
 };
 
-/**
- * Disconnect Kafka producer
- */
+// ตัดการเชื่อมต่อ Kafka producer
 const disconnectKafka = async () => {
   if (producer && isConnected) {
     try {
@@ -172,9 +160,7 @@ const disconnectKafka = async () => {
   }
 };
 
-/**
- * Get Kafka connection status
- */
+// ดึงสถานะการเชื่อมต่อ Kafka ปัจจุบัน
 const getStatus = () => ({
   enabled: KAFKA_ENABLED,
   connected: isConnected,

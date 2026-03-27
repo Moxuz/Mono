@@ -7,7 +7,7 @@ const mongoose    = require('mongoose');
 const { initializeWebSocket, broadcastSecurityEvent } = require('./shared/utils/websocket');
 const { initRedis, closeRedis, isRedisReady } = require('./shared/middleware/rateLimiter');
 
-// ─── Logger with fallback ─────────────────────────────────────────────────────
+// Logger with fallback
 let logger;
 try {
   logger = require('./shared/utils/logger');
@@ -19,66 +19,89 @@ try {
 
 const PORT = config.PORT || 5000;
 
-// ─── Connect DB ───────────────────────────────────────────────────────────────
+// เชื่อมต่อฐานข้อมูล MongoDB
 const connectDB = async () => {
   await mongoose.connect(config.MONGODB_URI);
-  logger.info('🗄️  MongoDB connected');
+  logger.info('MongoDB connected');
 };
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
+// เริ่มต้น server โดยเชื่อมต่อ DB, ตรวจสอบ email และ Redis ก่อน
 const startServer = async () => {
   try {
-    // 1. Connect DB (เพิ่ม Error Handling)
+    // 1. Connect DB
     try {
       await connectDB();
     } catch (dbError) {
-      logger.error('❌ Database connection failed:', dbError.message);
-      // ถ้า DB ไม่เชื่อมต่อ Server ควรหยุด (เพราะ App จะทำงานไม่ได้)
-      // process.exit(1); // <--- อย่านำออกถ้า DB สำคัญ แต่ถ้าต้องการ Test ให้ Comment
+      logger.error('Database connection failed:', dbError.message);
     }
 
     // 2. Email service
     const emailOk = await emailService.verifyConnection();
     if (!emailOk) {
-      logger.warn('⚠️ Email service unavailable — server will start anyway');
+      logger.warn('Email service unavailable — server will start anyway');
     }
 
-    // 3. Initialize Redis (สำคัญ: อย่าให้ Redis Block Server)
+    // 3. Initialize Redis
     try {
       await initRedis();
-      const redisStatus = isRedisReady() ? '✅ Connected' : '⚠️ Using memory store';
-      logger.info(`📡 Redis: ${redisStatus}`);
+      const redisStatus = isRedisReady() ? 'Connected' : 'Using memory store';
+      logger.info(`Redis: ${redisStatus}`);
     } catch (redisError) {
-      logger.error('❌ Redis initialization failed:', redisError.message);
-      logger.warn('⚠️ Continuing without Redis...');
-      // อย่า process.exit(1) ตรงนี้ เพราะ Server ยังรันได้
+      logger.error('Redis initialization failed:', redisError.message);
+      logger.warn('Continuing without Redis...');
     }
 
     // 4. Start HTTP server
     const httpServer = app.listen(PORT, () => {
-      logger.info(`🚀 Server running on http://localhost:${PORT}`);
-      logger.info(`📊 Environment: ${config.NODE_ENV}`);
+      logger.info(`Server running on http://localhost:${PORT}`);
+      logger.info(`Environment: ${config.NODE_ENV}`);
     });
 
-    // ... (ส่วน WebSocket และ Shutdown เหมือนเดิม)
+    // 5. Initialize WebSocket server (requires HTTP server to be started first)
+    initializeWebSocket(httpServer);
+    logger.info('WebSocket server initialized');
+
+    // Graceful shutdown
+    const shutdown = async (signal) => {
+      logger.warn(`${signal} received — shutting down gracefully`);
+      httpServer.close(async () => {
+        try {
+          await mongoose.connection.close();
+          logger.info('MongoDB connection closed');
+        } catch (err) {
+          logger.error('MongoDB close error:', err.message);
+        }
+        try {
+          await closeRedis();
+          logger.info('Redis connection closed');
+        } catch (err) {
+          logger.error('Redis close error:', err.message);
+        }
+        logger.info('Server shutdown complete');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT',  () => shutdown('SIGINT'));
 
   } catch (error) {
-    logger.error('❌ Server failed to start:', error.message);
-    console.error(error); // 👈 เพิ่มบรรทัดนี้เพื่อดู Error จริงใน Terminal
+    logger.error('Server failed to start:', error.message);
     process.exit(1);
   }
 };
 
-// ─── Global Error Handlers ────────────────────────────────────────────────────
+// จัดการ error ที่ไม่ได้ถูก catch ไว้
 process.on('unhandledRejection', (err) => {
   logger.error('Unhandled Rejection:', err);
   process.exit(1);
 });
 
+// จัดการ exception ที่ไม่ได้ถูก catch ไว้
 process.on('uncaughtException', (err) => {
   logger.error('Uncaught Exception:', err);
   process.exit(1);
 });
 
-// ─── Run ──────────────────────────────────────────────────────────────────────
+// เรียกใช้งาน server
 startServer();

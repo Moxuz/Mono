@@ -51,7 +51,7 @@
 1. Authorization Code Leakage (การรั่วไหลของ authorization code)
    - การโจมตี: ดักจับ authorization code
    - การป้องกัน: PKCE (Proof Key for Code Exchange)
-   - การนำไปใช้: ระบบมี PKCE with S256
+   - การนำไปใช้: ระบบมี PKCE with S256 (plain method rejected, single-use code enforced via atomic exchange)
 
 2. Redirect URI Manipulation (การจัดการ redirect URI ผิดพลาด)
    - การโจมตี: เปลี่ยน redirect URI ไปเป็นเว็บผู้โจมตี
@@ -154,16 +154,23 @@ Implementation:
 - Key generation: IP-based + email combination
 
 Rate Limits:
-┌──────────────────┬──────────────┬─────────────────┐
-│ Endpoint         │ Max Requests │ Window          │
-├──────────────────┼──────────────┼─────────────────┤
-│ Login            │ 5            │ 15 minutes      │
-│ Register         │ 3            │ 1 hour          │
-│ Token            │ 10           │ 15 minutes      │
-│ Forgot Password  │ 5            │ 1 hour          │
-│ Authorize        │ 30           │ 15 minutes      │
-│ General API      │ 100          │ 15 minutes      │
-└──────────────────┴──────────────┴─────────────────┘
+┌────────────────────────┬──────────────┬─────────────────┐
+│ Endpoint               │ Max Requests │ Window          │
+├────────────────────────┼──────────────┼─────────────────┤
+│ Login                  │ 5            │ 15 minutes      │
+│ Register               │ 3            │ 1 hour          │
+│ Token (OAuth)          │ 10           │ 15 minutes      │
+│ Forgot Password        │ 5            │ 1 hour          │
+│ Change Password        │ 5            │ 1 hour          │
+│ Authorize (OAuth)      │ 30           │ 15 minutes      │
+│ Introspect (OAuth)     │ 20           │ 15 minutes      │
+│ Revoke (OAuth)         │ 20           │ 15 minutes      │
+│ Verify Email           │ 100          │ 15 minutes      │
+│ Delete Account         │ 100          │ 15 minutes      │
+│ Emergency Lockdown     │ 100          │ 15 minutes      │
+│ OAuth Userinfo         │ 100          │ 15 minutes      │
+│ General API            │ 100          │ 15 minutes      │
+└────────────────────────┴──────────────┴─────────────────┘
 
 Features:
 - IP whitelist support (สำหรับ Docker/testing)
@@ -245,17 +252,20 @@ Security Benefits:
        ระบบ refresh token rotation เพื่อเพิ่มความปลอดภัย
 
 Implementation:
-- ไฟล์: src/modules/auth/services/auth.service.js
-- Rotation: New token on every refresh
-- Blacklisting: Old token immediately blacklisted
+- ไฟล์: src/modules/auth/services/auth.service.js, src/modules/oauth/services/oauth.service.js
+- Rotation: New token on every refresh (both auth path and OAuth path)
+- Blacklisting: Old token immediately blacklisted before new one is issued
 - Family tracking: Token family เพื่อ detect theft
 
 Features:
 - New refresh token ทุกครั้งที่ refresh
-- Old token blacklisting ทันที
+- Old token blacklisting ทันที (ทั้ง auth session path และ OAuth path)
 - Refresh token family tracking
 - Token theft detection
 - Automatic session revocation ถ้าพบการขโมย
+- Session revoked on password reset (all refresh tokens blacklisted)
+- Session revoked on logout (refresh token + access token blacklisted)
+- Upsert on TokenBlacklist prevents duplicate-key crash (E11000 safe)
 
 Security Benefits:
 - ตรวจจับ token theft
@@ -305,6 +315,68 @@ Security Benefits:
 - ตรวจจับ suspicious patterns
 - Compliance requirement (PDPA)
 - Incident response support
+
+3.6.7a Input Validation & Sanitization ✅ IMPLEMENTED
+
+       ระบบตรวจสอบ input ทุก request เพื่อป้องกัน injection attacks
+
+Implementation:
+- ไฟล์: src/shared/middleware/validate.js
+- Approach: Custom middleware (no external library dependencies)
+- Applied to: register, login, forgotPassword, resetPassword, changePassword, registerClient
+
+Validation Rules:
+- required: ตรวจสอบว่า field มีค่า
+- type:email: ตรวจสอบ email format ด้วย regex
+- minLen / maxLen: จำกัดความยาว string
+- match: เปรียบเทียบสองค่า (เช่น password confirmation)
+- enum: จำกัดค่าที่ยอมรับ
+
+NoSQL Injection Prevention:
+- ไฟล์: src/shared/middleware/validate.js (sanitizeBody)
+- Method: Recursive key stripping — ลบ keys ที่ขึ้นต้นด้วย `$`
+- Applied globally: app.use(sanitizeBody) หลัง body parsers
+
+Security Benefits:
+- ป้องกัน NoSQL injection (เช่น { "$gt": "" })
+- ป้องกัน invalid data เข้า database
+- ป้องกัน payload bomb (combined with 10kb body size limit)
+- ป้องกัน user enumeration จาก validation errors
+
+3.6.7b WebSocket JWT Authentication ✅ IMPLEMENTED
+
+       ระบบยืนยันตัวตนสำหรับ WebSocket connections
+
+Implementation:
+- ไฟล์: src/shared/utils/websocket.js
+- Method: noServer mode + manual HTTP upgrade handler
+- Token: JWT passed as query parameter (?token=...) หรือ Authorization header
+
+Flow:
+1. Client connects to /ws?token=<jwt>
+2. Server intercepts HTTP upgrade event ก่อน WebSocket handshake
+3. JWT ถูก verify ด้วย config.JWT_SECRET
+4. ถ้า invalid → 401 response + socket destroyed
+5. ถ้า valid → handshake completed, ws.user set
+
+Security Benefits:
+- ป้องกัน unauthorized WebSocket connections
+- ป้องกันการดักฟัง real-time security events
+- Consistent with REST API authentication model
+
+3.6.7c Body Size Limit ✅ IMPLEMENTED
+
+       จำกัดขนาด request body เพื่อป้องกัน payload attacks
+
+Implementation:
+- ไฟล์: src/app.js
+- Limit: 10kb สำหรับ JSON และ URL-encoded bodies
+- Code: express.json({ limit: '10kb' })
+
+Security Benefits:
+- ป้องกัน payload bomb / Billion Laughs attack
+- ป้องกัน memory exhaustion
+- ป้องกัน DoS via large body uploads
 
 3.6.7 Security Headers ✅ IMPLEMENTED
 
@@ -406,28 +478,42 @@ Performance Benefits:
 
 Layer 1: Network Security
 - HTTPS enforcement (HSTS)
-- CORS protection
-- IP whitelisting
+- CORS protection (origin whitelist)
+- IP whitelisting (rate limiter skip list)
+- Body size limit (10kb cap)
 
 Layer 2: Application Security
-- Input validation
-- CSRF protection
-- Rate limiting
+- Rate limiting (13 protected endpoints, Redis-backed)
+- CSRF protection (token-based, 1hr expiry)
+- Security headers (Helmet.js — CSP, X-Frame-Options, etc.)
+
+Layer 2.5: Input Validation & Sanitization
+- Custom validation middleware (validate.js) on all auth/OAuth routes
+- sanitizeBody — strips `$`-prefixed keys to prevent NoSQL injection
+- Request body size limit (10kb)
 
 Layer 3: Authentication Security
-- Account lockout
-- Password validation
-- Social login (OAuth 2.0)
+- Account lockout (5 attempts → 15min lock)
+- isActive check (inactive accounts rejected before password compare)
+- Password validation (8+ characters, complexity enforced)
+- Social login (OAuth 2.0 + PKCE S256 only, plain rejected)
+- WebSocket JWT authentication (token required on upgrade)
+- OAuth introspect requires client_id + client_secret
 
 Layer 4: Data Security
-- Password hashing (bcrypt)
-- JWT signing
-- Encryption in transit
+- Password hashing (bcrypt, 10 rounds)
+- JWT signing (HMAC SHA256)
+- Refresh token rotation (old blacklisted before new issued)
+- Atomic auth code exchange (findOneAndUpdate, replay-safe)
+- Session revocation on logout (access token + refresh token blacklisted)
+- Session revocation on password reset (all sessions invalidated)
+- Encryption in transit (HTTPS)
 
 Layer 5: Audit Security
-- Security event logging
-- Kafka distributed logging
-- Monitoring and alerting
+- Security event logging (17 event types in MongoDB)
+- Kafka distributed logging (5 topics)
+- Monitoring and alerting (WebSocket + admin dashboard)
+- Graceful shutdown (HTTP → MongoDB → Redis, data integrity on restart)
 
 3.8.2 Threat Model (STRIDE)
 
@@ -499,7 +585,7 @@ Test Cases:
 │ CSRF state parameter         │ Pass     │ ✅ Pass             │
 │ Token rotation               │ Pass     │ ✅ Pass             │
 │ Redirect URI whitelist       │ Pass     │ ✅ Pass             │
-│ Authorization code expiry    │ Pass     │ ✅ Pass (10 min)    │
+│ Authorization code expiry    │ Pass     │ ✅ Pass (5 min)     │
 │ Single-use code enforcement  │ Pass     │ ✅ Pass             │
 │ Token blacklisting           │ Pass     │ ✅ Pass             │
 └──────────────────────────────┴──────────┴─────────────────────┘
@@ -648,9 +734,9 @@ Table 4.5: Requirements vs Implementation
 
 Overall Compliance: 100% (11/11 requirements met)
 
-Security Features: 16/16 implemented ✅
+Security Features: 24/24 implemented ✅
 Performance Features: 3/3 implemented ✅
-Total: 19/19 features implemented ✅
+Total: 27/27 features implemented ✅
 ```
 
 ---

@@ -102,7 +102,7 @@ async function getUserAuditLogs(userId, limitOrPage = 50, limit = null) {
         
         return logs;
     } catch (error) {
-        console.error('Get user audit logs error:', error);
+        logger.error('Get user audit logs error:', error);
         throw error;
     }
 }

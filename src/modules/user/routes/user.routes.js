@@ -41,9 +41,6 @@ router.get('/sessions', authenticate, userController.getSessions);
  */
 router.get('/me', authenticate, async (req, res, next) => {
     try {
-        console.log('GET /api/users/me called');
-        console.log('User from token:', req.user);
-        
         const user = await User.findById(req.user.id);
         
         if (!user) {

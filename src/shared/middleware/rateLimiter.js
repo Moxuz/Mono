@@ -3,6 +3,15 @@ const { RedisStore } = require('rate-limit-redis');
 const Redis = require('ioredis');
 const config = require('../config/config');
 
+// Lazy logger reference to avoid circular dependency at module load time
+let logger;
+function getLogger() {
+    if (!logger) {
+        try { logger = require('../utils/logger'); } catch { logger = console; }
+    }
+    return logger;
+}
+
 // Helper to get IP from request (IPv6 compatible)
 const getIpFromRequest = (req) => {
     return req.ip || req.headers['x-forwarded-for']?.split(',')[0] || 'unknown';
@@ -15,10 +24,7 @@ const getIpFromRequest = (req) => {
 let redisClient = null;
 let isRedisConnected = false;
 
-/**
- * Initialize Redis connection
- * @returns {Promise<boolean>} Connection status
- */
+// เริ่มต้นเชื่อมต่อ Redis สำหรับใช้เป็น store ของ rate limiter
 async function initRedis() {
     if (redisClient) {
         return isRedisConnected;
@@ -31,7 +37,7 @@ async function initRedis() {
             maxRetriesPerRequest: 3,
             retryStrategy: (times) => {
                 if (times > 5) {
-                    console.warn('[Redis] Max retries reached, using memory store');
+                    getLogger().warn('[Redis] Max retries reached, using memory store');
                     return null; // Stop retrying
                 }
                 return Math.min(times * 100, 2000);
@@ -47,22 +53,22 @@ async function initRedis() {
         redisClient = new Redis(redisConfig);
 
         redisClient.on('connect', () => {
-            console.log('✅ [Redis] Connected successfully');
+            getLogger().info('[Redis] Connected successfully');
             isRedisConnected = true;
         });
 
         redisClient.on('error', (err) => {
-            console.warn('⚠️  [Redis] Connection error:', err.message);
+            getLogger().warn('[Redis] Connection error:', err.message);
             isRedisConnected = false;
         });
 
         redisClient.on('close', () => {
-            console.warn('⚠️  [Redis] Connection closed');
+            getLogger().warn('[Redis] Connection closed');
             isRedisConnected = false;
         });
 
         redisClient.on('reconnecting', () => {
-            console.info('ℹ️  [Redis] Reconnecting...');
+            getLogger().info('[Redis] Reconnecting...');
         });
 
         // Connect
@@ -70,25 +76,19 @@ async function initRedis() {
         
         return isRedisConnected;
     } catch (error) {
-        console.warn('⚠️  [Redis] Failed to connect:', error.message);
-        console.info('ℹ️  [Redis] Falling back to memory store');
+        getLogger().warn('[Redis] Failed to connect:', error.message);
+        getLogger().info('[Redis] Falling back to memory store');
         isRedisConnected = false;
         return false;
     }
 }
 
-/**
- * Get Redis client instance
- * @returns {Redis|null}
- */
+// คืนค่า Redis client instance ปัจจุบัน
 function getRedisClient() {
     return redisClient;
 }
 
-/**
- * Check if Redis is connected
- * @returns {boolean}
- */
+// ตรวจสอบว่า Redis เชื่อมต่อและพร้อมใช้งานหรือไม่
 function isRedisReady() {
     return isRedisConnected && redisClient?.status === 'ready';
 }
@@ -96,12 +96,13 @@ function isRedisReady() {
 /**
  * Close Redis connection
  */
+// ปิดการเชื่อมต่อ Redis
 async function closeRedis() {
     if (redisClient) {
         await redisClient.quit();
         redisClient = null;
         isRedisConnected = false;
-        console.info('ℹ️  [Redis] Connection closed');
+        getLogger().info('[Redis] Connection closed');
     }
 }
 
@@ -109,11 +110,7 @@ async function closeRedis() {
 // Redis Store Factory
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Create Redis store for rate limiting
- * @param {string} prefix - Key prefix
- * @returns {Object} RedisStore instance or null
- */
+// สร้าง RedisStore สำหรับ rate limiter โดยใช้ prefix กำหนด namespace
 function createRedisStore(prefix = 'rl') {
     if (!isRedisReady() || !redisClient) {
         return null;
@@ -124,7 +121,7 @@ function createRedisStore(prefix = 'rl') {
             try {
                 return await redisClient.call(...args);
             } catch (error) {
-                console.warn('[Redis] Command failed:', error.message);
+                getLogger().warn('[Redis] Command failed:', error.message);
                 throw error;
             }
         },
@@ -162,15 +159,7 @@ const emailIpKeyGenerator = (req) => {
 // Rate Limiters
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Create rate limiter with Redis or memory fallback.
- * Store is resolved lazily on first request so that Redis has time to connect
- * before any limiter tries to use it. If Redis connects after startup the
- * limiter will automatically upgrade from memory → Redis on the next request.
- * @param {Object} options - Rate limit options
- * @param {string} prefix - Redis key prefix
- * @returns {Function} Express middleware
- */
+// สร้าง rate limiter middleware โดยใช้ Redis store หรือ memory store เป็น fallback
 function createLimiter(options, prefix = 'rl') {
     const whitelistedIPs = config.RATE_LIMIT_WHITELIST || ['127.0.0.1'];
 
@@ -208,7 +197,7 @@ function createLimiter(options, prefix = 'rl') {
             });
 
             if (store) {
-                console.info(`[RateLimit] ${prefix}: using Redis store`);
+                getLogger().info(`[RateLimit] ${prefix}: using Redis store`);
             }
         }
 
@@ -223,7 +212,7 @@ function createLimiter(options, prefix = 'rl') {
 // Specific Limiters
 // ─────────────────────────────────────────────────────────────────────────────
 
-// 🔴 Login - 5 req / 15 minutes
+// จำกัดการ login: 5 ครั้ง / 15 นาที
 const loginLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     max: 5,
@@ -231,49 +220,49 @@ const loginLimiter = createLimiter({
     message: 'Too many login attempts. Please try again in 15 minutes.'
 }, 'login');
 
-// 🔴 Register - 3 req / 1 hour
+// จำกัดการสมัคร: 3 ครั้ง / 1 ชั่วโมง
 const registerLimiter = createLimiter({
     windowMs: 60 * 60 * 1000,
     max: 3,
     message: 'Too many account creations. Please try again in 1 hour.'
 }, 'register');
 
-// 🔴 Token - 10 req / 15 minutes
+// จำกัดการขอ token: 10 ครั้ง / 15 นาที
 const tokenLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     max: 10,
     message: 'Too many token requests. Please try again in 15 minutes.'
 }, 'token');
 
-// 🔴 Forgot Password - 5 req / 1 hour
+// จำกัดการขอรีเซ็ตรหัสผ่าน: 5 ครั้ง / 1 ชั่วโมง
 const forgotPasswordLimiter = createLimiter({
     windowMs: 60 * 60 * 1000,
     max: 5,
     message: 'Too many password reset requests. Please try again in 1 hour.'
 }, 'forgot-password');
 
-// 🟡 Authorize - 30 req / 15 minutes
+// จำกัดการ authorize: 30 ครั้ง / 15 นาที
 const authorizeLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     max: 30,
     message: 'Too many authorization requests. Please try again in 15 minutes.'
 }, 'authorize');
 
-// 🟡 Introspect - 20 req / 15 minutes
+// จำกัดการ introspect token: 20 ครั้ง / 15 นาที
 const introspectLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     max: 20,
     message: 'Too many introspection requests. Please try again in 15 minutes.'
 }, 'introspect');
 
-// 🟡 Revoke - 20 req / 15 minutes
+// จำกัดการ revoke token: 20 ครั้ง / 15 นาที
 const revokeLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     max: 20,
     message: 'Too many revocation requests. Please try again in 15 minutes.'
 }, 'revoke');
 
-// 🟢 General - 100 req / 15 minutes
+// จำกัด request ทั่วไป: 100 ครั้ง / 15 นาที
 const generalLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -291,11 +280,7 @@ const TIER_LIMITS = {
     admin: { max: 10000, windowMs: 15 * 60 * 1000 }
 };
 
-/**
- * Create tier-based rate limiter
- * @param {string} tier - User tier (free, authenticated, premium, admin)
- * @returns {Function} Express middleware
- */
+// สร้าง rate limiter ตาม tier ของ user (free, authenticated, premium, admin)
 function createTierLimiter(tier = 'free') {
     const config = TIER_LIMITS[tier] || TIER_LIMITS.free;
     
@@ -307,12 +292,7 @@ function createTierLimiter(tier = 'free') {
     }, `tier:${tier}`);
 }
 
-/**
- * Dynamic tier limiter - automatically detects user tier
- * @param {Object} req - Express request
- * @param {Object} res - Express response
- * @param {Function} next - Next middleware
- */
+// ตรวจจับ tier ของ user อัตโนมัติและใช้ rate limit ที่เหมาะสม
 function dynamicTierLimiter(req, res, next) {
     const tier = req.user?.role === 'admin' ? 'admin'
         : req.user?.subscription === 'premium' ? 'premium'
@@ -328,11 +308,7 @@ function dynamicTierLimiter(req, res, next) {
 
 const WHITELISTED_IPS = process.env.RATE_LIMIT_WHITELIST?.split(',') || [];
 
-/**
- * Create limiter with IP whitelist
- * @param {Object} options - Rate limit options
- * @returns {Function} Express middleware
- */
+// สร้าง rate limiter พร้อม IP whitelist สำหรับข้าม limit
 function createWhitelistedLimiter(options) {
     return createLimiter({
         ...options,

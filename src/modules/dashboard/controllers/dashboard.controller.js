@@ -4,9 +4,7 @@ const SecurityAudit = require('../../../shared/models/SecurityAudit');
 const mongoose = require('mongoose');
 const logger = require('../../../shared/utils/logger');
 
-/**
- * Get login activity for last 7 days
- */
+// ดึงข้อมูลจำนวน login ของ user ย้อนหลัง 7 วัน พร้อมรองรับ timezone
 exports.getLoginActivity = async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -19,25 +17,23 @@ exports.getLoginActivity = async (req, res) => {
             });
         }
 
-        // 🆕 รับ timezone offset จาก client (minutes)
-        // เช่น Bangkok = -420 (UTC+7 = 7*60 = 420 minutes ahead, แต่ offset เป็นลบ)
+        // รับ timezone offset จาก client (หน่วยเป็นนาที)
         const timezoneOffset = parseInt(req.query.offset || 0);
-        
+
         logger.info(`Getting login activity for user: ${userId}, timezone offset: ${timezoneOffset}`);
 
-        // 🔧 Calculate date range in user's timezone
+        // คำนวณช่วงวันที่ตาม timezone ของ user
         const now = new Date();
         const endDate = new Date(now.getTime() - (timezoneOffset * 60 * 1000));
         const startDate = new Date(endDate);
-        startDate.setDate(startDate.getDate() - 6); // Last 7 days
-        
-        // Set time boundaries
+        startDate.setDate(startDate.getDate() - 6);
+
         startDate.setHours(0, 0, 0, 0);
         endDate.setHours(23, 59, 59, 999);
 
         logger.info(`Date range (user timezone): ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
-        // Convert userId to ObjectId
+        // แปลง userId เป็น ObjectId
         let userObjectId;
         try {
             userObjectId = new mongoose.Types.ObjectId(userId);
@@ -49,7 +45,7 @@ exports.getLoginActivity = async (req, res) => {
             });
         }
 
-        // 🔧 Aggregate with timezone adjustment
+        // Aggregate ข้อมูล login แบ่งตามวันที่ปรับ timezone แล้ว
         const loginActivity = await SecurityAudit.aggregate([
             {
                 $match: {
@@ -63,14 +59,14 @@ exports.getLoginActivity = async (req, res) => {
             },
             {
                 $addFields: {
-                    // 🆕 Adjust date to user timezone
+                    // แปลงวันที่ให้ตรงกับ timezone ของ user
                     localDate: {
                         $dateToString: {
                             format: '%Y-%m-%d',
                             date: {
                                 $add: [
                                     '$createdAt',
-                                    -timezoneOffset * 60 * 1000 // Convert offset to milliseconds
+                                    -timezoneOffset * 60 * 1000
                                 ]
                             }
                         }
@@ -88,12 +84,12 @@ exports.getLoginActivity = async (req, res) => {
             }
         ]);
 
-        logger.info(`Found ${loginActivity.length} days with login activity`, { 
-            userId, 
-            results: loginActivity 
+        logger.info(`Found ${loginActivity.length} days with login activity`, {
+            userId,
+            results: loginActivity
         });
 
-        // Create array for all 7 days
+        // สร้าง array ครอบคลุมทุกวัน (รวมวันที่ไม่มี login)
         const days = [];
         const data = [];
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -102,11 +98,10 @@ exports.getLoginActivity = async (req, res) => {
             const date = new Date(now.getTime() - (timezoneOffset * 60 * 1000));
             date.setDate(date.getDate() - i);
             date.setHours(0, 0, 0, 0);
-            
+
             const dateStr = date.toISOString().split('T')[0];
             const dayName = dayNames[date.getDay()];
 
-            // Find count for this date
             const found = loginActivity.find(item => item._id === dateStr);
             const count = found ? found.count : 0;
 
@@ -114,12 +109,12 @@ exports.getLoginActivity = async (req, res) => {
             data.push(count);
         }
 
-        // Calculate stats
+        // คำนวณสถิติสรุป
         const totalLogins = data.reduce((sum, count) => sum + count, 0);
         const avgPerDay = (totalLogins / 7).toFixed(1);
         const maxDay = Math.max(...data);
-        const trend = totalLogins === 0 ? 'stable' : 
-                     data[6] > data[0] ? 'up' : 
+        const trend = totalLogins === 0 ? 'stable' :
+                     data[6] > data[0] ? 'up' :
                      data[6] < data[0] ? 'down' : 'stable';
 
         logger.info(`Login activity stats:`, {
@@ -152,7 +147,7 @@ exports.getLoginActivity = async (req, res) => {
             userId: req.user?.id,
             name: error.name
         });
-        
+
         res.status(500).json({
             success: false,
             error: 'Failed to get login activity',

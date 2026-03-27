@@ -37,14 +37,14 @@ const authorizationCodeSchema = new mongoose.Schema({
         index: { expires: 0 }
     },
 
-    // ✅ เพิ่ม PKCE fields
+    // PKCE fields สำหรับ OAuth 2.0 code challenge
     code_challenge: {
         type: String,
         default: null
     },
     code_challenge_method: {
         type: String,
-        enum: ['S256', 'plain'],
+        enum: ['S256'],
         default: 'S256'
     }
 

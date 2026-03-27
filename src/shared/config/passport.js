@@ -6,7 +6,7 @@ const GitHubStrategy = require('./passport/github.strategy.js');
 const User           = require('../models/User');
 const logger         = require('../utils/logger');
 
-// ✅ เช็คก่อนว่ามี credentials ไหม
+// ตรวจสอบว่ามี credentials ของ OAuth providers หรือไม่
 const GOOGLE_ENABLED =
   !!process.env.GOOGLE_CLIENT_ID &&
   !!process.env.GOOGLE_CLIENT_SECRET;
@@ -15,18 +15,7 @@ const GITHUB_ENABLED =
   !!process.env.GITHUB_CLIENT_ID &&
   !!process.env.GITHUB_CLIENT_SECRET;
 
-// Google OAuth
-
-console.log('🔍 Debug Google OAuth in passport.js:');
-console.log('  GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 
-    process.env.GOOGLE_CLIENT_ID.substring(0, 20) + '...' : 
-    '❌ UNDEFINED');
-console.log('  GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 
-    process.env.GOOGLE_CLIENT_SECRET.substring(0, 15) + '...' : 
-    '❌ UNDEFINED');
-console.log('  GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL || '❌ UNDEFINED');
-console.log('  GOOGLE_ENABLED:', GOOGLE_ENABLED);
-
+// ลงทะเบียน Google OAuth Strategy ถ้ามี credentials
 if (GOOGLE_ENABLED) {
   passport.use(
     new GoogleStrategy(
@@ -35,6 +24,7 @@ if (GOOGLE_ENABLED) {
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackURL:  process.env.GOOGLE_CALLBACK_URL,
       },
+      // ค้นหาหรือสร้าง user จากข้อมูล Google profile
       async (accessToken, refreshToken, profile, done) => {
         try {
           const email    = profile.emails?.[0]?.value;
@@ -77,22 +67,25 @@ if (GOOGLE_ENABLED) {
     )
   );
 
-  logger.info('✅ Google OAuth enabled');
+  logger.info('Google OAuth enabled');
 } else {
-  logger.warn('⚠️  Google OAuth disabled — GOOGLE_CLIENT_ID not set');
+  logger.warn('Google OAuth disabled — GOOGLE_CLIENT_ID not set');
 }
 
-// GitHub OAuth
+// ลงทะเบียน GitHub OAuth Strategy ถ้ามี credentials
 if (GITHUB_ENABLED && GitHubStrategy) {
   passport.use(GitHubStrategy);
-  logger.info('✅ GitHub OAuth enabled');
+  logger.info('GitHub OAuth enabled');
 } else if (GITHUB_ENABLED && !GitHubStrategy) {
-  logger.warn('⚠️  GitHub OAuth enabled but strategy not loaded');
+  logger.warn('GitHub OAuth enabled but strategy not loaded');
 } else {
-  logger.warn('⚠️  GitHub OAuth disabled — GITHUB_CLIENT_ID not set');
+  logger.warn('GitHub OAuth disabled — GITHUB_CLIENT_ID not set');
 }
 
+// บันทึก user id ลง session
 passport.serializeUser((user, done)       => done(null, user.id));
+
+// ดึงข้อมูล user จาก id ที่บันทึกใน session
 passport.deserializeUser(async (id, done) => {
   try {
     const user = await User.findById(id);

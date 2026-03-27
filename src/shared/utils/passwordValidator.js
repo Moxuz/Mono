@@ -22,7 +22,7 @@ function validatePassword(password) {
   const errors = [];
   let score = 0;
 
-  // ✅ ONLY REQUIRED CHECK: Minimum length
+  // ตรวจสอบเพียงข้อเดียวที่บังคับ: ความยาวขั้นต่ำ 8 ตัวอักษร
   if (!password) {
     errors.push('Password is required');
     return {
@@ -43,8 +43,7 @@ function validatePassword(password) {
     errors.push('Password must contain at least 1 number');
   }
 
-  // ✅ ลบการเช็คที่บังคับ uppercase, lowercase, number, special char
-  // เหลือแค่นับ score สำหรับ UI feedback (ไม่บล็อก)
+  // นับ score สำหรับ UI feedback เท่านั้น ไม่บล็อกการสมัคร
 
   // Optional: Bonus points for UI (doesn't block registration)
   if (password.length >= 12) score += 1;

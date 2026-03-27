@@ -64,8 +64,7 @@ async function sendVerificationEmail(userId) {
     logger.info(`Verification email sent to ${user.email}`);
 
     return {
-      message: 'Verification email sent successfully',
-      verificationUrl // Remove in production
+      message: 'Verification email sent successfully'
     };
   } catch (error) {
     logger.error('Send verification email error:', error);

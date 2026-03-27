@@ -11,6 +11,7 @@ const sessionService = require('../../../shared/services/session.service');
 const logger = require('../../../shared/utils/logger');
 
 class AuthService {
+    // สมัครสมาชิกใหม่ ตรวจสอบรหัสผ่าน ส่งอีเมลยืนยัน และสร้าง JWT
     async register({ username, email, password, pdpaConsent }) {
         try {
             logger.info(`Register attempt for user: ${email}`);
@@ -84,6 +85,7 @@ class AuthService {
         }
     }
 
+    // อัปเดตสถานะการยินยอม cookie ของ user
     async updateCookieConsent(userId, { cookieConsentAccepted, cookieConsentAt, consentIp, version }) {
         try {
             logger.info(`Updating cookie consent for user ID: ${userId}`);
@@ -109,6 +111,7 @@ class AuthService {
         }
     }
 
+    // ตรวจสอบข้อมูลเข้าสู่ระบบ สร้าง JWT และ session พร้อมส่ง login alert
     async login({ email, password, remember, req }) {
         try {
             logger.info(`Login attempt for user: ${email}`);
@@ -119,6 +122,13 @@ class AuthService {
                 logger.warn(`Login failed - user not found: ${email}`);
                 await securityAuditService.logLoginFailed(email, req, 'user_not_found');
                 throw new Error('Invalid credentials');
+            }
+
+            // Check if account is active
+            if (!user.isActive) {
+                logger.warn(`Login failed - account inactive: ${email}`);
+                await securityAuditService.logLoginFailed(email, req, 'account_inactive');
+                throw new Error('Account is inactive. Please contact support.');
             }
 
             // Check if account is locked
@@ -153,7 +163,7 @@ class AuthService {
             await user.save();
             logger.info(`Password verified for user: ${email}`);
 
-            // ✅ ส่ง Login Alert Email (async - ไม่ block login process)
+            // ส่ง Login Alert Email (async - ไม่ block login process)
             sendLoginAlertIfEnabled(user, req).catch(err => {
                 logger.error('Login alert email failed:', { email: user.email, error: err.message });
             });
@@ -170,14 +180,14 @@ class AuthService {
             let session = null;
             try {
                 session = await sessionService.createSession(
-                    user._id, 
+                    user._id,
                     token,
                     refreshToken,
                     req
                 );
                 logger.info(`Session created for user: ${email} (Session ID: ${session.sessionId})`);
             } catch (error) {
-                console.error('⚠️ Failed to create session:', error);
+                logger.error('Failed to create session:', { email, error: error.message });
             }
 
             return {
@@ -197,6 +207,7 @@ class AuthService {
         }
     }
 
+    // สร้าง JWT access token โดยกำหนดอายุตามตัวเลือก remember me
     createToken(user, remember = false) {
         const expiresIn = remember ? '30d' : (config.JWT_EXPIRE || '1h');
         return jwt.sign(
@@ -212,6 +223,7 @@ class AuthService {
         );
     }
 
+    // สร้าง JWT refresh token อายุ 30 วัน
     generateRefreshToken(user) {
         return jwt.sign(
             {
@@ -224,6 +236,7 @@ class AuthService {
         );
     }
 
+    // ตรวจสอบความถูกต้องและอายุของ JWT token
     async validateToken(token) {
         try {
             logger.info(`Token validation requested`);
@@ -279,6 +292,7 @@ class AuthService {
         }
     }
 
+    // ต่ออายุ access token โดยใช้ refresh token พร้อม rotate token เก่า
     async refreshToken(refreshToken, sessionId = null, deviceInfo = null) {
         try {
             logger.info('Refresh token request received');
@@ -322,8 +336,8 @@ class AuthService {
                 }
 
                 session.lastActiveAt = new Date();
-                if (deviceInfo) {
-                    session.deviceInfo = { ...session.deviceInfo, ...deviceInfo };
+                if (deviceInfo?.ipAddress) {
+                    session.ipAddress = deviceInfo.ipAddress;
                 }
                 await session.save();
                 logger.info(`Session activity updated for user: ${user.email}`);
@@ -339,7 +353,7 @@ class AuthService {
             const newRefreshToken = this.generateRefreshToken(user);
 
             // Update session with new tokens so req.authSession stays valid
-            await Session.findOneAndUpdate(
+            const updatedSession = await Session.findOneAndUpdate(
                 { refreshTokenHash: oldRefreshHash, isActive: true },
                 {
                     sessionToken: newAccessToken,
@@ -347,6 +361,9 @@ class AuthService {
                     lastActiveAt: new Date()
                 }
             );
+            if (!updatedSession) {
+                logger.warn('Token rotation: no matching session found for hash update', { userId: user._id });
+            }
 
             const securityAuditService = require('../../../shared/services/securityAudit.service');
             await securityAuditService.logSecurityEvent({
@@ -383,13 +400,14 @@ class AuthService {
         }
     }
 
+    // เพิกถอน session และ refresh token ทั้งหมดของ user
     async blacklistAllUserTokens(userId, reason = 'security_breach') {
         try {
             const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
             const Session = require('../../../shared/models/Session');
 
-            const sessions = await Session.find({ userId, isActive: true });
-            
+            const sessions = await Session.find({ userId, isActive: true }).select('+refreshToken');
+
             for (const session of sessions) {
                 if (session.refreshToken) {
                     await TokenBlacklist.revokeToken(
@@ -413,6 +431,7 @@ class AuthService {
         }
     }
 
+    // ดึงรายการ session ที่ active ทั้งหมดของ user
     async getActiveSessions(userId) {
         try {
             const Session = require('../../../shared/models/Session');
@@ -431,12 +450,13 @@ class AuthService {
         }
     }
 
+    // ยกเลิก session ที่ระบุและ blacklist refresh token ที่เกี่ยวข้อง
     async revokeSession(userId, sessionId) {
         try {
             const Session = require('../../../shared/models/Session');
             const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 
-            const session = await Session.findOne({ _id: sessionId, userId });
+            const session = await Session.findOne({ _id: sessionId, userId }).select('+refreshToken');
 
             if (!session) {
                 throw new Error('Session not found');
@@ -458,6 +478,7 @@ class AuthService {
         }
     }
 
+    // ยกเลิก session ทั้งหมดยกเว้น session ปัจจุบัน
     async revokeAllOtherSessions(userId, currentSessionId) {
         try {
             const Session = require('../../../shared/models/Session');
@@ -467,7 +488,7 @@ class AuthService {
                 userId,
                 isActive: true,
                 _id: { $ne: currentSessionId }
-            });
+            }).select('+refreshToken');
 
             for (const session of sessions) {
                 if (session.refreshToken) {
@@ -487,6 +508,7 @@ class AuthService {
         }
     }
 
+    // ตรวจสอบว่า session เกินจำนวนที่กำหนดหรือไม่ ถ้าเกินให้ลบ session เก่าสุด
     async checkSessionLimit(userId, maxSessions = 5) {
         try {
             const Session = require('../../../shared/models/Session');
@@ -502,11 +524,11 @@ class AuthService {
                 const oldestSession = await Session.findOne(
                     { userId, isActive: true },
                     null,
-                    { sort: { lastActivity: 1 } }
+                    { sort: { lastActiveAt: 1 } }
                 );
 
                 if (oldestSession) {
-                    await this.revokeSession(userId, oldestSession.sessionId);
+                    await this.revokeSession(userId, oldestSession._id);
                     logger.info(`Revoked oldest session for user ${userId} to maintain limit`);
                 }
 
@@ -520,6 +542,7 @@ class AuthService {
         }
     }
 
+    // สร้าง reset token และส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลที่ระบุ
     async forgotPassword(email, req = null) {
         try {
             logger.info(`Password reset requested for: ${email}`);
@@ -565,6 +588,7 @@ class AuthService {
         }
     }
 
+    // ตรวจสอบ reset token และเปลี่ยนรหัสผ่านเป็นรหัสใหม่
     async resetPassword(token, newPassword, req = null) {
         try {
             logger.info('Password reset with token attempted');
@@ -592,6 +616,11 @@ class AuthService {
             user.passwordResetExpires = undefined;
             await user.save();
 
+            // Revoke all active sessions so stolen tokens can't be reused after reset
+            await this.blacklistAllUserTokens(user._id, 'password_change').catch(err =>
+                logger.error('Failed to revoke sessions after password reset:', err.message)
+            );
+
             logger.info(`Password reset successful for user: ${user.email}`);
 
             await securityAuditService.logSecurityEvent({
@@ -618,6 +647,7 @@ class AuthService {
         }
     }
 
+    // บันทึกการตั้งค่า theme, ภาษา และการแจ้งเตือนของ user
     async updatePreferences(userId, preferences) {
         try {
             logger.info(`Updating preferences for user: ${userId}`);
@@ -655,6 +685,7 @@ class AuthService {
         }
     }
 
+    // ดึงการตั้งค่าของ user หรือค่า default ถ้ายังไม่มี
     async getPreferences(userId) {
         try {
             const user = await User.findById(userId);
@@ -678,6 +709,7 @@ class AuthService {
         }
     }
 
+    // เปลี่ยนรหัสผ่าน โดยตรวจสอบรหัสเดิมก่อน (ยกเว้น OAuth user)
     async changePassword(userId, currentPassword, newPassword, req) {
         try {
             logger.info(`Password change requested for user ID: ${userId}`);
@@ -734,7 +766,7 @@ class AuthService {
     }
 }
 
-// ✅ Helper function สำหรับส่ง login alert
+// ส่งอีเมลแจ้งเตือนการ login ถ้า user ไม่ได้ปิดการแจ้งเตือน
 async function sendLoginAlertIfEnabled(user, req) {
     try {
         // Only skip if the preference is explicitly set to false.
@@ -773,13 +805,14 @@ async function sendLoginAlertIfEnabled(user, req) {
     }
 }
 
-// ✅ Helper functions สำหรับ parse user agent
+// ระบุประเภทอุปกรณ์จาก user agent string
 function getDeviceType(userAgent) {
     if (/mobile/i.test(userAgent)) return 'Mobile';
     if (/tablet/i.test(userAgent)) return 'Tablet';
     return 'Desktop';
 }
 
+// ระบุชื่อ browser จาก user agent string
 function getBrowser(userAgent) {
     if (/edg/i.test(userAgent)) return 'Edge';
     if (/chrome/i.test(userAgent)) return 'Chrome';
@@ -789,6 +822,7 @@ function getBrowser(userAgent) {
     return 'Unknown';
 }
 
+// ระบุชื่อระบบปฏิบัติการจาก user agent string
 function getOS(userAgent) {
     if (/windows/i.test(userAgent)) return 'Windows';
     if (/mac/i.test(userAgent)) return 'macOS';

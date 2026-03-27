@@ -44,7 +44,12 @@
       "Bash(find C:UsersASUSDocuments -maxdepth 4 -type d -name *final*)",
       "Bash(find /c/Users/ASUS -maxdepth 5 -type d -name *final*)",
       "Bash(pip show:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(find . -not -path ./.git* -not -path */node_modules/* -not -path */.next/* -type d)",
+      "Bash(find ./src -name *.routes.js -o -name *.routes.ts)",
+      "WebSearch",
+      "WebFetch(domain:cheatsheetseries.owasp.org)",
+      "WebFetch(domain:datatracker.ietf.org)"
     ]
   }
 }

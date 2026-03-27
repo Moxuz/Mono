@@ -4,9 +4,7 @@ const sessionService = require('../../../shared/services/session.service');
 const logger = require('../../../shared/utils/logger');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
 
-/**
- * Get all active sessions for current user
- */
+// ดึงรายการ session ที่ active ทั้งหมดของ user ปัจจุบัน
 exports.getSessions = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -17,10 +15,9 @@ exports.getSessions = async (req, res, next) => {
                 error: 'Unauthorized'
             });
         }
-        
-        // 🔧 เปลี่ยนจาก req.session → req.authSession
+
         const currentSessionId = req.authSession?.sessionId;
-        
+
         const result = await sessionService.getUserSessions(userId, currentSessionId);
 
         logger.info('getSessions: active sessions fetched', {
@@ -43,9 +40,7 @@ exports.getSessions = async (req, res, next) => {
     }
 };
 
-/**
- * Revoke specific session
- */
+// ยกเลิก session ที่ระบุ
 exports.revokeSession = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -57,7 +52,7 @@ exports.revokeSession = async (req, res, next) => {
                 error: 'Unauthorized'
             });
         }
-        
+
         const result = await sessionService.revokeSession(sessionId, userId, 'user_logout');
 
         logger.security('revokeSession: session terminated by user', {
@@ -81,14 +76,14 @@ exports.revokeSession = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('revokeSession failed', { function: 'revokeSession', error: error.message, sessionId: req.params?.sessionId, userId: req.user?.id });
-        
+
         if (error.message === 'Session not found') {
             return res.status(404).json({
                 success: false,
                 error: error.message
             });
         }
-        
+
         res.status(500).json({
             success: false,
             error: 'Failed to revoke session'
@@ -96,9 +91,7 @@ exports.revokeSession = async (req, res, next) => {
     }
 };
 
-/**
- * Revoke all other sessions (keep current)
- */
+// ยกเลิก session ทั้งหมดยกเว้น session ปัจจุบัน
 exports.revokeAllOtherSessions = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -110,8 +103,7 @@ exports.revokeAllOtherSessions = async (req, res, next) => {
                 error: 'Unauthorized'
             });
         }
-        
-        // 🆕 ปรับปรุง error message
+
         if (!currentSessionId) {
             logger.warn('No session found for user attempting to revoke sessions:', userId);
             return res.status(400).json({
@@ -121,7 +113,7 @@ exports.revokeAllOtherSessions = async (req, res, next) => {
                 code: 'NO_SESSION_TRACKING'
             });
         }
-        
+
         const result = await sessionService.revokeAllOtherSessions(userId, currentSessionId, 'user_logout');
 
         logger.security('revokeAllOtherSessions: all other sessions revoked', {
@@ -152,9 +144,7 @@ exports.revokeAllOtherSessions = async (req, res, next) => {
     }
 };
 
-/**
- * Revoke all sessions (logout everywhere)
- */
+// ยกเลิก session ทั้งหมดรวมถึง session ปัจจุบัน (logout ทุกอุปกรณ์)
 exports.revokeAllSessions = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -165,9 +155,9 @@ exports.revokeAllSessions = async (req, res, next) => {
                 error: 'Unauthorized'
             });
         }
-        
+
         const result = await sessionService.revokeAllSessions(userId, 'user_logout');
-        
+
         await securityAuditService.logSecurityEvent({
             userId,
             action: 'logout',
@@ -175,7 +165,7 @@ exports.revokeAllSessions = async (req, res, next) => {
             ipAddress: req.ip,
             metadata: { action: 'logout_everywhere' }
         });
-        
+
         res.json({
             success: true,
             message: result.message
@@ -189,9 +179,7 @@ exports.revokeAllSessions = async (req, res, next) => {
     }
 };
 
-/**
- * Get session count
- */
+// ดึงจำนวน session ที่ active ของ user
 exports.getSessionCount = async (req, res, next) => {
     try {
         const userId = req.user?.id;
@@ -202,9 +190,9 @@ exports.getSessionCount = async (req, res, next) => {
                 error: 'Unauthorized'
             });
         }
-        
+
         const count = await sessionService.getSessionCount(userId);
-        
+
         res.json({
             success: true,
             data: { count }

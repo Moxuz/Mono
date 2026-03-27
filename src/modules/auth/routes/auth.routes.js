@@ -10,42 +10,44 @@ const {
     registerLimiter,
     forgotPasswordLimiter,
     tokenLimiter,
-} = require('../../../shared/middleware/rateLimiter'); 
+    generalLimiter,
+} = require('../../../shared/middleware/rateLimiter');
+const { validate, rules } = require('../../../shared/middleware/validate');
 
 // Local authentication
-router.post('/register',       registerLimiter,       authController.register);
-router.post('/login',          loginLimiter,           authController.login);
+router.post('/register',       registerLimiter,       validate(rules.register),       authController.register);
+router.post('/login',          loginLimiter,           validate(rules.login),           authController.login);
 router.post('/logout',         authenticate,           authController.logout);
-router.post('/refresh-token',                          authController.refreshToken);
-router.post('/validate-token',                         authController.validateToken);
-//router.post('/change-password',authenticate,           authController.changePassword);
+router.post('/refresh-token',  tokenLimiter,              authController.refreshToken);
+router.post('/validate-token',  generalLimiter,        authController.validateToken);
 router.get('/audit-logs',      authenticate,           authController.getAuditLogs);
 
 // Email Verification
-router.get('/verify-email',                            authController.verifyEmail);
-router.post('/resend-verification',                    authController.resendVerificationEmail);
+router.get('/verify-email',    generalLimiter,           authController.verifyEmail);
+router.post('/resend-verification', forgotPasswordLimiter, authController.resendVerificationEmail);
 
 
 // Password reset
 
-router.post('/forgot-password', forgotPasswordLimiter, authController.forgotPassword);
-router.post('/reset-password/:token', authController.resetPassword);  
-router.post('/change-password', authenticate, authController.changePassword);
+router.post('/forgot-password', forgotPasswordLimiter, validate(rules.forgotPassword), authController.forgotPassword);
+router.post('/reset-password/:token', forgotPasswordLimiter, validate(rules.resetPassword), authController.resetPassword);
+router.post('/change-password', authenticate, forgotPasswordLimiter, validate(rules.changePassword), authController.changePassword);
 
 // Session Management (Protected)
 router.get('/sessions',         authenticate, authController.getActiveSessions);
 router.post('/sessions/revoke', authenticate, authController.revokeSession);
 router.post('/sessions/revoke-all-others', authenticate, authController.revokeAllOtherSessions);
-router.post('/emergency-lockdown', authenticate, authController.emergencyLockdown);
+router.post('/emergency-lockdown', authenticate, generalLimiter, authController.emergencyLockdown);
 
 
 router.get('/security-audit', authenticate, authController.getSecurityAudit);
 router.get('/profile', authenticate, authController.getProfile);
 
-router.delete('/delete-account', authenticate, authController.deleteAccount);
+router.delete('/delete-account', authenticate, generalLimiter, authController.deleteAccount);
 
 router.get('/preferences', authenticate, authController.getPreferences);
 router.put('/preferences', authenticate, authController.updatePreferences);
+router.post('/update-cookie-consent', authenticate, authController.updateCookieConsent);
 
 // OAuth session bridge — validates JWT, sets server session, then redirects to returnTo
 router.get('/oauth-session', authController.setOAuthSession);

@@ -11,7 +11,7 @@ const SecurityAudit = require('../../../shared/models/SecurityAudit');
 const sessionService = require('../../../shared/services/session.service');
 const { sendLoginAlertIfEnabled } = require('../services/auth.service');
 
-// Helper: generate a refresh token JWT for OAuth users
+// สร้าง refresh token สำหรับ OAuth user
 function generateOAuthRefreshToken(user) {
   return jwt.sign(
     { id: user._id, type: 'refresh_token', jti: crypto.randomBytes(16).toString('hex') },
@@ -20,7 +20,7 @@ function generateOAuthRefreshToken(user) {
   );
 }
 
-// Helper: generate a short-lived re-auth token for account deletion
+// สร้าง token อายุสั้นสำหรับยืนยันตัวตนก่อนลบบัญชี
 function generateReauthToken(userId) {
   return jwt.sign(
     { userId: userId.toString(), purpose: 'delete_account', jti: crypto.randomBytes(16).toString('hex') },
@@ -29,7 +29,7 @@ function generateReauthToken(userId) {
   );
 }
 
-// ✅ Import enabled flags from passport config
+// นำเข้าสถานะ OAuth providers ที่เปิดใช้งาน
 const {
   GOOGLE_ENABLED,
   GITHUB_ENABLED
@@ -54,6 +54,7 @@ const {
  *     tags: [Social Login]
  */
 if (GOOGLE_ENABLED) {
+  // เริ่มกระบวนการ login ผ่าน Google OAuth
   router.get('/google', (req, res, next) => {
     if (req.query.redirect) {
       req.session.oauthRedirect = req.query.redirect;
@@ -75,26 +76,27 @@ if (GOOGLE_ENABLED) {
    *     summary: Google OAuth callback
    *     tags: [Social Login]
    */
+  // รับ callback จาก Google หลัง login สำเร็จ สร้าง JWT และ session
   router.get('/google/callback',
-    passport.authenticate('google', { 
+    passport.authenticate('google', {
       session: false,
-      failureRedirect: '/login.html?error=google_failed' 
+      failureRedirect: '/login.html?error=google_failed'
     }),
     async (req, res) => {
       try {
-        // Handle re-authentication for account deletion
+        // จัดการ re-authentication สำหรับการลบบัญชี
         if (req.session.oauthAction === 'delete_account') {
           const returnTo = req.session.oauthReturnTo || '/profile.html';
           delete req.session.oauthAction;
           delete req.session.oauthReturnTo;
-          logger.info(`✅ Google re-auth for account deletion: ${req.user.email}`);
+          logger.info(`Google re-auth for account deletion: ${req.user.email}`);
           const reauthToken = generateReauthToken(req.user._id);
           return res.redirect(`${returnTo}?reauth_token=${reauthToken}&action=delete_account`);
         }
 
-        logger.info(`✅ Google login successful: ${req.user.email}`);
+        logger.info(`Google login successful: ${req.user.email}`);
 
-        // Log security event
+        // บันทึก security event
         await SecurityAudit.create({
           action: 'login_success',
           userId: req.user._id,
@@ -108,7 +110,7 @@ if (GOOGLE_ENABLED) {
           }
         });
 
-        // Generate JWT token
+        // สร้าง JWT token
         const token = jwt.sign(
           {
             id: req.user._id,
@@ -121,7 +123,7 @@ if (GOOGLE_ENABLED) {
           { expiresIn: config.JWT_EXPIRE || '1h' }
         );
 
-        // Generate refresh token and create session
+        // สร้าง refresh token และ session
         const refreshToken = generateOAuthRefreshToken(req.user);
         let sessionId = null;
         try {
@@ -131,17 +133,17 @@ if (GOOGLE_ENABLED) {
           logger.warn('Google OAuth: session creation failed (non-fatal):', err.message);
         }
 
-        // Send login alert email (non-blocking)
+        // ส่ง login alert email (ไม่รอผล)
         sendLoginAlertIfEnabled(req.user, req).catch(err => {
           logger.error('Google OAuth: login alert email failed:', err.message);
         });
 
-        // Set cookie
+        // ตั้งค่า cookie
         res.cookie('token', token, {
           httpOnly: true,
           secure: config.NODE_ENV === 'production',
           sameSite: 'lax',
-          maxAge: 3600000 // 1 hour
+          maxAge: 3600000
         });
 
         const redirectTo = req.session.oauthRedirect;
@@ -151,7 +153,7 @@ if (GOOGLE_ENABLED) {
         res.redirect(redirectTo ? `${redirectTo}?${params}` : `/dashboard.html?${params}`);
 
       } catch (error) {
-        logger.error('❌ Google callback error:', error);
+        logger.error('Google callback error:', error);
         res.redirect('/login.html?error=google_callback_error');
       }
     }
@@ -170,6 +172,7 @@ if (GOOGLE_ENABLED) {
  *     tags: [Social Login]
  */
 if (GITHUB_ENABLED) {
+  // เริ่มกระบวนการ login ผ่าน GitHub OAuth
   router.get('/github', (req, res, next) => {
     if (req.query.redirect) {
       req.session.oauthRedirect = req.query.redirect;
@@ -190,26 +193,27 @@ if (GITHUB_ENABLED) {
    *     summary: GitHub OAuth callback
    *     tags: [Social Login]
    */
+  // รับ callback จาก GitHub หลัง login สำเร็จ สร้าง JWT และ session
   router.get('/github/callback',
-    passport.authenticate('github', { 
+    passport.authenticate('github', {
       session: false,
-      failureRedirect: '/login.html?error=github_failed' 
+      failureRedirect: '/login.html?error=github_failed'
     }),
     async (req, res) => {
       try {
-        // Handle re-authentication for account deletion
+        // จัดการ re-authentication สำหรับการลบบัญชี
         if (req.session.oauthAction === 'delete_account') {
           const returnTo = req.session.oauthReturnTo || '/profile.html';
           delete req.session.oauthAction;
           delete req.session.oauthReturnTo;
-          logger.info(`✅ GitHub re-auth for account deletion: ${req.user.email || req.user.username}`);
+          logger.info(`GitHub re-auth for account deletion: ${req.user.email || req.user.username}`);
           const reauthToken = generateReauthToken(req.user._id);
           return res.redirect(`${returnTo}?reauth_token=${reauthToken}&action=delete_account`);
         }
 
-        logger.info(`✅ GitHub login successful: ${req.user.email || req.user.username}`);
+        logger.info(`GitHub login successful: ${req.user.email || req.user.username}`);
 
-        // Log security event
+        // บันทึก security event
         await SecurityAudit.create({
           action: 'login_success',
           userId: req.user._id,
@@ -224,7 +228,7 @@ if (GITHUB_ENABLED) {
           }
         });
 
-        // Generate JWT token
+        // สร้าง JWT token
         const token = jwt.sign(
           {
             id: req.user._id,
@@ -237,7 +241,7 @@ if (GITHUB_ENABLED) {
           { expiresIn: config.JWT_EXPIRE || '1h' }
         );
 
-        // Generate refresh token and create session
+        // สร้าง refresh token และ session
         const refreshToken = generateOAuthRefreshToken(req.user);
         let sessionId = null;
         try {
@@ -247,17 +251,17 @@ if (GITHUB_ENABLED) {
           logger.warn('GitHub OAuth: session creation failed (non-fatal):', err.message);
         }
 
-        // Send login alert email (non-blocking)
+        // ส่ง login alert email (ไม่รอผล)
         sendLoginAlertIfEnabled(req.user, req).catch(err => {
           logger.error('GitHub OAuth: login alert email failed:', err.message);
         });
 
-        // Set cookie
+        // ตั้งค่า cookie
         res.cookie('token', token, {
           httpOnly: true,
           secure: config.NODE_ENV === 'production',
           sameSite: 'lax',
-          maxAge: 3600000 // 1 hour
+          maxAge: 3600000
         });
 
         const redirectTo = req.session.oauthRedirect;
@@ -267,7 +271,7 @@ if (GITHUB_ENABLED) {
         res.redirect(redirectTo ? `${redirectTo}?${params}` : `/dashboard.html?${params}`);
 
       } catch (error) {
-        logger.error('❌ GitHub callback error:', error);
+        logger.error('GitHub callback error:', error);
         res.redirect('/login.html?error=github_callback_error');
       }
     }
@@ -285,6 +289,7 @@ if (GITHUB_ENABLED) {
  *     summary: Get OAuth providers status
  *     tags: [Social Login]
  */
+// ตรวจสอบสถานะว่า OAuth provider ใดบ้างที่เปิดใช้งานอยู่
 router.get('/oauth/status', (req, res) => {
   res.json({
     success: true,

@@ -17,6 +17,7 @@ const config = require('./shared/config/config');
 const connectDB = require('./shared/utils/database');
 const { generalLimiter } = require('./shared/middleware/rateLimiter');
 const { csrfProtection, csrfToken } = require('./shared/middleware/csrf');
+const { sanitizeBody } = require('./shared/middleware/validate');
 const { passport, GOOGLE_ENABLED, GITHUB_ENABLED } = require('./shared/config/passport');
 
 let logger;
@@ -47,9 +48,9 @@ app.use(helmet({
             defaultSrc:  ["'self'"],
             scriptSrc:   ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net'],
             scriptSrcAttr: ["'unsafe-hashes'"],
-            styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net'], // ✅ เพิ่ม Google Fonts
-            styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'], // ✅ เพิ่ม Google Fonts (สำหรับ <link>)
-            fontSrc:     ["'self'", 'https://fonts.gstatic.com', 'data:'], // ✅ เพิ่ม Google Fonts (สำหรับ font files)
+            styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net'],
+            styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            fontSrc:     ["'self'", 'https://fonts.gstatic.com', 'data:'],
             imgSrc:      ["'self'", "data:", "https:", "blob:"],
             connectSrc:  ["'self'", "ws:", "http:", "https:", "wss:"],
             objectSrc:   ["'none'"],
@@ -74,8 +75,9 @@ app.use(cors({
     credentials: true
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(sanitizeBody);
 
 if (logger.stream) {
     app.use(morgan('combined', { stream: logger.stream }));
@@ -96,35 +98,21 @@ app.use(session({
 
 app.use(express.static(path.join(__dirname, '../public')));
 
-// ✅ ลบ duplicate CSP headers (helmet จัดการให้แล้ว)
-// Security Headers Middleware (applied to all routes)
+// ตั้งค่า security headers เพิ่มเติมสำหรับทุก request
 app.use((req, res, next) => {
-    // Prevent clickjacking
     res.setHeader('X-Frame-Options', 'DENY');
-
-    // Prevent MIME type sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
-
-    // Enable XSS filter
     res.setHeader('X-XSS-Protection', '1; mode=block');
-
-    // Control referrer information
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-    // ❌ ลบบรรทัดนี้ออก (duplicate - helmet จัดการแล้ว)
-    // res.setHeader('Content-Security-Policy', "default-src 'self'");
-
-    // Permissions Policy
     res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-
     next();
 });
 
-// CSRF Protection for web routes ONLY (skip API routes)
+// ใช้ CSRF protection สำหรับ web routes เท่านั้น (ข้าม API routes)
 app.use(csrfToken);
 app.use(csrfProtection);
 
-// Health check
+// ตรวจสอบสถานะการทำงานของ server
 app.get('/health', (req, res) => {
     res.json({
         status: 'OK',
@@ -144,11 +132,12 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
 app.use(passport.initialize());
 app.use(passport.session());
 
-// General rate limit
+// ใช้ rate limit ทั่วไปกับทุก request
 app.use(generalLimiter);
 app.use('/.well-known', wellKnownRoutes);
 
 // ─── Cleanup Job for Expired Data ─────────────────────────────────────────────
+// ตั้งเวลาลบข้อมูลที่หมดอายุทุกคืนเที่ยงคืน
 const scheduleCleanup = () => {
     const now = new Date();
     const midnight = new Date(now);
@@ -156,32 +145,31 @@ const scheduleCleanup = () => {
     const timeUntilMidnight = midnight.getTime() - now.getTime();
 
     setTimeout(() => {
-        // Cleanup used authorization codes
+        // ลบ authorization codes ที่ถูกใช้แล้ว
         AuthorizationCode.deleteMany({ used: true })
             .then(result => {
-                logger.info(`🧹 Cleaned up ${result.deletedCount} used authorization codes`);
+                logger.info(`Cleaned up ${result.deletedCount} used authorization codes`);
             })
             .catch(err => {
                 logger.error('Failed to cleanup authorization codes:', err);
             });
 
-        // Cleanup expired tokens from blacklist
+        // ลบ blacklisted tokens ที่หมดอายุแล้ว
         TokenBlacklist.deleteMany({ expiresAt: { $lt: new Date() } })
             .then(result => {
-                logger.info(`🧹 Cleaned up ${result.deletedCount} expired blacklisted tokens`);
+                logger.info(`Cleaned up ${result.deletedCount} expired blacklisted tokens`);
             })
             .catch(err => {
                 logger.error('Failed to cleanup blacklisted tokens:', err);
             });
 
-        // Schedule next cleanup
         scheduleCleanup();
     }, timeUntilMidnight);
 
-    logger.info(`🕐 Cleanup scheduled for ${midnight.toLocaleString()}`);
+    logger.info(`Cleanup scheduled for ${midnight.toLocaleString()}`);
 };
 
-// Start cleanup scheduler
+// เริ่ม cleanup scheduler เฉพาะ production
 if (config.NODE_ENV === 'production') {
     scheduleCleanup();
 }
@@ -206,7 +194,7 @@ app.get('/admin/monitoring',(req, res) => res.sendFile(path.join(__dirname, '../
 app.get('/admin/analytics',(req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-analytics.html')));
 app.get('/user-activity',(req, res) => res.sendFile(path.join(__dirname, '../public', 'user-activity.html')));
 
-// 404 handler
+// จัดการ route ที่ไม่พบ
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not Found',
@@ -214,7 +202,7 @@ app.use((req, res) => {
     });
 });
 
-// Error handler
+// จัดการ error ทั้งหมดของ application
 app.use((err, req, res, next) => {
     logger.error('Error:', {
         message: err.message,
@@ -231,10 +219,6 @@ app.use((err, req, res, next) => {
     });
 });
 
-console.log('🔍 OAuth Status:');
-console.log('  Google:', GOOGLE_ENABLED ? '✅ Enabled' : '❌ Disabled');
-console.log('  GitHub:', GITHUB_ENABLED ? '✅ Enabled' : '❌ Disabled');
-
-console.log('📋 Loaded Strategies:', Object.keys(passport._strategies));
+logger.info(`OAuth Status — Google: ${GOOGLE_ENABLED ? 'Enabled' : 'Disabled'} | GitHub: ${GITHUB_ENABLED ? 'Enabled' : 'Disabled'}`);
 
 module.exports = app;

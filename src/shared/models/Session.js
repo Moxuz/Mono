@@ -2,6 +2,7 @@
 
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const logger = require('../utils/logger');
 
 const sessionSchema = new mongoose.Schema({
     userId: {
@@ -181,7 +182,7 @@ sessionSchema.statics.createSession = async function(data) {
             sessionToken: session.sessionToken  // Return JWT token
         };
     } catch (error) {
-        console.error('Create session error:', error);
+        logger.error('Create session error:', error);
         throw error;
     }
 };
@@ -216,7 +217,7 @@ sessionSchema.statics.validateSession = async function(sessionToken) {
 
         return session;
     } catch (error) {
-        console.error('Validate session error:', error);
+        logger.error('Validate session error:', error);
         return null;
     }
 };
@@ -234,7 +235,7 @@ sessionSchema.statics.findActiveSessions = async function(userId) {
         .sort('-lastActiveAt')
         .lean();
     } catch (error) {
-        console.error('Find active sessions error:', error);
+        logger.error('Find active sessions error:', error);
         throw error;
     }
 };
@@ -266,7 +267,7 @@ sessionSchema.statics.revokeAllSessions = async function(userId, reason, exclude
 
         return result;
     } catch (error) {
-        console.error('Revoke all sessions error:', error);
+        logger.error('Revoke all sessions error:', error);
         throw error;
     }
 };
@@ -276,12 +277,12 @@ sessionSchema.statics.revokeAllSessions = async function(userId, reason, exclude
  */
 sessionSchema.statics.getSessionCount = async function(userId) {
     try {
-        return await this.countDocuments({ 
-            userId, 
-            isActive: true 
+        return await this.countDocuments({
+            userId,
+            isActive: true
         });
     } catch (error) {
-        console.error('Get session count error:', error);
+        logger.error('Get session count error:', error);
         throw error;
     }
 };
@@ -307,10 +308,10 @@ sessionSchema.statics.cleanupSessions = async function() {
             ]
         });
 
-        console.log(`Cleaned up ${result.deletedCount} expired sessions`);
+        logger.info(`Cleaned up ${result.deletedCount} expired sessions`);
         return result.deletedCount;
     } catch (error) {
-        console.error('Cleanup sessions error:', error);
+        logger.error('Cleanup sessions error:', error);
         throw error;
     }
 };
@@ -337,7 +338,7 @@ sessionSchema.statics.validateAndRotateRefreshToken = async function(sessionToke
 
         if (providedHash !== session.refreshTokenHash) {
             // Token mismatch - possible token theft attempt
-            console.warn('Refresh token mismatch - possible theft attempt', {
+            logger.warn('Refresh token mismatch - possible theft attempt', {
                 sessionId: session._id,
                 userId: session.userId
             });
@@ -362,10 +363,10 @@ sessionSchema.statics.validateAndRotateRefreshToken = async function(sessionToke
             refreshTokenFamily: session.refreshTokenFamily
         };
     } catch (error) {
-        console.error('Validate refresh token error:', error);
-        return { 
-            valid: false, 
-            error: error.message 
+        logger.error('Validate refresh token error:', error);
+        return {
+            valid: false,
+            error: error.message
         };
     }
 };
@@ -389,7 +390,7 @@ sessionSchema.statics.updateRefreshToken = async function(sessionToken, newRefre
 
         return { success: true };
     } catch (error) {
-        console.error('Update refresh token error:', error);
+        logger.error('Update refresh token error:', error);
         throw error;
     }
 };
@@ -414,7 +415,7 @@ sessionSchema.pre('save', function(next) {
  */
 sessionSchema.post('save', function(doc) {
     if (this.isNew) {
-        console.log(`New session created: ${doc._id} for user: ${doc.userId}`);
+        logger.info(`New session created: ${doc._id} for user: ${doc.userId}`);
     }
 });
 

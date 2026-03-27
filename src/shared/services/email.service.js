@@ -15,15 +15,15 @@ class EmailService {
     }
 
     /**
-     * ✅ Verify SMTP connection (ต้องมี method นี้)
+     * Verify SMTP connection (ต้องมี method นี้)
      */
     async verifyConnection() {
         try {
             await this.transporter.verify();
-            logger.info('✅ SMTP connection verified successfully');
+            logger.info('SMTP connection verified successfully');
             return true;
         } catch (error) {
-            logger.error('❌ SMTP connection failed:', error.message);
+            logger.error('SMTP connection failed:', error.message);
             return false;
         }
     }
@@ -42,10 +42,10 @@ class EmailService {
             };
 
             const info = await this.transporter.sendMail(mailOptions);
-            logger.info(`📧 Email sent to ${to}: ${info.messageId}`);
+            logger.info(`Email sent to ${to}: ${info.messageId}`);
             return { success: true, messageId: info.messageId };
         } catch (error) {
-            logger.error('❌ Email send error:', { to, subject, error: error.message });
+            logger.error('Email send error:', { to, subject, error: error.message });
             throw new Error('Failed to send email');
         }
     }

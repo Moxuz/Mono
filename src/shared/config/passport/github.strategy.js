@@ -6,6 +6,7 @@
 const GitHubStrategy = require('passport-github2').Strategy;
 const User = require('../../models/User');
 const config = require('../config.js');
+const logger = require('../../utils/logger');
 
 // Check if GitHub OAuth is enabled
 const GITHUB_ENABLED = config.GITHUB_CLIENT_ID && config.GITHUB_CLIENT_SECRET;
@@ -24,18 +25,11 @@ if (!GITHUB_ENABLED) {
         passReqToCallback: true
     }, async (req, accessToken, refreshToken, profile, done) => {
     try {
-        console.log('[GitHub OAuth] Profile received:', {
-            id: profile.id,
-            username: profile.username,
-            emails: profile.emails
-        });
-
         // Check if user exists by GitHub ID
         let user = await User.findOne({ githubId: profile.id });
 
         if (user) {
-            console.log('[GitHub OAuth] Existing user found:', user.email);
-            // Update last login
+            logger.info(`GitHub OAuth: existing user login: ${user.email}`);
             user.lastLogin = new Date();
             await user.save();
             return done(null, user);
@@ -48,8 +42,7 @@ if (!GITHUB_ENABLED) {
             user = await User.findOne({ email });
 
             if (user) {
-                console.log('[GitHub OAuth] Linking GitHub to existing user:', email);
-                // Link GitHub account to existing user
+                logger.info(`GitHub OAuth: linking GitHub to existing user: ${email}`);
                 user.githubId = profile.id;
                 user.lastLogin = new Date();
                 if (profile.photos && profile.photos[0]) user.avatar = profile.photos[0].value;
@@ -59,7 +52,6 @@ if (!GITHUB_ENABLED) {
         }
 
         // Create new user
-        console.log('[GitHub OAuth] Creating new user');
         const username = profile.username || `github_${profile.id}`;
         const userEmail = email || `${username}@github.users`;
 
@@ -78,11 +70,11 @@ if (!GITHUB_ENABLED) {
         });
 
         await user.save();
-        console.log('[GitHub OAuth] New user created:', user.email);
+        logger.info(`GitHub OAuth: new user created: ${user.email}`);
 
         return done(null, user);
     } catch (error) {
-        console.error('[GitHub OAuth] Error:', error);
+        logger.error('GitHub OAuth error:', error.message);
         return done(error, null);
     }
 });

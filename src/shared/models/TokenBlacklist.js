@@ -55,13 +55,11 @@ tokenBlacklistSchema.statics.revokeToken = async function(token, userId, clientI
             throw new Error('Invalid token format');
         }
 
-        return await this.create({
-            token,
-            userId,
-            clientId,
-            reason,
-            expiresAt: new Date(decoded.exp * 1000)
-        });
+        return await this.findOneAndUpdate(
+            { token },
+            { $setOnInsert: { token, userId, clientId, reason, expiresAt: new Date(decoded.exp * 1000) } },
+            { upsert: true, new: true }
+        );
     } catch (error) {
         throw error;
     }
