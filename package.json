@@ -9,6 +9,8 @@
     "test": "jest --detectOpenHandles --verbose",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:integration": "jest tests/1-auth-core.test.js tests/2-auth-password.test.js tests/3-auth-sessions.test.js tests/4-auth-profile.test.js tests/5-oauth.test.js tests/6-security.test.js --detectOpenHandles --verbose --runInBand",
+    "test:all": "npm run test:functions && npm run test:integration",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",

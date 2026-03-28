@@ -6,6 +6,7 @@ const emailService = require('./shared/services/email.service');
 const mongoose    = require('mongoose');
 const { initializeWebSocket, broadcastSecurityEvent } = require('./shared/utils/websocket');
 const { initRedis, closeRedis, isRedisReady } = require('./shared/middleware/rateLimiter');
+const kafkaLogger = require('./shared/utils/kafkaLogger');
 
 // Logger with fallback
 let logger;
@@ -76,6 +77,14 @@ const startServer = async () => {
           logger.info('Redis connection closed');
         } catch (err) {
           logger.error('Redis close error:', err.message);
+        }
+        if (config.USE_KAFKA_LOGGING) {
+          try {
+            await kafkaLogger.disconnectKafka();
+            logger.info('Kafka producer disconnected');
+          } catch (err) {
+            logger.error('Kafka disconnect error:', err.message);
+          }
         }
         logger.info('Server shutdown complete');
         process.exit(0);

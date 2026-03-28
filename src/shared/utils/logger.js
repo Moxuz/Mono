@@ -136,15 +136,42 @@ const logger = {
     }
 };
 
-// Helper function to append to file
+// Returns today's date string YYYY-MM-DD
+function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+// Helper function to append to a daily-rotated log file
+// e.g. combined.log → combined-2026-03-28.log
 function appendToFile(filename, message) {
     try {
-        const filepath = path.join(logsDir, filename);
+        const [base, ext] = filename.includes('.')
+            ? [filename.slice(0, filename.lastIndexOf('.')), filename.slice(filename.lastIndexOf('.'))]
+            : [filename, ''];
+        const rotatedName = `${base}-${todayStr()}${ext}`;
+        const filepath = path.join(logsDir, rotatedName);
         fs.appendFileSync(filepath, message + '\n');
     } catch (error) {
         // Silently fail if can't write to file
     }
 }
+
+// Clean up log files older than 14 days on startup
+function cleanupOldLogs() {
+    try {
+        const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+        const files = fs.readdirSync(logsDir);
+        for (const file of files) {
+            if (!/\d{4}-\d{2}-\d{2}/.test(file)) continue; // only dated files
+            const filepath = path.join(logsDir, file);
+            const stat = fs.statSync(filepath);
+            if (stat.mtimeMs < cutoff) fs.unlinkSync(filepath);
+        }
+    } catch (e) {
+        // Non-critical
+    }
+}
+cleanupOldLogs();
 
 // Graceful shutdown - disconnect Kafka
 process.on('SIGTERM', async () => {

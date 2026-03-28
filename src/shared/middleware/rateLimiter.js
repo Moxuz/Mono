@@ -35,11 +35,14 @@ async function initRedis() {
             host: config.REDIS_HOST || 'localhost',
             port: config.REDIS_PORT || 6379,
             maxRetriesPerRequest: 3,
+            connectTimeout: 5000,   // 5s to establish connection
+            commandTimeout: 2000,   // 2s per command
             retryStrategy: (times) => {
-                if (times > 5) {
-                    getLogger().warn('[Redis] Max retries reached, using memory store');
-                    return null; // Stop retrying
+                if (times === 6) {
+                    getLogger().warn('[Redis] Max initial retries reached, falling back to memory store — will keep retrying in background');
                 }
+                // Never return null: keep retrying so the store auto-upgrades when Redis recovers
+                if (times > 20) return 10000; // every 10s after 20 attempts
                 return Math.min(times * 100, 2000);
             },
             lazyConnect: true
@@ -163,49 +166,49 @@ const emailIpKeyGenerator = (req) => {
 function createLimiter(options, prefix = 'rl') {
     const whitelistedIPs = config.RATE_LIMIT_WHITELIST || ['127.0.0.1'];
 
-    // Cached limiter instance and whether it was created with Redis
-    let limiterInstance = null;
-    let instanceUsesRedis = false;
-
-    function getLimiter() {
-        const redisNowReady = isRedisReady();
-
-        // (Re)create limiter when: first call, or Redis just became available
-        if (!limiterInstance || (redisNowReady && !instanceUsesRedis)) {
-            const store = redisNowReady ? createRedisStore(prefix) : null;
-            instanceUsesRedis = !!store;
-
-            limiterInstance = rateLimit({
-                store: store || undefined,
-                windowMs: options.windowMs,
-                max: options.max,
-                keyGenerator: options.keyGenerator || ((req) => getIpFromRequest(req)),
-                standardHeaders: true,
-                legacyHeaders: false,
-                skip: (req) => {
-                    const ip = getIpFromRequest(req);
-                    return whitelistedIPs.includes(ip);
-                },
-                handler: options.handler || ((req, res) => {
-                    res.status(429).json({
-                        success: false,
-                        error: 'Too Many Requests',
-                        message: options.message || 'Too many requests, please try again later',
-                        retryAfter: Math.round(options.windowMs / 1000)
-                    });
-                })
+    const makeInstance = (store) => rateLimit({
+        validate: { creationStack: false },
+        store: store || undefined,
+        windowMs: options.windowMs,
+        max: options.max,
+        keyGenerator: options.keyGenerator || ((req) => getIpFromRequest(req)),
+        standardHeaders: true,
+        legacyHeaders: false,
+        skip: (req) => {
+            const ip = getIpFromRequest(req);
+            return whitelistedIPs.includes(ip);
+        },
+        handler: options.handler || ((req, res) => {
+            res.status(429).json({
+                success: false,
+                error: 'Too Many Requests',
+                message: options.message || 'Too many requests, please try again later',
+                retryAfter: Math.round(options.windowMs / 1000)
             });
+        })
+    });
 
+    // Create immediately at module load time with memory store
+    let limiterInstance = makeInstance(null);
+    let instanceUsesRedis = false;
+    let warnedAboutMemory = false;
+
+    // Return a wrapper middleware; upgrades to Redis store on first request after Redis connects
+    return (req, res, next) => {
+        if (!instanceUsesRedis && !isRedisReady() && !warnedAboutMemory) {
+            warnedAboutMemory = true;
+            getLogger().warn(`[RateLimit] ${prefix}: Redis unavailable, using in-memory store`);
+        }
+        if (!instanceUsesRedis && isRedisReady()) {
+            const store = createRedisStore(prefix);
             if (store) {
-                getLogger().info(`[RateLimit] ${prefix}: using Redis store`);
+                limiterInstance = makeInstance(store);
+                instanceUsesRedis = true;
+                getLogger().info(`[RateLimit] ${prefix}: upgraded to Redis store`);
             }
         }
-
-        return limiterInstance;
-    }
-
-    // Return a wrapper middleware that resolves the real limiter on each request
-    return (req, res, next) => getLimiter()(req, res, next);
+        limiterInstance(req, res, next);
+    };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

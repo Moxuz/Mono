@@ -55,14 +55,19 @@ tokenBlacklistSchema.statics.revokeToken = async function(token, userId, clientI
             throw new Error('Invalid token format');
         }
 
+        // Ensure expiresAt is always in the future so the TTL index doesn't delete the entry immediately
+        const expiresAt = new Date(Math.max(decoded.exp * 1000, Date.now() + 60000));
+
         return await this.findOneAndUpdate(
             { token },
-            { $setOnInsert: { token, userId, clientId, reason, expiresAt: new Date(decoded.exp * 1000) } },
+            { $setOnInsert: { token, userId, clientId, reason, expiresAt } },
             { upsert: true, new: true }
         );
     } catch (error) {
         throw error;
     }
 };
+
+tokenBlacklistSchema.set('timestamps', true);
 
 module.exports = mongoose.model('TokenBlacklist', tokenBlacklistSchema);

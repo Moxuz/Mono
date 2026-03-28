@@ -118,6 +118,9 @@ class OAuthService {
 
             // 6) Generate tokens
             const user = authCode.userId;
+            if (!user) {
+                throw new Error('User not found');
+            }
             const access_token  = this.generateAccessToken(user, clientId, authCode.scope);
             const id_token      = this.generateIdToken(user, clientId);
             const refresh_token = this.generateRefreshToken(user, clientId);
@@ -193,12 +196,12 @@ class OAuthService {
     async listClients(ownerId, page = 1, limit = 10) {
         try {
             const skip = (page - 1) * limit;
-            const clients = await Client.find({ owner: ownerId, isActive: { $ne: false } })
+            const clients = await Client.find({ owner: ownerId, isActive: true })
                 .select('-client_secret')
                 .sort('-createdAt')
                 .skip(skip)
                 .limit(limit);
-            const total = await Client.countDocuments({ owner: ownerId, isActive: { $ne: false } });
+            const total = await Client.countDocuments({ owner: ownerId, isActive: true });
             return {
                 clients,
                 pagination: {

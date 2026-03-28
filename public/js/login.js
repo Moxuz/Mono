@@ -153,7 +153,30 @@ async function handleLogin(event) {
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('loginForm');
     const alert = document.getElementById('alert');
-    
+
+    // ── Auto-redirect if already authenticated ──────────────────────────────
+    const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (storedToken) {
+        try {
+            const payload = JSON.parse(atob(storedToken.split('.')[1]));
+            if (payload.exp * 1000 > Date.now()) {
+                const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+                if (returnTo) {
+                    window.location.href = '/api/auth/oauth-session?token=' + encodeURIComponent(storedToken) + '&returnTo=' + encodeURIComponent(returnTo);
+                } else {
+                    window.location.href = '/dashboard.html';
+                }
+                return;
+            }
+        } catch (e) {
+            // Malformed token — fall through to login form
+        }
+        // Token present but expired or malformed — clear it
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     // Hide alert on page load
     if (alert) {
         alert.style.display = 'none';

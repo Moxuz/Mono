@@ -12,7 +12,13 @@ if (tokenFromUrl) {
 // Check authentication
 // const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
 const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
-let user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || 'null');
+let user = null;
+try {
+    user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || 'null');
+} catch (e) {
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
+}
 
 if (!token) {
     window.location.href = '/login.html';
@@ -721,7 +727,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         // 🆕 Auto-refresh sessions every 30 seconds
-        setInterval(loadActiveSessions, 30000);
+        const sessionPollId = setInterval(loadActiveSessions, 30000);
+        window.addEventListener('pagehide', () => clearInterval(sessionPollId));
         
     } catch (error) {
         console.error('Failed to load dashboard:', error);
@@ -736,8 +743,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 function logout() {
     const confirmed = confirm(typeof t === 'function' ? t('dashboard.logoutConfirm') : 'Are you sure you want to logout?');
     if (confirmed) {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        // Blacklist token on server
+        fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        }).catch(() => {});
+        // Clear all local storage
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         window.location.href = '/login.html';
     }
 }

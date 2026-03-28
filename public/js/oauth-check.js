@@ -43,11 +43,25 @@
         if (!google && !github) {
           const socialLogin = document.querySelector('.social-login');
           const divider = document.querySelector('.divider');
-          
+
           if (socialLogin) socialLogin.style.display = 'none';
           if (divider) divider.style.display = 'none';
-          
+
           console.info('All OAuth providers are disabled');
+        }
+
+        // ✅ ถ้ามี returnTo ใน URL (เช่น มาจาก OAuth client flow) ให้ส่งต่อไปด้วย
+        const urlParams = new URLSearchParams(window.location.search);
+        const returnTo = urlParams.get('returnTo');
+        if (returnTo) {
+          const googleBtn = document.getElementById('googleLoginBtn');
+          const githubBtn = document.getElementById('githubLoginBtn');
+          if (googleBtn && googleBtn.style.display !== 'none') {
+            googleBtn.href = '/api/auth/google?returnTo=' + encodeURIComponent(returnTo);
+          }
+          if (githubBtn && githubBtn.style.display !== 'none') {
+            githubBtn.href = '/api/auth/github?returnTo=' + encodeURIComponent(returnTo);
+          }
         }
       }
     } catch (error) {

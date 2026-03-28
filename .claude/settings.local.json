@@ -49,7 +49,17 @@
       "Bash(find ./src -name *.routes.js -o -name *.routes.ts)",
       "WebSearch",
       "WebFetch(domain:cheatsheetseries.owasp.org)",
-      "WebFetch(domain:datatracker.ietf.org)"
+      "WebFetch(domain:datatracker.ietf.org)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(find /c/Users/ASUS/Documents/TEST/TESTMONO/public/css -type f -name *.css)",
+      "Bash(find C:UsersASUSDocumentsTESTTESTMONO -type f \\\\\\(-name *.model.* -o -name *.schema.* \\\\\\))",
+      "Bash(find C:/Users/ASUS/Documents/TEST/TESTMONO -type f -name *.model.js -o -name *.model.ts -o -name *.schema.js -o -name *.schema.ts)",
+      "Bash(find /c/Users/ASUS/Documents/TEST/TESTMONO/tests/unit -type f -name *.js)",
+      "Bash(find /c/Users/ASUS/Documents/TEST/TESTMONO/tests/integration -type f -name *.js)",
+      "Bash(find C:UsersASUSDocumentsTESTTESTMONO -name .env* -o -name jest.config.* -o -name .env.test)",
+      "Bash(npm run:*)",
+      "Bash(docker-compose build:*)"
     ]
   }
 }

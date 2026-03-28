@@ -206,7 +206,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('registerForm');
     const passwordInput = document.getElementById('password');
     const alert = document.getElementById('alert');
-    
+
+    // ── Auto-redirect if already authenticated ──────────────────────────────
+    const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (storedToken) {
+        try {
+            const payload = JSON.parse(atob(storedToken.split('.')[1]));
+            if (payload.exp * 1000 > Date.now()) {
+                window.location.href = '/dashboard.html';
+                return;
+            }
+        } catch (e) {}
+        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     // ✅ ซ่อน alert เมื่อโหลดหน้าเสร็จ
     if (alert) {
         alert.style.display = 'none';

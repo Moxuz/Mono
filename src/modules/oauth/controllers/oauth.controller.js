@@ -151,9 +151,21 @@ exports.showAuthorizeForm = async (req, res, next) => {
         }
 
         // Validate and sanitize scope
-        const requestedScope = scope 
+        const rawScope = scope
             ? scope.replace(/[^\w\s:]/g, '').trim()
             : 'openid profile email';
+
+        // Enforce scope: openid/profile/email always allowed; anything else must be
+        // in the client's registered scope or it is silently dropped.
+        const OIDC_BASE = new Set(['openid', 'profile', 'email']);
+        const clientAllowed = new Set(client.scope ? client.scope.split(/\s+/) : []);
+        const validScopes = rawScope.split(/\s+/).filter(s => s && (OIDC_BASE.has(s) || clientAllowed.has(s)));
+
+        if (validScopes.length === 0) {
+            return res.status(400).send('<h1>invalid_scope</h1><p>The requested scopes are not permitted for this client.</p>');
+        }
+
+        const requestedScope = validScopes.join(' ');
 
         // ─── params ที่จะส่งไป consent.html ─────────────────────
         const baseParams = new URLSearchParams({
@@ -279,11 +291,24 @@ exports.authorize = async (req, res, next) => {
         }
 
         // ─── บันทึก Consent ───────────────────────────────────────
-        // Validate and sanitize scope
-        const sanitizedScope = scope 
+        // Validate and sanitize scope, then clamp to client's registered scope
+        const rawScope = scope
             ? scope.replace(/[^\w\s:]/g, '').trim()
             : 'openid profile email';
-        
+
+        const OIDC_BASE = new Set(['openid', 'profile', 'email']);
+        const clientAllowed = new Set(client.scope ? client.scope.split(/\s+/) : []);
+        const validScopes = rawScope.split(/\s+/).filter(s => s && (OIDC_BASE.has(s) || clientAllowed.has(s)));
+
+        if (validScopes.length === 0) {
+            return res.status(400).json({
+                error: 'invalid_scope',
+                error_description: 'The requested scopes are not permitted for this client'
+            });
+        }
+
+        const sanitizedScope = validScopes.join(' ');
+
         await Consent.saveConsent(userId, client_id, sanitizedScope);
 
         // ─── ออก code ─────────────────────────────────────────────

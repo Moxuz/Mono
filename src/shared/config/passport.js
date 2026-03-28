@@ -5,24 +5,25 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('./passport/github.strategy.js');
 const User           = require('../models/User');
 const logger         = require('../utils/logger');
+const config         = require('./config');
 
 // ตรวจสอบว่ามี credentials ของ OAuth providers หรือไม่
 const GOOGLE_ENABLED =
-  !!process.env.GOOGLE_CLIENT_ID &&
-  !!process.env.GOOGLE_CLIENT_SECRET;
+  !!config.GOOGLE_CLIENT_ID &&
+  !!config.GOOGLE_CLIENT_SECRET;
 
 const GITHUB_ENABLED =
-  !!process.env.GITHUB_CLIENT_ID &&
-  !!process.env.GITHUB_CLIENT_SECRET;
+  !!config.GITHUB_CLIENT_ID &&
+  !!config.GITHUB_CLIENT_SECRET;
 
 // ลงทะเบียน Google OAuth Strategy ถ้ามี credentials
 if (GOOGLE_ENABLED) {
   passport.use(
     new GoogleStrategy(
       {
-        clientID:     process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL:  process.env.GOOGLE_CALLBACK_URL,
+        clientID:     config.GOOGLE_CLIENT_ID,
+        clientSecret: config.GOOGLE_CLIENT_SECRET,
+        callbackURL:  config.GOOGLE_CALLBACK_URL,
       },
       // ค้นหาหรือสร้าง user จากข้อมูล Google profile
       async (accessToken, refreshToken, profile, done) => {

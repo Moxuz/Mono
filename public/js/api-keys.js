@@ -44,14 +44,12 @@ async function fetchApiKeys() {
                 name: client.client_name,
                 environment: client.application_type === 'web' ? 'production' : 'development',
                 clientId: client.client_id,
-                clientSecret: '••••••••••••••••••••••••••••', // Secret not returned in list
                 scopes: (client.scope || 'openid profile email').split(' '),
                 createdAt: client.createdAt,
                 lastUsed: client.lastUsed ? formatTimeAgo(client.lastUsed) : 'Never',
                 requests24h: 0,
                 totalRequests: client.totalRequests || 0,
-                rateLimit: '1000/hr',
-                secretVisible: false
+                rateLimit: '1000/hr'
             }));
             loadApiKeys();
             updateStats();
@@ -163,13 +161,8 @@ function loadApiKeys() {
                 <div class="api-key-credential">
                     <span class="api-key-credential-label">${typeof t === 'function' ? t('apikeys.clientSecret') : 'Client Secret'}</span>
                     <div class="api-key-credential-value">
-                        <span class="api-key-credential-text" id="secret-${key.id}">${key.secretVisible ? key.clientSecret : '••••••••••••••••••••••••••••'}</span>
-                        <button class="api-key-credential-btn" data-action="toggle-secret" data-key-id="${key.id}">
-                            <span class="material-symbols-outlined">${key.secretVisible ? 'visibility_off' : 'visibility'}</span>
-                        </button>
-                        <button class="api-key-credential-btn" data-copy-direct="${key.clientSecret}">
-                            <span class="material-symbols-outlined">content_copy</span>
-                        </button>
+                        <span class="api-key-credential-text" style="color: var(--text-secondary, #888); font-style: italic;">••••••••••••••••••••••••••••</span>
+                        <span style="font-size:0.75rem; color: var(--text-secondary, #888); margin-left:0.5rem;">shown once at creation</span>
                     </div>
                 </div>
                 <div class="api-key-credential">
@@ -202,16 +195,13 @@ function loadApiKeys() {
 
 // Attach event listeners to dynamically created elements
 function attachDynamicEventListeners() {
-    // Action buttons (revoke, toggle-secret)
+    // Action buttons (revoke)
     document.querySelectorAll('[data-action]').forEach(btn => {
         btn.addEventListener('click', function() {
             const action = this.getAttribute('data-action');
             const keyId = this.getAttribute('data-key-id');
-            
             if (action === 'revoke') {
                 revokeKey(keyId);
-            } else if (action === 'toggle-secret') {
-                toggleSecret(keyId);
             }
         });
     });
@@ -379,14 +369,6 @@ function closeSecretModal() {
     document.body.style.overflow = '';
 }
 
-// Toggle secret visibility
-function toggleSecret(keyId) {
-    const key = apiKeys.find(k => k.id === keyId);
-    if (key) {
-        key.secretVisible = !key.secretVisible;
-        loadApiKeys();
-    }
-}
 
 // Copy to clipboard (renamed to avoid conflicts)
 function copyKeyToClipboard(text, button) {

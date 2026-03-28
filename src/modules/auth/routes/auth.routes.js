@@ -17,7 +17,7 @@ const { validate, rules } = require('../../../shared/middleware/validate');
 // Local authentication
 router.post('/register',       registerLimiter,       validate(rules.register),       authController.register);
 router.post('/login',          loginLimiter,           validate(rules.login),           authController.login);
-router.post('/logout',         authenticate,           authController.logout);
+router.post('/logout',         generalLimiter, authenticate, authController.logout);
 router.post('/refresh-token',  tokenLimiter,              authController.refreshToken);
 router.post('/validate-token',  generalLimiter,        authController.validateToken);
 router.get('/audit-logs',      authenticate,           authController.getAuditLogs);

@@ -62,6 +62,9 @@ if (GOOGLE_ENABLED) {
     if (req.query.action === 'delete_account') {
       req.session.oauthAction = 'delete_account';
       req.session.oauthReturnTo = req.query.returnTo || '/profile.html';
+    } else if (req.query.returnTo && /^\/(?!\/)/.test(req.query.returnTo)) {
+      // OAuth client flow: preserve returnTo to complete the authorization code grant
+      req.session.oauthSessionReturnTo = req.query.returnTo;
     }
     passport.authenticate('google', {
       scope: ['profile', 'email'],
@@ -147,10 +150,20 @@ if (GOOGLE_ENABLED) {
         });
 
         const redirectTo = req.session.oauthRedirect;
+        const sessionReturnTo = req.session.oauthSessionReturnTo;
         delete req.session.oauthRedirect;
+        delete req.session.oauthSessionReturnTo;
         const params = new URLSearchParams({ token, refreshToken: refreshToken });
         if (sessionId) params.set('sessionId', sessionId);
-        res.redirect(redirectTo ? `${redirectTo}?${params}` : `/dashboard.html?${params}`);
+
+        if (sessionReturnTo) {
+          // OAuth client flow: set session via bridge then continue to authorization endpoint
+          res.redirect(`/api/auth/oauth-session?token=${encodeURIComponent(token)}&returnTo=${encodeURIComponent(sessionReturnTo)}`);
+        } else if (redirectTo) {
+          res.redirect(`${redirectTo}?${params}`);
+        } else {
+          res.redirect(`/dashboard.html?${params}`);
+        }
 
       } catch (error) {
         logger.error('Google callback error:', error);
@@ -180,6 +193,9 @@ if (GITHUB_ENABLED) {
     if (req.query.action === 'delete_account') {
       req.session.oauthAction = 'delete_account';
       req.session.oauthReturnTo = req.query.returnTo || '/profile.html';
+    } else if (req.query.returnTo && /^\/(?!\/)/.test(req.query.returnTo)) {
+      // OAuth client flow: preserve returnTo to complete the authorization code grant
+      req.session.oauthSessionReturnTo = req.query.returnTo;
     }
     passport.authenticate('github', {
       scope: ['user:email']
@@ -265,10 +281,20 @@ if (GITHUB_ENABLED) {
         });
 
         const redirectTo = req.session.oauthRedirect;
+        const sessionReturnTo = req.session.oauthSessionReturnTo;
         delete req.session.oauthRedirect;
+        delete req.session.oauthSessionReturnTo;
         const params = new URLSearchParams({ token, refreshToken });
         if (sessionId) params.set('sessionId', sessionId);
-        res.redirect(redirectTo ? `${redirectTo}?${params}` : `/dashboard.html?${params}`);
+
+        if (sessionReturnTo) {
+          // OAuth client flow: set session via bridge then continue to authorization endpoint
+          res.redirect(`/api/auth/oauth-session?token=${encodeURIComponent(token)}&returnTo=${encodeURIComponent(sessionReturnTo)}`);
+        } else if (redirectTo) {
+          res.redirect(`${redirectTo}?${params}`);
+        } else {
+          res.redirect(`/dashboard.html?${params}`);
+        }
 
       } catch (error) {
         logger.error('GitHub callback error:', error);

@@ -122,12 +122,11 @@
                 <li>🔐 Secure OAuth 2.0 Login</li>
                 <li>🛍️ Browse Products</li>
                 <li>👤 User Profile</li>
-                <li>🔒 Protected Routes</li>
             </ul>
         </div>
 
         <!-- Traditional Login Button -->
-        <a href="/login" class="btn">🚀 Login with SSO</a>
+        <a href="/login" class="btn" id="loginBtn" onclick="showConsentModal(event)">🚀 Login with AuthSys</a>
 
         <!-- Divider -->
         <div class="divider"><span>OR</span></div>
@@ -202,5 +201,48 @@
             .catch(() => {});
     </script>
     <script src="/js/cookie-banner.js"></script>
+
+    <!-- Consent Modal -->
+    <div id="consentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9998; align-items:center; justify-content:center;">
+        <div class="card" style="max-width:480px; width:90%; margin:0;">
+            <h2 style="margin-bottom:1rem;">Before you continue</h2>
+            <p style="color:#475569; margin-bottom:1rem; line-height:1.6;">
+                You are about to sign in to <strong>ShopHub</strong> using <strong>AuthSys</strong>,
+                our identity provider. By continuing, you agree that:
+            </p>
+            <ul style="color:#475569; margin:0 0 1.5rem 1.2rem; line-height:2;">
+                <li>AuthSys will verify your identity</li>
+                <li>Your profile (name, email, role) will be shared with ShopHub</li>
+                <li>ShopHub will store your session securely</li>
+            </ul>
+            <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:1.5rem;">
+                Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank" style="color:#3b82f6;">Privacy Policy</a> for more details.
+            </p>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="closeConsentModal()">Cancel</button>
+                <button class="btn" onclick="acceptConsent()">Accept &amp; Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showConsentModal(e) {
+            e.preventDefault();
+            const modal = document.getElementById('consentModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeConsentModal() {
+            document.getElementById('consentModal').style.display = 'none';
+        }
+
+        function acceptConsent() {
+            window.location.href = '/login';
+        }
+
+        document.getElementById('consentModal').addEventListener('click', function(e) {
+            if (e.target === this) closeConsentModal();
+        });
+    </script>
 </body>
 </html>

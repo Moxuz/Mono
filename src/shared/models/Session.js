@@ -8,14 +8,12 @@ const sessionSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        required: true
     },
     sessionToken: {
         type: String,
         required: true,
-        unique: true,
-        index: true
+        unique: true
     },
     refreshToken: {
         type: String,
@@ -71,17 +69,13 @@ const sessionSchema = new mongoose.Schema({
         type: String,
         enum: ['user_logout', 'admin_revoke', 'security', 'token_compromised', 'password_change', 'expired']
     }
-}, {
-    timestamps: true
 });
 
 // ============================================
 // INDEXES
 // ============================================
 sessionSchema.index({ userId: 1, isActive: -1 });
-sessionSchema.index({ sessionToken: 1 });
 sessionSchema.index({ refreshTokenFamily: 1 });
-sessionSchema.index({ createdAt: 1 }); // For TTL cleanup
 
 // ============================================
 // STATIC METHODS (Utility)

@@ -91,10 +91,16 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
+        httpOnly: true,
         secure: config.NODE_ENV === 'production',
+        sameSite: 'lax',
         maxAge: 1000 * 60 * 60,
     }
 }));
+
+// Passport must follow immediately after session
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -128,9 +134,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'Auth API Docs'
 }));
-
-app.use(passport.initialize());
-app.use(passport.session());
 
 // ใช้ rate limit ทั่วไปกับทุก request
 app.use(generalLimiter);

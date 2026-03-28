@@ -222,7 +222,7 @@ async function validateAndRotateRefreshToken(sessionToken, refreshToken) {
         // Hash the provided token and compare
         const providedHash = Session.hashRefreshToken(refreshToken);
         
-        if (providedHash !== session.refreshTokenHash) {
+        if (!crypto.timingSafeEqual(Buffer.from(providedHash), Buffer.from(session.refreshTokenHash))) {
             // Token mismatch - possible token theft attempt
             logger.warn('Refresh token mismatch - possible theft attempt', {
                 sessionId: session._id,

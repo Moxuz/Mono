@@ -9,7 +9,8 @@ const authorizationCodeSchema = new mongoose.Schema({
     },
     clientId: {
         type: String,
-        required: true
+        required: true,
+        index: true
     },
     userId: {
         type: mongoose.Schema.Types.ObjectId,

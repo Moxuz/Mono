@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const securityAuditSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        index: true
+        ref: 'User'
     },
     action: {
         type: String,
@@ -26,8 +25,7 @@ const securityAuditSchema = new mongoose.Schema({
             'account_created',
             'account_deactivated',
             'account_deleted',
-        ],
-        index: true
+        ]
     },
     status: {
         type: String,

@@ -528,7 +528,17 @@ function applyTheme(theme) {
   deleteAccountBtn.addEventListener('click', deleteAccount);
 
   logoutBtnTop.addEventListener('click', () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    // Blacklist token on server
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).catch(() => {});
+    // Clear all local storage
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     window.location.href = '/login.html';
   });
 

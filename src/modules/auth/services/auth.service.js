@@ -114,6 +114,10 @@ class AuthService {
     // ตรวจสอบข้อมูลเข้าสู่ระบบ สร้าง JWT และ session พร้อมส่ง login alert
     async login({ email, password, remember, req }) {
         try {
+            if (typeof email !== 'string' || typeof password !== 'string') {
+                throw new Error('Invalid credentials');
+            }
+
             logger.info(`Login attempt for user: ${email}`);
 
             // Find user
@@ -409,15 +413,13 @@ class AuthService {
             const sessions = await Session.find({ userId, isActive: true }).select('+refreshToken');
 
             for (const session of sessions) {
-                if (session.refreshToken) {
-                    await TokenBlacklist.revokeToken(
-                        session.refreshToken,
-                        userId,
-                        null,
-                        reason
-                    );
+                if (session.sessionToken) {
+                    await TokenBlacklist.revokeToken(session.sessionToken, userId, null, reason);
                 }
-                
+                if (session.refreshToken) {
+                    await TokenBlacklist.revokeToken(session.refreshToken, userId, null, reason);
+                }
+
                 session.isActive = false;
                 await session.save();
             }
@@ -456,12 +458,15 @@ class AuthService {
             const Session = require('../../../shared/models/Session');
             const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 
-            const session = await Session.findOne({ _id: sessionId, userId }).select('+refreshToken');
+            const session = await Session.findOne({ _id: sessionId, userId, isActive: true }).select('+refreshToken');
 
             if (!session) {
                 throw new Error('Session not found');
             }
 
+            if (session.sessionToken) {
+                await TokenBlacklist.revokeToken(session.sessionToken, userId, null, 'user_logout');
+            }
             if (session.refreshToken) {
                 await TokenBlacklist.revokeToken(session.refreshToken, userId, null, 'user_logout');
             }
@@ -491,10 +496,13 @@ class AuthService {
             }).select('+refreshToken');
 
             for (const session of sessions) {
+                if (session.sessionToken) {
+                    await TokenBlacklist.revokeToken(session.sessionToken, userId, null, 'user_logout');
+                }
                 if (session.refreshToken) {
                     await TokenBlacklist.revokeToken(session.refreshToken, userId, null, 'user_logout');
                 }
-                
+
                 session.isActive = false;
                 await session.save();
             }

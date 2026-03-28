@@ -38,7 +38,7 @@ module.exports = {
     // Rate Limiting
     RATE_LIMIT_WINDOW: 15 * 60 * 1000, // 15 minutes
     RATE_LIMIT_MAX: 100,
-    RATE_LIMIT_WHITELIST: process.env.RATE_LIMIT_WHITELIST ? process.env.RATE_LIMIT_WHITELIST.split(',') : [],
+    RATE_LIMIT_WHITELIST: process.env.RATE_LIMIT_WHITELIST ? process.env.RATE_LIMIT_WHITELIST.split(',') : ['127.0.0.1', '::1', '::ffff:127.0.0.1'],
 
     // Redis
     REDIS_HOST: process.env.REDIS_HOST || 'localhost',

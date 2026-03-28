@@ -96,7 +96,8 @@ exports.login = async (req, res, next) => {
         });
     } catch (error) {
         const loginIp = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress;
-        logger.error(`Login failed for: ${req.body.email}`, { 
+        const emailLog = typeof req.body.email === 'string' ? req.body.email : '[invalid]';
+        logger.error(`Login failed for: ${emailLog}`, {
             error: error.message,
             ip: loginIp,
             userAgent: req.headers['user-agent']
@@ -401,7 +402,7 @@ exports.validateToken = async (req, res, next) => {
             return res.status(400).json({ valid: false, error: 'Token is required' });
         }
         const result = await authService.validateToken(token);
-        res.status(result.valid ? 200 : 401).json(result);
+        res.status(200).json(result);
     } catch (error) {
         logger.error('Validate token error:', error);
         res.status(401).json({ valid: false, error: error.message });
@@ -476,9 +477,6 @@ exports.forgotPassword = async (req, res, next) => {
     } catch (error) {
         // Only expose the generic message for email-enumeration-safe errors.
         // Re-throw SMTP/config failures so they surface as 500 rather than silent success.
-        if (error.message === 'Failed to send reset email. Please try again.') {
-            return res.status(500).json({ success: false, error: error.message });
-        }
         res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
     }
 };

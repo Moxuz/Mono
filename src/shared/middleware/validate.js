@@ -27,6 +27,12 @@ function validate(rules) {
 
             if (isEmpty) continue; // optional field not provided — skip remaining checks
 
+            // Non-string objects (e.g., after NoSQL injection stripping) are invalid
+            if (typeof value === 'object') {
+                errors.push(`${field} must be a string`);
+                continue;
+            }
+
             const strVal = String(value);
 
             if (rule.type === 'email' && !EMAIL_RE.test(strVal)) {
@@ -69,12 +75,14 @@ function sanitizeBody(req, res, next) {
     next();
 }
 
+const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function stripOperators(obj) {
     if (Array.isArray(obj)) return obj.map(stripOperators);
     if (obj !== null && typeof obj === 'object') {
-        const clean = {};
+        const clean = Object.create(null);
         for (const [k, v] of Object.entries(obj)) {
-            if (k.startsWith('$')) continue; // drop operator keys
+            if (k.startsWith('$') || BLOCKED_KEYS.has(k)) continue; // drop operator + prototype keys
             clean[k] = stripOperators(v);
         }
         return clean;
