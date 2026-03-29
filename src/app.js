@@ -5,6 +5,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 const session = require('express-session');
+const { RedisStore } = require('connect-redis');
+const { createClient } = require('redis');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('../swagger.json');
 const dashboardRoutes = require('./modules/dashboard/routes/dashboard.routes');
@@ -37,6 +39,23 @@ const AuthorizationCode = require('./shared/models/AuthorizationCode');
 const TokenBlacklist = require('./shared/models/TokenBlacklist');
 
 const app = express();
+
+// Trust the first proxy (Nginx) so req.ip returns the real client IP
+// Required for rate-limiting and security logging to work correctly behind LB
+app.set('trust proxy', 1);
+
+// ── Redis client for session store ────────────────────────────────────────────
+const sessionRedisClient = createClient({
+    socket: {
+        host:    config.REDIS_HOST || 'localhost',
+        port:    parseInt(config.REDIS_PORT) || 6379,
+        reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+    },
+    password: config.REDIS_PASSWORD || undefined,
+});
+sessionRedisClient.connect().catch(err => {
+    console.error('Session Redis connection error:', err.message);
+});
 
 connectDB().catch(err => {
     logger.error('Database connection failed:', err);
@@ -87,6 +106,7 @@ if (logger.stream) {
 
 
 app.use(session({
+    store: new RedisStore({ client: sessionRedisClient, prefix: 'sess:' }),
     secret: config.SESSION_SECRET || 'your_session_secret',
     resave: false,
     saveUninitialized: false,

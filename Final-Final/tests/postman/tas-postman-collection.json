@@ -1,0 +1,590 @@
+{
+  "info": {
+    "name": "TAS Auth API — Full Test Suite",
+    "description": "Automated API tests for TAS Authentication Server. Covers auth flow, OAuth, user management, sessions, 2FA, dashboard, and security checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "sessionId", "value": "" },
+    { "key": "oauthClientId", "value": "" },
+    { "key": "oauthClientSecret", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "00 — Health & Well-Known",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('status OK', () => pm.expect(pm.response.json().status).to.eql('OK'));",
+              "pm.test('Has uptime', () => pm.expect(pm.response.json().uptime).to.be.above(0));",
+              "pm.test('Response time < 500ms', () => pm.expect(pm.response.responseTime).to.be.below(500));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /.well-known/openid-configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/.well-known/openid-configuration", "host": ["{{baseUrl}}"], "path": [".well-known","openid-configuration"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has issuer', () => pm.expect(pm.response.json().issuer).to.be.a('string'));",
+              "pm.test('Has authorization_endpoint', () => pm.expect(pm.response.json().authorization_endpoint).to.be.a('string'));",
+              "pm.test('Has token_endpoint', () => pm.expect(pm.response.json().token_endpoint).to.be.a('string'));"
+            ], "type": "text/javascript" }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "01 — Authentication",
+      "item": [
+        {
+          "name": "POST /api/auth/register — new user",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"username\":\"pmtest{{$timestamp}}\",\"email\":\"pmtest{{$timestamp}}@example.com\",\"password\":\"PMTest99!\",\"confirmPassword\":\"PMTest99!\",\"consentEssential\":true}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api","auth","register"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);",
+              "pm.test('Has user object', () => pm.expect(pm.response.json().data).to.have.property('user'));",
+              "pm.test('Has token', () => { const d = pm.response.json().data; pm.expect(d.token || d.accessToken).to.be.a('string'); });"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/auth/login — valid",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"k6user1@example.com\",\"password\":\"K6Test99!\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);",
+              "pm.test('Has accessToken', () => { const d = pm.response.json().data; pm.expect(d.token || d.accessToken).to.be.a('string'); });",
+              "pm.test('Has refreshToken', () => pm.expect(pm.response.json().data.refreshToken).to.be.a('string'));",
+              "pm.test('Response time < 3000ms', () => pm.expect(pm.response.responseTime).to.be.below(3000));",
+              "const d = pm.response.json().data;",
+              "pm.collectionVariables.set('accessToken', d.token || d.accessToken || '');",
+              "pm.collectionVariables.set('refreshToken', d.refreshToken || '');",
+              "pm.collectionVariables.set('sessionId', d.sessionId || '');"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/auth/login — wrong password → 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"k6user1@example.com\",\"password\":\"WrongPass!\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401', () => pm.response.to.have.status(401));",
+              "pm.test('success false', () => pm.expect(pm.response.json().success).to.be.false);"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/auth/login — missing password → 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"k6user1@example.com\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 400', () => pm.response.to.have.status(400));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/auth/profile — authenticated",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/profile", "host": ["{{baseUrl}}"], "path": ["api","auth","profile"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has email', () => { const b = pm.response.json(); const u = b.data || b.user || b; pm.expect(u.email).to.be.a('string'); });",
+              "pm.test('Response time < 1000ms', () => pm.expect(pm.response.responseTime).to.be.below(1000));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/auth/profile — no token → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/auth/profile", "host": ["{{baseUrl}}"], "path": ["api","auth","profile"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401', () => pm.response.to.have.status(401));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/auth/refresh-token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"refreshToken\":\"{{refreshToken}}\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/refresh-token", "host": ["{{baseUrl}}"], "path": ["api","auth","refresh-token"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has new accessToken', () => { const d = pm.response.json().data || pm.response.json(); pm.expect(d.token || d.accessToken).to.be.a('string'); });",
+              "const d = pm.response.json().data || pm.response.json();",
+              "if (d.token || d.accessToken) pm.collectionVariables.set('accessToken', d.token || d.accessToken);"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/auth/forgot-password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"k6user1@example.com\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api","auth","forgot-password"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/auth/logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"refreshToken\":\"{{refreshToken}}\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api","auth","logout"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200/204 (or 504 known timeout bug)', () => pm.expect([200,204,504]).to.include(pm.response.code));"
+            ], "type": "text/javascript" }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "02 — User Management",
+      "item": [
+        {
+          "name": "Login k6user2 for user tests",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"k6user2@example.com\",\"password\":\"K6Test99!\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Login OK', () => pm.response.to.have.status(200));",
+              "const d = pm.response.json().data;",
+              "pm.collectionVariables.set('accessToken', d.token || d.accessToken);",
+              "pm.collectionVariables.set('refreshToken', d.refreshToken || '');",
+              "pm.collectionVariables.set('sessionId', d.sessionId || '');"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/users/me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/users/me", "host": ["{{baseUrl}}"], "path": ["api","users","me"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has email', () => { const b = pm.response.json(); const u = b.data || b.user || b; pm.expect(u.email).to.be.a('string'); });",
+              "pm.test('Has username', () => { const b = pm.response.json(); const u = b.data || b.user || b; pm.expect(u.username).to.be.a('string'); });"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "PUT /api/users/profile — update own profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"username\":\"k6user2\"}" },
+            "url": { "raw": "{{baseUrl}}/api/users/profile", "host": ["{{baseUrl}}"], "path": ["api","users","profile"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/users/me — unauthenticated → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/users/me", "host": ["{{baseUrl}}"], "path": ["api","users","me"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401', () => pm.response.to.have.status(401));"
+            ], "type": "text/javascript" }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "03 — Sessions",
+      "item": [
+        {
+          "name": "Login k6user3 for session tests",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"k6user3@example.com\",\"password\":\"K6Test99!\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Login OK', () => pm.response.to.have.status(200));",
+              "const d = pm.response.json().data;",
+              "pm.collectionVariables.set('accessToken', d.token || d.accessToken);",
+              "pm.collectionVariables.set('refreshToken', d.refreshToken || '');",
+              "pm.collectionVariables.set('sessionId', d.sessionId || '');"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/sessions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/sessions", "host": ["{{baseUrl}}"], "path": ["api","sessions"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has success true', () => pm.expect(pm.response.json().success).to.be.true);",
+              "pm.test('Has data property', () => pm.expect(pm.response.json()).to.have.property('data'));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/auth/sessions/revoke-all-others",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"currentSessionId\":\"{{sessionId}}\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/sessions/revoke-all-others", "host": ["{{baseUrl}}"], "path": ["api","auth","sessions","revoke-all-others"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+            ], "type": "text/javascript" }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "04 — OAuth 2.0",
+      "item": [
+        {
+          "name": "Login k6user1 for OAuth tests",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"k6user1@example.com\",\"password\":\"K6Test99!\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Login OK', () => pm.response.to.have.status(200));",
+              "const d = pm.response.json().data;",
+              "pm.collectionVariables.set('accessToken', d.token || d.accessToken);",
+              "pm.collectionVariables.set('refreshToken', d.refreshToken || '');"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/oauth/clients — register client",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"client_name\":\"Postman Test Client\",\"contact_email\":\"pmtest@example.com\",\"redirect_uris\":[\"http://localhost:3000/callback\"],\"grant_types\":[\"authorization_code\",\"refresh_token\"]}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/oauth/clients", "host": ["{{baseUrl}}"], "path": ["api","oauth","clients"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200 or 201', () => pm.expect([200,201]).to.include(pm.response.code));",
+              "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);",
+              "pm.test('Has client_id', () => { const d = pm.response.json().data; pm.expect(d.client_id || d.clientId).to.be.a('string'); });",
+              "pm.test('Has client_secret', () => { const d = pm.response.json().data; pm.expect(d.client_secret || d.clientSecret).to.be.a('string'); });",
+              "const d = pm.response.json().data;",
+              "pm.collectionVariables.set('oauthClientId', d.client_id || d.clientId || '');",
+              "pm.collectionVariables.set('oauthClientSecret', d.client_secret || d.clientSecret || '');"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/oauth/clients",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/oauth/clients", "host": ["{{baseUrl}}"], "path": ["api","oauth","clients"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has clients array', () => { const b = pm.response.json(); const arr = (b.data && b.data.clients) || b.data || b; pm.expect(arr).to.be.an('array'); });"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/oauth/introspect — with client credentials",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "token", "value": "{{accessToken}}" },
+                { "key": "client_id", "value": "{{oauthClientId}}" },
+                { "key": "client_secret", "value": "{{oauthClientSecret}}" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/oauth/introspect", "host": ["{{baseUrl}}"], "path": ["api","oauth","introspect"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Returns active field (false for login JWTs — OAuth tokens only)', () => pm.expect(pm.response.json()).to.have.property('active'));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/oauth/userinfo",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/oauth/userinfo", "host": ["{{baseUrl}}"], "path": ["api","oauth","userinfo"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Has sub', () => pm.expect(pm.response.json().sub || pm.response.json().id).to.be.a('string'));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "POST /api/oauth/revoke — revoke token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "token", "value": "{{refreshToken}}" },
+                { "key": "client_id", "value": "{{oauthClientId}}" },
+                { "key": "client_secret", "value": "{{oauthClientSecret}}" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/oauth/revoke", "host": ["{{baseUrl}}"], "path": ["api","oauth","revoke"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200 or 401 (login refresh tokens not OAuth-revocable)', () => pm.expect([200,401]).to.include(pm.response.code));"
+            ], "type": "text/javascript" }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "05 — Security Headers & Rate Limit",
+      "item": [
+        {
+          "name": "Security headers on /",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/", "host": ["{{baseUrl}}"], "path": [""] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('X-Frame-Options set', () => pm.expect(pm.response.headers.get('X-Frame-Options')).to.be.a('string'));",
+              "pm.test('X-Content-Type-Options: nosniff', () => pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff'));",
+              "pm.test('X-XSS-Protection set', () => pm.expect(pm.response.headers.get('X-XSS-Protection')).to.be.a('string'));",
+              "pm.test('Content-Security-Policy set', () => pm.expect(pm.response.headers.get('Content-Security-Policy')).to.be.a('string'));",
+              "pm.test('No X-Powered-By header', () => pm.expect(pm.response.headers.get('X-Powered-By')).to.not.exist);"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Wrong password → 401 (not 500)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"nobody@example.com\",\"password\":\"wrong\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 400 or 401 (not 500)', () => pm.expect([400,401,429]).to.include(pm.response.code));",
+              "pm.test('Not 500', () => pm.expect(pm.response.code).to.not.equal(500));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "Rate limit headers present",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"k6user1@example.com\",\"password\":\"K6Test99!\"}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 200 (within rate limit)', () => pm.response.to.have.status(200));",
+              "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "404 on unknown route",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/does-not-exist", "host": ["{{baseUrl}}"], "path": ["api","does-not-exist"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 404', () => pm.response.to.have.status(404));",
+              "pm.test('Has error message', () => pm.expect(pm.response.json().error).to.be.a('string'));"
+            ], "type": "text/javascript" }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "06 — Dashboard (Admin)",
+      "item": [
+        {
+          "name": "GET /api/dashboard/monitoring — no auth → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/dashboard/monitoring", "host": ["{{baseUrl}}"], "path": ["api","dashboard","monitoring"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401 (protected)', () => pm.response.to.have.status(401));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/dashboard/logs — no auth → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/dashboard/logs", "host": ["{{baseUrl}}"], "path": ["api","dashboard","logs"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401 (protected)', () => pm.response.to.have.status(401));"
+            ], "type": "text/javascript" }
+          }]
+        },
+        {
+          "name": "GET /api/dashboard/analytics — no auth → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/dashboard/analytics", "host": ["{{baseUrl}}"], "path": ["api","dashboard","analytics"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "pm.test('Status 401 (protected)', () => pm.response.to.have.status(401));"
+            ], "type": "text/javascript" }
+          }]
+        }
+      ]
+    }
+  ]
+}

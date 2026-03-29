@@ -1,0 +1,1173 @@
+{
+	"@programName": "ZAP",
+	"@version": "2.17.0",
+	"@generated": "Sat, 28 Mar 2026 19:02:47",
+	"created": "2026-03-28T19:02:47.873396551Z",
+	"insights":[
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "84"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.code.3xx",
+			"description": "Percentage of responses with status code 3xx",
+			"statistic": "5"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.code.4xx",
+			"description": "Percentage of responses with status code 4xx",
+			"statistic": "10"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.endpoint.ctype.application/javascript",
+			"description": "Percentage of endpoints with content type application/javascript",
+			"statistic": "37"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.endpoint.ctype.application/json",
+			"description": "Percentage of endpoints with content type application/json",
+			"statistic": "10"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.endpoint.ctype.text/css",
+			"description": "Percentage of endpoints with content type text/css",
+			"statistic": "8"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.endpoint.ctype.text/html",
+			"description": "Percentage of endpoints with content type text/html",
+			"statistic": "37"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://nginx",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "37"
+		}
+	],
+	"site":[ 
+		{
+			"@name": "http://nginx",
+			"@host": "nginx",
+			"@port": "80",
+			"@ssl": "false",
+			"alerts": [ 
+				{
+					"pluginid": "10055",
+					"alertRef": "10055-4",
+					"alert": "CSP: Wildcard Directive",
+					"name": "CSP: Wildcard Directive",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks. Including (but not limited to) Cross Site Scripting (XSS), and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>",
+					"instances":[ 
+						{
+							"id": "6",
+							"uri": "http://nginx",
+							"nodeName": "http:\/\/nginx",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "The following directives either allow wildcard sources (or ancestors), are not defined, or are overly broadly defined:\nimg-src, connect-src"
+						},
+						{
+							"id": "10",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "The following directives either allow wildcard sources (or ancestors), are not defined, or are overly broadly defined:\nimg-src, connect-src"
+						},
+						{
+							"id": "3",
+							"uri": "http://nginx/forgot-password.html",
+							"nodeName": "http:\/\/nginx\/forgot-password.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "The following directives either allow wildcard sources (or ancestors), are not defined, or are overly broadly defined:\nimg-src, connect-src"
+						},
+						{
+							"id": "2",
+							"uri": "http://nginx/login.html",
+							"nodeName": "http:\/\/nginx\/login.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "The following directives either allow wildcard sources (or ancestors), are not defined, or are overly broadly defined:\nimg-src, connect-src"
+						},
+						{
+							"id": "4",
+							"uri": "http://nginx/privacy-policy.html",
+							"nodeName": "http:\/\/nginx\/privacy-policy.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "The following directives either allow wildcard sources (or ancestors), are not defined, or are overly broadly defined:\nimg-src, connect-src"
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is properly configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "<p>The following directives either allow wildcard sources (or ancestors), are not defined, or are overly broadly defined:</p><p>img-src, connect-src</p>",
+					"reference": "<p>https://www.w3.org/TR/CSP/</p><p>https://caniuse.com/#search=content+security+policy</p><p>https://content-security-policy.com/</p><p>https://github.com/HtmlUnit/htmlunit-csp</p><p>https://web.dev/articles/csp#resource-options</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "6"
+				},
+				{
+					"pluginid": "10055",
+					"alertRef": "10055-10",
+					"alert": "CSP: script-src unsafe-eval",
+					"name": "CSP: script-src unsafe-eval",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks. Including (but not limited to) Cross Site Scripting (XSS), and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>",
+					"instances":[ 
+						{
+							"id": "23",
+							"uri": "http://nginx",
+							"nodeName": "http:\/\/nginx",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-eval."
+						},
+						{
+							"id": "30",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-eval."
+						},
+						{
+							"id": "39",
+							"uri": "http://nginx/documentation.html",
+							"nodeName": "http:\/\/nginx\/documentation.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-eval."
+						},
+						{
+							"id": "24",
+							"uri": "http://nginx/forgot-password.html",
+							"nodeName": "http:\/\/nginx\/forgot-password.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-eval."
+						},
+						{
+							"id": "35",
+							"uri": "http://nginx/register.html",
+							"nodeName": "http:\/\/nginx\/register.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-eval."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is properly configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "<p>script-src includes unsafe-eval.</p>",
+					"reference": "<p>https://www.w3.org/TR/CSP/</p><p>https://caniuse.com/#search=content+security+policy</p><p>https://content-security-policy.com/</p><p>https://github.com/HtmlUnit/htmlunit-csp</p><p>https://web.dev/articles/csp#resource-options</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "6"
+				},
+				{
+					"pluginid": "10055",
+					"alertRef": "10055-5",
+					"alert": "CSP: script-src unsafe-inline",
+					"name": "CSP: script-src unsafe-inline",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks. Including (but not limited to) Cross Site Scripting (XSS), and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>",
+					"instances":[ 
+						{
+							"id": "17",
+							"uri": "http://nginx",
+							"nodeName": "http:\/\/nginx",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-inline."
+						},
+						{
+							"id": "14",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-inline."
+						},
+						{
+							"id": "16",
+							"uri": "http://nginx/forgot-password.html",
+							"nodeName": "http:\/\/nginx\/forgot-password.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-inline."
+						},
+						{
+							"id": "12",
+							"uri": "http://nginx/login.html",
+							"nodeName": "http:\/\/nginx\/login.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-inline."
+						},
+						{
+							"id": "21",
+							"uri": "http://nginx/register.html",
+							"nodeName": "http:\/\/nginx\/register.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "script-src includes unsafe-inline."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is properly configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "<p>script-src includes unsafe-inline.</p>",
+					"reference": "<p>https://www.w3.org/TR/CSP/</p><p>https://caniuse.com/#search=content+security+policy</p><p>https://content-security-policy.com/</p><p>https://github.com/HtmlUnit/htmlunit-csp</p><p>https://web.dev/articles/csp#resource-options</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "6"
+				},
+				{
+					"pluginid": "10055",
+					"alertRef": "10055-6",
+					"alert": "CSP: style-src unsafe-inline",
+					"name": "CSP: style-src unsafe-inline",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks. Including (but not limited to) Cross Site Scripting (XSS), and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>",
+					"instances":[ 
+						{
+							"id": "20",
+							"uri": "http://nginx",
+							"nodeName": "http:\/\/nginx",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "style-src includes unsafe-inline."
+						},
+						{
+							"id": "26",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "style-src includes unsafe-inline."
+						},
+						{
+							"id": "22",
+							"uri": "http://nginx/forgot-password.html",
+							"nodeName": "http:\/\/nginx\/forgot-password.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "style-src includes unsafe-inline."
+						},
+						{
+							"id": "27",
+							"uri": "http://nginx/login.html",
+							"nodeName": "http:\/\/nginx\/login.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "style-src includes unsafe-inline."
+						},
+						{
+							"id": "32",
+							"uri": "http://nginx/register.html",
+							"nodeName": "http:\/\/nginx\/register.html",
+							"method": "GET",
+							"param": "Content-Security-Policy",
+							"attack": "",
+							"evidence": "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.datatables.net;script-src-attr 'unsafe-hashes';style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.datatables.net;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;font-src 'self' https://fonts.gstatic.com data:;img-src 'self' data: https: blob:;connect-src 'self' ws: http: https: wss:;object-src 'none';frame-src 'none';base-uri 'self';form-action 'self';upgrade-insecure-requests;frame-ancestors 'self'",
+							"otherinfo": "style-src includes unsafe-inline."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is properly configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "<p>style-src includes unsafe-inline.</p>",
+					"reference": "<p>https://www.w3.org/TR/CSP/</p><p>https://caniuse.com/#search=content+security+policy</p><p>https://content-security-policy.com/</p><p>https://github.com/HtmlUnit/htmlunit-csp</p><p>https://web.dev/articles/csp#resource-options</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "6"
+				},
+				{
+					"pluginid": "90003",
+					"alertRef": "90003",
+					"alert": "Sub Resource Integrity Attribute Missing",
+					"name": "Sub Resource Integrity Attribute Missing",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>The integrity attribute is missing on a script or link tag served by an external server. The integrity tag prevents an attacker who have gained access to this server from injecting a malicious content.</p>",
+					"instances":[ 
+						{
+							"id": "54",
+							"uri": "http://nginx",
+							"nodeName": "http:\/\/nginx",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap\" rel=\"stylesheet\">",
+							"otherinfo": ""
+						},
+						{
+							"id": "47",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap\" rel=\"stylesheet\">",
+							"otherinfo": ""
+						},
+						{
+							"id": "48",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<link href=\"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined\" rel=\"stylesheet\" />",
+							"otherinfo": ""
+						},
+						{
+							"id": "46",
+							"uri": "http://nginx/register.html",
+							"nodeName": "http:\/\/nginx\/register.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap\" rel=\"stylesheet\">",
+							"otherinfo": ""
+						},
+						{
+							"id": "53",
+							"uri": "http://nginx/register.html",
+							"nodeName": "http:\/\/nginx\/register.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200\" />",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Provide a valid integrity attribute to the tag.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity</p>",
+					"cweid": "345",
+					"wascid": "15",
+					"sourceid": "6"
+				},
+				{
+					"pluginid": "90004",
+					"alertRef": "90004-2",
+					"alert": "Cross-Origin-Embedder-Policy Header Missing or Invalid",
+					"name": "Cross-Origin-Embedder-Policy Header Missing or Invalid",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>Cross-Origin-Embedder-Policy header is a response header that prevents a document from loading any cross-origin resources that don't explicitly grant the document permission (using CORP or CORS).</p>",
+					"instances":[ 
+						{
+							"id": "86",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "Cross-Origin-Embedder-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "95",
+							"uri": "http://nginx/forgot-password.html",
+							"nodeName": "http:\/\/nginx\/forgot-password.html",
+							"method": "GET",
+							"param": "Cross-Origin-Embedder-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "93",
+							"uri": "http://nginx/login.html",
+							"nodeName": "http:\/\/nginx\/login.html",
+							"method": "GET",
+							"param": "Cross-Origin-Embedder-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "96",
+							"uri": "http://nginx/login.html?email=zaproxy%40example.com&password=ZAP&remember=on",
+							"nodeName": "http:\/\/nginx\/login.html (email,password,remember)",
+							"method": "GET",
+							"param": "Cross-Origin-Embedder-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "87",
+							"uri": "http://nginx/register.html",
+							"nodeName": "http:\/\/nginx\/register.html",
+							"method": "GET",
+							"param": "Cross-Origin-Embedder-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that the application/web server sets the Cross-Origin-Embedder-Policy header appropriately, and that it sets the Cross-Origin-Embedder-Policy header to 'require-corp' for documents.</p><p>If possible, ensure that the end user uses a standards-compliant and modern web browser that supports the Cross-Origin-Embedder-Policy header (https://caniuse.com/mdn-http_headers_cross-origin-embedder-policy).</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy</p>",
+					"cweid": "693",
+					"wascid": "14",
+					"sourceid": "43"
+				},
+				{
+					"pluginid": "10023",
+					"alertRef": "10023",
+					"alert": "Information Disclosure - Debug Error Messages",
+					"name": "Information Disclosure - Debug Error Messages",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>The response appeared to contain common error messages returned by platforms such as ASP.NET, and Web-servers such as IIS and Apache. You can configure the list of common debug messages.</p>",
+					"instances":[ 
+						{
+							"id": "51",
+							"uri": "http://nginx/documentation.html",
+							"nodeName": "http:\/\/nginx\/documentation.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Internal server error",
+							"otherinfo": ""
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Disable debugging messages before pushing to production.</p>",
+					"otherinfo": "",
+					"reference": "",
+					"cweid": "1295",
+					"wascid": "13",
+					"sourceid": "21"
+				},
+				{
+					"pluginid": "10063",
+					"alertRef": "10063-1",
+					"alert": "Permissions Policy Header Not Set",
+					"name": "Permissions Policy Header Not Set",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>Permissions Policy Header is an added layer of security that helps to restrict from unauthorized access or usage of browser/client features by web resources. This policy ensures the user privacy by limiting or specifying the features of the browsers can be used by the web resources. Permissions Policy provides a set of standard HTTP headers that allow website owners to limit which features of browsers can be used by the page such as camera, microphone, location, full screen etc.</p>",
+					"instances":[ 
+						{
+							"id": "80",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "89",
+							"uri": "http://nginx/forgot-password.html",
+							"nodeName": "http:\/\/nginx\/forgot-password.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "90",
+							"uri": "http://nginx/login.html",
+							"nodeName": "http:\/\/nginx\/login.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "92",
+							"uri": "http://nginx/login.html?email=zaproxy%40example.com&password=ZAP&remember=on",
+							"nodeName": "http:\/\/nginx\/login.html (email,password,remember)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "83",
+							"uri": "http://nginx/register.html",
+							"nodeName": "http:\/\/nginx\/register.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to set the Permissions-Policy header.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy</p><p>https://developer.chrome.com/blog/feature-policy/</p><p>https://scotthelme.co.uk/a-new-security-header-feature-policy/</p><p>https://w3c.github.io/webappsec-feature-policy/</p><p>https://www.smashingmagazine.com/2018/12/feature-policy/</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "43"
+				},
+				{
+					"pluginid": "2",
+					"alertRef": "2",
+					"alert": "Private IP Disclosure",
+					"name": "Private IP Disclosure",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>A private IP (such as 10.x.x.x, 172.x.x.x, 192.168.x.x) or an Amazon EC2 private hostname (for example, ip-10-0-56-78) has been found in the HTTP response body. This information might be helpful for further attacks targeting internal systems.</p>",
+					"instances":[ 
+						{
+							"id": "113",
+							"uri": "http://nginx/js/ipHelper.js",
+							"nodeName": "http:\/\/nginx\/js\/ipHelper.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "192.168.1.1",
+							"otherinfo": "192.168.1.1\n192.168.1.1\n172.17.0.1\n192.168.1.1\n"
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>Remove the private IP address from the HTTP response body. For comments, use JSP/ASP/PHP comment instead of HTML/JavaScript comment which can be seen by client browsers.</p>",
+					"otherinfo": "<p>192.168.1.1</p><p>192.168.1.1</p><p>172.17.0.1</p><p>192.168.1.1</p><p></p>",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc1918</p>",
+					"cweid": "497",
+					"wascid": "13",
+					"sourceid": "77"
+				},
+				{
+					"pluginid": "10036",
+					"alertRef": "10036-2",
+					"alert": "Server Leaks Version Information via \"Server\" HTTP Response Header Field",
+					"name": "Server Leaks Version Information via \"Server\" HTTP Response Header Field",
+					"riskcode": "1",
+					"confidence": "3",
+					"riskdesc": "Low (High)",
+					"desc": "<p>The web/application server is leaking version information via the \"Server\" HTTP response header. Access to such information may facilitate attackers identifying other vulnerabilities your web/application server is subject to.</p>",
+					"instances":[ 
+						{
+							"id": "0",
+							"uri": "http://nginx/api/auth/github",
+							"nodeName": "http:\/\/nginx\/api\/auth\/github",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "nginx/1.29.7",
+							"otherinfo": ""
+						},
+						{
+							"id": "7",
+							"uri": "http://nginx/css/style.css",
+							"nodeName": "http:\/\/nginx\/css\/style.css",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "nginx/1.29.7",
+							"otherinfo": ""
+						},
+						{
+							"id": "13",
+							"uri": "http://nginx/robots.txt",
+							"nodeName": "http:\/\/nginx\/robots.txt",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "nginx/1.29.7",
+							"otherinfo": ""
+						},
+						{
+							"id": "11",
+							"uri": "http://nginx/sitemap.xml",
+							"nodeName": "http:\/\/nginx\/sitemap.xml",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "nginx/1.29.7",
+							"otherinfo": ""
+						}
+					],
+					"count": "4",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to suppress the \"Server\" header or provide generic details.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://httpd.apache.org/docs/current/mod/core.html#servertokens</p><p>https://learn.microsoft.com/en-us/previous-versions/msp-n-p/ff648552(v=pandp.10)</p><p>https://www.troyhunt.com/shhh-dont-let-your-response-headers/</p>",
+					"cweid": "497",
+					"wascid": "13",
+					"sourceid": "38"
+				},
+				{
+					"pluginid": "10111",
+					"alertRef": "10111",
+					"alert": "Authentication Request Identified",
+					"name": "Authentication Request Identified",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>The given request has been identified as an authentication request. The 'Other Info' field contains a set of key=value lines which identify any relevant fields. If the request is in a context which has an Authentication Method set to \"Auto-Detect\" then this rule will change the authentication to match the request identified.</p>",
+					"instances":[ 
+						{
+							"id": "100",
+							"uri": "http://nginx/login.html?email=zaproxy%40example.com&password=ZAP&remember=on",
+							"nodeName": "http:\/\/nginx\/login.html (email,password,remember)",
+							"method": "GET",
+							"param": "email",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "userParam=email\nuserValue=zaproxy@example.com\npasswordParam=password\nreferer=http://nginx/login.html"
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>This is an informational alert rather than a vulnerability and so there is nothing to fix.</p>",
+					"otherinfo": "<p>userParam=email</p><p>userValue=zaproxy@example.com</p><p>passwordParam=password</p><p>referer=http://nginx/login.html</p>",
+					"reference": "<p>https://www.zaproxy.org/docs/desktop/addons/authentication-helper/auth-req-id/</p>",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "60"
+				},
+				{
+					"pluginid": "10024",
+					"alertRef": "10024",
+					"alert": "Information Disclosure - Sensitive Information in URL",
+					"name": "Information Disclosure - Sensitive Information in URL",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The request appeared to contain sensitive information leaked in the URL. This can violate PCI and most organizational compliance policies. You can configure the list of strings for this check to add or remove values specific to your environment.</p>",
+					"instances":[ 
+						{
+							"id": "77",
+							"uri": "http://nginx/login.html?email=zaproxy%40example.com&password=ZAP&remember=on",
+							"nodeName": "http:\/\/nginx\/login.html (email,password,remember)",
+							"method": "GET",
+							"param": "email",
+							"attack": "",
+							"evidence": "zaproxy@example.com",
+							"otherinfo": "The URL contains email address(es)."
+						},
+						{
+							"id": "82",
+							"uri": "http://nginx/login.html?email=zaproxy%40example.com&password=ZAP&remember=on",
+							"nodeName": "http:\/\/nginx\/login.html (email,password,remember)",
+							"method": "GET",
+							"param": "password",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "The URL contains potentially sensitive information. The following string was found via the pattern: pass\npassword"
+						},
+						{
+							"id": "78",
+							"uri": "http://nginx/register.html?confirmPassword=ZAP&consentEssential=on&email=zaproxy%40example.com&password=ZAP&username=ZAP",
+							"nodeName": "http:\/\/nginx\/register.html (confirmPassword,consentEssential,email,password,username)",
+							"method": "GET",
+							"param": "confirmPassword",
+							"attack": "",
+							"evidence": "confirmPassword",
+							"otherinfo": "The URL contains potentially sensitive information. The following string was found via the pattern: pass\nconfirmPassword"
+						},
+						{
+							"id": "81",
+							"uri": "http://nginx/register.html?confirmPassword=ZAP&consentEssential=on&email=zaproxy%40example.com&password=ZAP&username=ZAP",
+							"nodeName": "http:\/\/nginx\/register.html (confirmPassword,consentEssential,email,password,username)",
+							"method": "GET",
+							"param": "email",
+							"attack": "",
+							"evidence": "zaproxy@example.com",
+							"otherinfo": "The URL contains email address(es)."
+						},
+						{
+							"id": "85",
+							"uri": "http://nginx/register.html?confirmPassword=ZAP&consentEssential=on&email=zaproxy%40example.com&password=ZAP&username=ZAP",
+							"nodeName": "http:\/\/nginx\/register.html (confirmPassword,consentEssential,email,password,username)",
+							"method": "GET",
+							"param": "password",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "The URL contains potentially sensitive information. The following string was found via the pattern: pass\npassword"
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Do not pass sensitive information in URIs.</p>",
+					"otherinfo": "<p>The URL contains email address(es).</p>",
+					"reference": "",
+					"cweid": "598",
+					"wascid": "13",
+					"sourceid": "60"
+				},
+				{
+					"pluginid": "10027",
+					"alertRef": "10027",
+					"alert": "Information Disclosure - Suspicious Comments",
+					"name": "Information Disclosure - Suspicious Comments",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response appears to contain suspicious comments which may help an attacker.</p>",
+					"instances":[ 
+						{
+							"id": "110",
+							"uri": "http://nginx/dashboard.html",
+							"nodeName": "http:\/\/nginx\/dashboard.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<!-- Current User -->",
+							"otherinfo": "The following pattern was used: \\bUSER\\b and was detected in likely comment: \"<!-- Current User -->\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "116",
+							"uri": "http://nginx/js/api-keys.js",
+							"nodeName": "http:\/\/nginx\/js\/api-keys.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Load API keys from backend",
+							"otherinfo": "The following pattern was used: \\bFROM\\b and was detected 3 times, the first in likely comment: \"// Load API keys from backend\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "115",
+							"uri": "http://nginx/js/api-keys.js",
+							"nodeName": "http:\/\/nginx\/js\/api-keys.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Update UI with user info",
+							"otherinfo": "The following pattern was used: \\bUSER\\b and was detected in likely comment: \"// Update UI with user info\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "67",
+							"uri": "http://nginx/js/cookie-banner.js",
+							"nodeName": "http:\/\/nginx\/js\/cookie-banner.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Check if user has already given c",
+							"otherinfo": "The following pattern was used: \\bUSER\\b and was detected in likely comment: \"// Check if user has already given consent\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "119",
+							"uri": "http://nginx/js/dashboard.js",
+							"nodeName": "http:\/\/nginx\/js\/dashboard.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Fetch user profile from API",
+							"otherinfo": "The following pattern was used: \\bUSER\\b and was detected 10 times, the first in likely comment: \"// Fetch user profile from API\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "121",
+							"uri": "http://nginx/js/dashboard.js",
+							"nodeName": "http:\/\/nginx\/js\/dashboard.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// \u2705 Handle token from URL (from social lo",
+							"otherinfo": "The following pattern was used: \\bFROM\\b and was detected 7 times, the first in likely comment: \"// \u2705 Handle token from URL (from social login redirect)\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "68",
+							"uri": "http://nginx/js/login.js",
+							"nodeName": "http:\/\/nginx\/js\/login.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Store user data",
+							"otherinfo": "The following pattern was used: \\bUSER\\b and was detected 2 times, the first in likely comment: \"// Store user data\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "124",
+							"uri": "http://nginx/js/profile.js",
+							"nodeName": "http:\/\/nginx\/js\/profile.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Update UI with user info",
+							"otherinfo": "The following pattern was used: \\bUSER\\b and was detected 2 times, the first in likely comment: \"// Update UI with user info\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "123",
+							"uri": "http://nginx/js/profile.js",
+							"nodeName": "http:\/\/nginx\/js\/profile.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Username",
+							"otherinfo": "The following pattern was used: \\bUSERNAME\\b and was detected in likely comment: \"// Username\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "118",
+							"uri": "http://nginx/js/settings.js",
+							"nodeName": "http:\/\/nginx\/js\/settings.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Load from backend",
+							"otherinfo": "The following pattern was used: \\bFROM\\b and was detected in likely comment: \"// Load from backend\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "117",
+							"uri": "http://nginx/js/settings.js",
+							"nodeName": "http:\/\/nginx\/js\/settings.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// \u2500\u2500\u2500 Load User Profile \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+							"otherinfo": "The following pattern was used: \\bUSER\\b and was detected in likely comment: \"// \u2500\u2500\u2500 Load User Profile \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "122",
+							"uri": "http://nginx/js/user-activity.js",
+							"nodeName": "http:\/\/nginx\/js\/user-activity.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// Remove HTML tags from status",
+							"otherinfo": "The following pattern was used: \\bFROM\\b and was detected in likely comment: \"// Remove HTML tags from status\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "120",
+							"uri": "http://nginx/js/user-activity.js",
+							"nodeName": "http:\/\/nginx\/js\/user-activity.js",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "// public/js/user-activity.js",
+							"otherinfo": "The following pattern was used: \\bUSER\\b and was detected in likely comment: \"// public/js/user-activity.js\", see evidence field for the suspicious comment/snippet."
+						},
+						{
+							"id": "114",
+							"uri": "http://nginx/profile.html",
+							"nodeName": "http:\/\/nginx\/profile.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<!-- Username -->",
+							"otherinfo": "The following pattern was used: \\bUSERNAME\\b and was detected in likely comment: \"<!-- Username -->\", see evidence field for the suspicious comment/snippet."
+						}
+					],
+					"count": "14",
+					"systemic": false,
+					"solution": "<p>Remove all comments that return information that may help an attacker and fix any underlying problems they refer to.</p>",
+					"otherinfo": "<p>The following pattern was used: \\bUSER\\b and was detected in likely comment: \"<!-- Current User -->\", see evidence field for the suspicious comment/snippet.</p>",
+					"reference": "",
+					"cweid": "615",
+					"wascid": "13",
+					"sourceid": "62"
+				},
+				{
+					"pluginid": "10109",
+					"alertRef": "10109",
+					"alert": "Modern Web Application",
+					"name": "Modern Web Application",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The application appears to be a modern web application. If you need to explore it automatically then the Ajax Spider may well be more effective than the standard one.</p>",
+					"instances":[ 
+						{
+							"id": "34",
+							"uri": "http://nginx",
+							"nodeName": "http:\/\/nginx",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<a href=\"#\" class=\"footer-link\">GitHub</a>",
+							"otherinfo": "Links have been found that do not have traditional href attributes, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "61",
+							"uri": "http://nginx/",
+							"nodeName": "http:\/\/nginx\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<a href=\"#\" class=\"footer-link\">GitHub</a>",
+							"otherinfo": "Links have been found that do not have traditional href attributes, which is an indication that this is a modern web application."
+						}
+					],
+					"count": "2",
+					"systemic": true,
+					"solution": "<p>This is an informational alert and so no changes are required.</p>",
+					"otherinfo": "<p>Links have been found that do not have traditional href attributes, which is an indication that this is a modern web application.</p>",
+					"reference": "",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "6"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-1",
+					"alert": "Non-Storable Content",
+					"name": "Non-Storable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are not storable by caching components such as proxy servers. If the response does not contain sensitive, personal or user-specific information, it may benefit from being stored and cached, to improve performance.</p>",
+					"instances":[ 
+						{
+							"id": "19",
+							"uri": "http://nginx/api/auth/github",
+							"nodeName": "http:\/\/nginx\/api\/auth\/github",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "302",
+							"otherinfo": ""
+						},
+						{
+							"id": "69",
+							"uri": "http://nginx/api/auth/google",
+							"nodeName": "http:\/\/nginx\/api\/auth\/google",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "302",
+							"otherinfo": ""
+						}
+					],
+					"count": "2",
+					"systemic": true,
+					"solution": "<p>The content may be marked as storable by ensuring that the following conditions are satisfied:</p><p>The request method must be understood by the cache and defined as being cacheable (\"GET\", \"HEAD\", and \"POST\" are currently defined as cacheable)</p><p>The response status code must be understood by the cache (one of the 1XX, 2XX, 3XX, 4XX, or 5XX response classes are generally understood)</p><p>The \"no-store\" cache directive must not appear in the request or response header fields</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"private\" response directive must not appear in the response</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"Authorization\" header field must not appear in the request, unless the response explicitly allows it (using one of the \"must-revalidate\", \"public\", or \"s-maxage\" Cache-Control response directives)</p><p>In addition to the conditions above, at least one of the following conditions must also be satisfied by the response:</p><p>It must contain an \"Expires\" header field</p><p>It must contain a \"max-age\" response directive</p><p>For \"shared\" caches such as \"proxy\" caches, it must contain a \"s-maxage\" response directive</p><p>It must contain a \"Cache Control Extension\" that allows it to be cached</p><p>It must have a status code that is defined as cacheable by default (200, 203, 204, 206, 300, 301, 404, 405, 410, 414, 501).</p>",
+					"otherinfo": "",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "38"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-3",
+					"alert": "Storable and Cacheable Content",
+					"name": "Storable and Cacheable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are storable by caching components such as proxy servers, and may be retrieved directly from the cache, rather than from the origin server by the caching servers, in response to similar requests from other users. If the response data is sensitive, personal or user-specific, this may result in sensitive information being leaked. In some cases, this may even result in a user gaining complete control of the session of another user, depending on the configuration of the caching components in use in their environment. This is primarily an issue where \"shared\" caching servers such as \"proxy\" caches are configured on the local network. This configuration is typically found in corporate or educational environments, for instance.</p>",
+					"instances":[ 
+						{
+							"id": "75",
+							"uri": "http://nginx/api/auth/login",
+							"nodeName": "http:\/\/nginx\/api\/auth\/login",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						},
+						{
+							"id": "74",
+							"uri": "http://nginx/api/auth/register",
+							"nodeName": "http:\/\/nginx\/api\/auth\/register",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						},
+						{
+							"id": "71",
+							"uri": "http://nginx/robots.txt",
+							"nodeName": "http:\/\/nginx\/robots.txt",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						},
+						{
+							"id": "73",
+							"uri": "http://nginx/sitemap.xml",
+							"nodeName": "http:\/\/nginx\/sitemap.xml",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						}
+					],
+					"count": "4",
+					"systemic": true,
+					"solution": "<p>Validate that the response does not contain sensitive, personal or user-specific information. If it does, consider the use of the following HTTP response headers, to limit, or prevent the content being stored and retrieved from the cache by another user:</p><p>Cache-Control: no-cache, no-store, must-revalidate, private</p><p>Pragma: no-cache</p><p>Expires: 0</p><p>This configuration directs both HTTP 1.0 and HTTP 1.1 compliant caching servers to not store the response, and to not retrieve the response (without validation) from the cache, in response to a similar request.</p>",
+					"otherinfo": "<p>In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234.</p>",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "59"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-2",
+					"alert": "Storable but Non-Cacheable Content",
+					"name": "Storable but Non-Cacheable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are storable by caching components such as proxy servers, but will not be retrieved directly from the cache, without validating the request upstream, in response to similar requests from other users.</p>",
+					"instances":[ 
+						{
+							"id": "76",
+							"uri": "http://nginx/api-keys.html",
+							"nodeName": "http:\/\/nginx\/api-keys.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "max-age=0",
+							"otherinfo": ""
+						},
+						{
+							"id": "70",
+							"uri": "http://nginx/css/privacy-policy.css",
+							"nodeName": "http:\/\/nginx\/css\/privacy-policy.css",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "max-age=0",
+							"otherinfo": ""
+						},
+						{
+							"id": "72",
+							"uri": "http://nginx/css/style.css",
+							"nodeName": "http:\/\/nginx\/css\/style.css",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "max-age=0",
+							"otherinfo": ""
+						},
+						{
+							"id": "84",
+							"uri": "http://nginx/forgot-password.html",
+							"nodeName": "http:\/\/nginx\/forgot-password.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "max-age=0",
+							"otherinfo": ""
+						},
+						{
+							"id": "79",
+							"uri": "http://nginx/register.html",
+							"nodeName": "http:\/\/nginx\/register.html",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "max-age=0",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "",
+					"otherinfo": "",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "43"
+				}
+			]
+		}
+	],
+	"sequences":[
+	]
+
+}
