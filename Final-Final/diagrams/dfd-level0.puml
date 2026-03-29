@@ -1,0 +1,46 @@
+@startuml
+!theme plain
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam componentStyle rectangle
+skinparam ArrowColor #444444
+skinparam ComponentBackgroundColor #EEF5FF
+skinparam ComponentBorderColor     #2F6FAE
+skinparam ComponentFontSize        13
+skinparam NoteBackgroundColor      #FFFBCC
+skinparam NoteBorderColor          #B8860B
+
+title Data Flow Diagram — Level 0 (Context Diagram)
+
+' ── External Entities ──
+[User\n(End User)] as USER <<External Entity>>
+[Admin] as ADMIN <<External Entity>>
+[OAuth Client\nApplication] as OAUTH_CLIENT <<External Entity>>
+[Google OAuth\nProvider] as GOOGLE <<External Entity>>
+[GitHub OAuth\nProvider] as GITHUB <<External Entity>>
+[Email Service\n(SMTP)] as EMAIL_SVC <<External Entity>>
+
+' ── System ──
+rectangle "                    TAS Authentication Server                    " as TAS #EEF5FF {
+}
+
+' ── User flows ──
+USER -right-> TAS : Registration data\nLogin credentials\nProfile updates\nPassword change\nOAuth consent
+TAS -left-> USER  : JWT tokens\nSession info\nProfile data\nAudit log\nExported data
+
+' ── Admin flows ──
+ADMIN -down-> TAS : Filter/query requests\nExport requests
+TAS -up-> ADMIN   : Analytics reports\nAudit logs\nMonitoring data\nUser list
+
+' ── OAuth Client flows ──
+OAUTH_CLIENT -down-> TAS : Authorization request\nToken exchange request\nToken refresh request
+TAS -up-> OAUTH_CLIENT   : Authorization code\nAccess token / ID token\nUser info (userinfo)
+
+' ── Social login flows ──
+GOOGLE -down-> TAS  : Google user profile\nGoogle ID
+GITHUB -down-> TAS  : GitHub user profile\nGitHub ID
+
+' ── Email flows ──
+TAS -right-> EMAIL_SVC : Email verification request\nPassword reset email\nLogin alert notification
+
+@enduml

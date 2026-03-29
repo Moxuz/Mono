@@ -1,0 +1,73 @@
+@startuml
+!theme plain
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor #FFFBCC
+skinparam ParticipantBorderColor    #B8860B
+skinparam ArrowColor #444444
+
+title OAuth 2.0 PKCE Authorization Code Flow
+
+actor       "User"         as user
+participant "Client App\n(port 3001)" as client #EEF5FF
+participant "Auth Server\n(port 80)"  as server #E8F5E9
+database    "MongoDB"      as mongo  #FFF3E0
+
+== Step 1: Initiate Login ==
+user -> client  : GET /login
+client -> client : Generate code_verifier (32 random bytes)\ncode_challenge = BASE64URL(SHA256(verifier))
+client -> client : Store code_verifier in HttpOnly cookie\nGenerate random state
+client --> user  : 302 Redirect to Auth Server\n/api/oauth/authorize?\n  client_id=...&response_type=code\n  &scope=openid profile email\n  &state=...&code_challenge=...\n  &code_challenge_method=S256
+
+== Step 2: Auth Server Validates Request ==
+user -> server  : GET /api/oauth/authorize?...
+server -> mongo : Find Client by client_id
+mongo --> server : Client record
+server -> server : Validate redirect_uri matches\nValidate requested scopes
+
+alt User NOT logged in
+  server --> user : Redirect to /login.html?returnTo=...
+  user -> server  : POST /api/auth/login {email, password}
+  server --> user : 200 + session cookie set
+  user -> server  : GET /api/oauth/authorize (resumed)
+end
+
+server -> mongo : Find Consent (userId + clientId)
+
+alt Consent NOT previously granted
+  server --> user : 200 Show consent form\n(client name, requested scopes)
+  user -> server  : POST /api/oauth/authorize\n{action: "consent", client_id, scope, state,\n code_challenge, code_challenge_method}
+  server -> mongo : insertOne(Consent {userId, clientId, scope, 30d TTL})
+else Consent already exists
+  note right of server : Skip consent form
+end
+
+== Step 3: Generate Authorization Code ==
+server -> mongo : insertOne(AuthorizationCode {\n  code: 64-char hex, clientId, userId,\n  redirectUri, scope, code_challenge,\n  expiresAt: 10 min})
+server --> user : 302 Redirect to\n  redirect_uri?code=...&state=...
+
+== Step 4: Exchange Code for Tokens ==
+user -> client  : GET /callback?code=...&state=...
+client -> client : Verify state matches cookie\nRead code_verifier from cookie
+client -> server : POST /api/oauth/token {\n  grant_type: authorization_code,\n  code, client_id, client_secret,\n  redirect_uri, code_verifier}
+
+server -> mongo : Find AuthorizationCode by code
+mongo --> server : Code record
+server -> server : Check code not used & not expired\nMark code as used (prevent replay)
+server -> server : Verify PKCE:\n  SHA256(code_verifier) == code_challenge
+server -> server : bcrypt.compare(client_secret, hash)
+
+server -> server : Generate tokens:\n  access_token (JWT, 1h, scope)\n  id_token (JWT, OpenID claims)\n  refresh_token (JWT, 30d)
+server -> mongo : Update Client stats (totalRequests, lastUsed)
+
+server --> client : 200 {\n  access_token,\n  id_token,\n  refresh_token,\n  token_type: "Bearer",\n  expires_in: 3600\n}
+
+== Step 5: Fetch User Info ==
+client -> server : GET /api/oauth/userinfo\nAuthorization: Bearer <access_token>
+server -> server : Verify JWT signature & expiry
+server --> client : 200 {\n  sub, email, name,\n  email_verified\n}
+client -> client : Store accessToken in session
+client --> user  : Redirect to /dashboard
+
+@enduml

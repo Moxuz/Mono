@@ -1,0 +1,84 @@
+@startuml
+!theme plain
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam ArrowColor #444444
+skinparam rectangle {
+  BackgroundColor #FFFBCC
+  BorderColor #B8860B
+  FontSize 11
+}
+
+title Data Flow Diagram — Level 1 (Process Decomposition)
+
+' ═══ External Entities ═══
+rectangle "User"              as USER
+rectangle "Admin"             as ADMIN
+rectangle "OAuth Client App"  as OAUTH_CLIENT
+rectangle "Google OAuth"      as GOOGLE
+rectangle "GitHub OAuth"      as GITHUB
+rectangle "Email Service"     as EMAIL
+
+' ═══ Processes (DFD circles — shown as blue rectangles) ═══
+rectangle "P1: User Authentication\n(register / login / logout\n/ social login)" as P1 #EEF5FF
+rectangle "P2: OAuth 2.0 Server\n(authorize / token /\nintrospect / revoke)" as P2 #EEF5FF
+rectangle "P3: Session & Token\nManagement\n(create / refresh / revoke)" as P3 #EEF5FF
+rectangle "P4: User Profile\nManagement\n(CRUD / PDPA / preferences)" as P4 #EEF5FF
+rectangle "P5: Admin Dashboard\n(analytics / logs /\nmonitoring)" as P5 #EEF5FF
+
+' ═══ Data Stores (green rectangles — Yourdon open-rectangle notation) ═══
+rectangle "= D1  Users =\n(MongoDB)" as D1 #E8F5E9
+rectangle "= D2  Sessions =\n(MongoDB + Redis)" as D2 #E8F5E9
+rectangle "= D3  OAuth Clients\n& Auth Codes =\n(MongoDB)" as D3 #E8F5E9
+rectangle "= D4  Token Blacklist =\n(MongoDB)" as D4 #E8F5E9
+rectangle "= D5  Security Audit Log =\n(MongoDB)" as D5 #E8F5E9
+
+' ─── User ↔ P1 ───
+USER --> P1 : credentials / registration data
+P1 --> USER : JWT token / auth result
+
+' ─── Social login ───
+GOOGLE --> P1 : Google profile
+GITHUB --> P1 : GitHub profile
+
+' ─── Email ───
+P1 --> EMAIL : verification / alert email
+
+' ─── P1 ↔ Data Stores ───
+P1 --> D1 : create/update user record
+D1 --> P1 : user data (lookup by email)
+P1 --> D2 : create session
+P1 --> D5 : log login_success / login_failed
+
+' ─── User ↔ P2 ───
+USER --> P2 : OAuth consent grant/deny
+OAUTH_CLIENT --> P2 : auth request / token exchange
+P2 --> OAUTH_CLIENT : auth code / tokens / user info
+
+' ─── P2 ↔ Data Stores ───
+D3 --> P2 : client record / auth code lookup
+P2 --> D3 : store consent / auth code
+D4 --> P2 : check blacklisted token
+P2 --> D5 : log token_issued / consent_granted
+
+' ─── P3 ───
+P1 --> P3 : new session data
+P3 --> D2 : update / revoke session
+D4 --> P3 : check blacklist
+P3 --> D4 : add revoked token
+P3 --> D5 : log token_refreshed / session_revoked
+
+' ─── User ↔ P4 ───
+USER --> P4 : profile update / PDPA request
+P4 --> USER : profile data / exported data
+P4 --> D1  : update user record
+D1  --> P4 : read user record
+
+' ─── Admin ↔ P5 ───
+ADMIN --> P5 : query / filter / export request
+P5 --> ADMIN : analytics / logs / monitoring data
+D5  --> P5  : security events
+D2  --> P5  : session counts
+D1  --> P5  : user statistics
+
+@enduml
