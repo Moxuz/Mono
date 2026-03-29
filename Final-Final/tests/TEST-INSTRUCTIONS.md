@@ -184,14 +184,14 @@ node server.js &
 ```bash
 cd C:\Users\ASUS\Documents\TEST\TESTMONO
 
-# Run full comprehensive suite (Chromium only, headless) — ~1.2 minutes
-npx playwright test e2e/auth-full.spec.ts e2e/pages.spec.ts e2e/user.spec.ts \
-  e2e/session.spec.ts e2e/oauth.spec.ts e2e/dashboard.spec.ts \
+# Run full comprehensive suite (Chromium only, headless) — ~1.5 minutes
+npx playwright test e2e/auth-full.spec.ts e2e/pages.spec.ts e2e/pages-full.spec.ts \
+  e2e/user.spec.ts e2e/session.spec.ts e2e/oauth.spec.ts e2e/dashboard.spec.ts \
   e2e/security.spec.ts e2e/client.spec.ts --project=chromium --reporter=list
 
 # Run with HTML report
-npx playwright test e2e/auth-full.spec.ts e2e/pages.spec.ts e2e/user.spec.ts \
-  e2e/session.spec.ts e2e/oauth.spec.ts e2e/dashboard.spec.ts \
+npx playwright test e2e/auth-full.spec.ts e2e/pages.spec.ts e2e/pages-full.spec.ts \
+  e2e/user.spec.ts e2e/session.spec.ts e2e/oauth.spec.ts e2e/dashboard.spec.ts \
   e2e/security.spec.ts e2e/client.spec.ts --project=chromium --reporter=html
 
 # Run a single spec file
@@ -215,8 +215,8 @@ npx playwright show-report
 Or open: `playwright-report/index.html`
 
 ### Expected results (comprehensive suite)
-- **Tests:** 141 pass, 3 skip (100% — skips are OAuth tests requiring active clientId)
-- **Runtime:** ~1.2 minutes (8 parallel workers)
+- **Tests:** 182 pass, 4 skip (100% — skips are OAuth tests requiring active clientId)
+- **Runtime:** ~1.5 minutes (8 parallel workers)
 
 ### Test groups
 | Describe | Tests | What's tested | File |
@@ -248,6 +248,9 @@ Or open: `playwright-report/index.html`
 | 25 — Client Auth Control | 5 | Unauthenticated redirects, /api/session, /api/refresh | client.spec.ts |
 | 26 — Client Authenticated | 5 | Login via social-callback, dashboard/products/profile | client.spec.ts |
 | 27 — Client Logout & OAuth | 7 | Logout, callback edge cases, invalid state | client.spec.ts |
+| 28 — Public Pages (no auth) | 10 | All public HTML pages load, no 5xx, form elements | pages-full.spec.ts |
+| 29 — User Pages (localStorage token) | 20 | Dashboard, profile, settings, api-keys, user-activity — auth guard + UI | pages-full.spec.ts |
+| 30 — Admin Pages (admin token) | 12 | admin, admin-logs, admin-monitoring, admin-analytics — auth + elements | pages-full.spec.ts |
 
 ---
 
@@ -275,8 +278,8 @@ newman run Final-Final/tests/postman/tas-postman-collection.json \
   --reporter-json-export Final-Final/tests/postman/results/newman-report.json \
   --delay-request 300
 
-# 5. Playwright E2E comprehensive (~1.2 min)
-npx playwright test e2e/auth-full.spec.ts e2e/pages.spec.ts e2e/user.spec.ts \
-  e2e/session.spec.ts e2e/oauth.spec.ts e2e/dashboard.spec.ts \
+# 5. Playwright E2E comprehensive (~1.5 min)
+npx playwright test e2e/auth-full.spec.ts e2e/pages.spec.ts e2e/pages-full.spec.ts \
+  e2e/user.spec.ts e2e/session.spec.ts e2e/oauth.spec.ts e2e/dashboard.spec.ts \
   e2e/security.spec.ts e2e/client.spec.ts --project=chromium --reporter=list
 ```
