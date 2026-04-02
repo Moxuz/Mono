@@ -22,11 +22,6 @@ router.post('/refresh-token',  tokenLimiter,              authController.refresh
 router.post('/validate-token',  generalLimiter,        authController.validateToken);
 router.get('/audit-logs',      authenticate,           authController.getAuditLogs);
 
-// Email Verification
-router.get('/verify-email',    generalLimiter,           authController.verifyEmail);
-router.post('/resend-verification', forgotPasswordLimiter, authController.resendVerificationEmail);
-
-
 // Password reset
 
 router.post('/forgot-password', forgotPasswordLimiter, validate(rules.forgotPassword), authController.forgotPassword);

@@ -28,4 +28,7 @@ router.delete('/clients/:id', authenticate, oauthController.deleteClient);
 // Token Management (Protected)
 router.post('/revoke', authenticate, revokeLimiter, oauthController.revokeToken);
 
+// Consent Management (Protected) — PDPA right to object
+router.delete('/consents/:clientId', authenticate, generalLimiter, oauthController.revokeConsent);
+
 module.exports = router;

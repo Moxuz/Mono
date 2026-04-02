@@ -9,7 +9,7 @@ const tokenBlacklistSchema = new mongoose.Schema({
     },
     tokenType: {
         type: String,
-        enum: ['access_token', 'refresh_token', 'authorization_code'],
+        enum: ['access_token', 'refresh_token'],
         default: 'access_token'
     },
     userId: {
@@ -25,10 +25,6 @@ const tokenBlacklistSchema = new mongoose.Schema({
         type: String,
         enum: ['user_logout', 'admin_revoke', 'security_breach', 'expired'],
         default: 'user_logout'
-    },
-    revokedAt: {
-        type: Date,
-        default: Date.now
     },
     expiresAt: {
         type: Date,

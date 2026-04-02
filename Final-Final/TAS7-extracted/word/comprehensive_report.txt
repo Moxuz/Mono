@@ -1,0 +1,1291 @@
+========================================================================================================================
+COMPREHENSIVE REPORT: ALL // COMMENTS IN TAS7-updated.docx
+========================================================================================================================
+
+
+========================================================================================================================
+COMMENT #1
+========================================================================================================================
+Paragraph Index: 250
+Comment Type: //fact
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+ในระบบที่พัฒนาครั้งนี้ มีการปฏิบัติตาม PDPA โดย //fact check
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 247]
+2.4.3 การเก็บข้อมูลในฐานข้อมูลกลาง การใช้ฐานข้อมูลเดียวสำหรับเก็บข้อมูลทั้งหมด ซึ่งช่วยให้การจัดการข้อมูลเป็นระบบและง่ายต่อการควบคุม
+
+[Paragraph 248]
+2.4.4 การบันทึกและตรวจสอบการใช้ข้อมูล (Audit Logging) การเก็บบันทึกการเข้าถึงและการประมวลผลข้อมูลส่วนบุคคล เพื่อให้สามารถตรวจสอบได้ในกรณีที่เกิดการละเมิดข้อมูล
+
+[Paragraph 249]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #2
+========================================================================================================================
+Paragraph Index: 319
+Comment Type: //fact
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+Endpoints ที่ระบบ implement ตาม OIDC spec //fact check
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 316]
+
+
+[Paragraph 317]
+OIDC Claims ที่ระบบรองรับ: sub (user ID), email, name, username, role, email_verified
+
+[Paragraph 318]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #3
+========================================================================================================================
+Paragraph Index: 328
+Comment Type: //fact
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+2.8 งานวิจัยที่เกี่ยวข้อง //fact check
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 325]
+Scopes ที่รองรับ: openid, profile, email
+
+[Paragraph 326]
+ในระบบนี้ใช้ OIDC + Authorization Code Flow + PKCE เพื่อความปลอดภัยสูงสุดตามมาตรฐาน 2024
+
+[Paragraph 327]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #4
+========================================================================================================================
+Paragraph Index: 643
+Comment Type: //data
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+//data dic
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 640]
+รูปที่ 3.6 Data Flow Diagram Level 1 (Process Decomposition)
+
+[Paragraph 641]
+
+
+[Paragraph 642]
+ระบบมีการออกแบบฐานข้อมูล MongoDB โดยมีความสัมพันธ์ระหว่าง entities ดังนี้
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #5
+========================================================================================================================
+Paragraph Index: 958
+Comment Type: //fact
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+Authentication Endpoints //fact check
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 955]
+
+
+[Paragraph 956]
+ตารางที่ 3.1 แสดง API Endpoints หลักของระบบ (รวมทั้งหมด 56 endpoints)
+
+[Paragraph 957]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #6
+========================================================================================================================
+Paragraph Index: 1035
+Comment Type: //fact
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+3.8 คุณสมบัติความปลอดภัย //fact check
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 1032]
+
+
+[Paragraph 1033]
+
+
+[Paragraph 1034]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #7
+========================================================================================================================
+Paragraph Index: 1037
+Comment Type: //table
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+3.8.1 Rate Limiting //table
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 1034]
+
+
+[Paragraph 1035]
+3.8 คุณสมบัติความปลอดภัย //fact check
+
+[Paragraph 1036]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #8
+========================================================================================================================
+Paragraph Index: 1802
+Comment Type: //table
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+ตารางที่ 4.5 ผลการทดสอบ API ด้วย Postman/Newman (Functional Test Results)  //table
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 1799]
+ทำการทดสอบ API endpoints แบบ Functional ด้วย Postman Collection ที่รันผ่าน Newman v6.2.2 (Postman CLI runner) ครอบคลุม 6 กลุ่ม endpoint หลักของระบบ ทดสอบทั้ง happy path และ negative cases (การส่ง token ไม่ถูกต้อง, missing fields, unauthenticated access)
+
+[Paragraph 1800]
+
+
+[Paragraph 1801]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #9
+========================================================================================================================
+Paragraph Index: 2036
+Comment Type: //summarize
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+ผลการทดสอบ //summarize
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 2033]
+pages-full.spec.ts
+
+[Paragraph 2034]
+
+
+[Paragraph 2035]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #10
+========================================================================================================================
+Paragraph Index: 2125
+Comment Type: //sum
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+ผลการทดสอบ ….  //sum
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 2122]
+บันทึก security events ได้ถูกต้อง
+
+[Paragraph 2123]
+
+
+[Paragraph 2124]
+ตารางที่ 4.7 ผลการทดสอบ UAT (User Acceptance Testing)
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #11
+========================================================================================================================
+Paragraph Index: 2174
+Comment Type: //readjust
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+5.1 สรุปผลการดำเนินงาน   // readjust and add more from real test
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 2171]
+บทที่ 5
+
+[Paragraph 2172]
+สรุปผลการวิจัยและข้อเสนอแนะ
+
+[Paragraph 2173]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #12
+========================================================================================================================
+Paragraph Index: 2203
+Comment Type: //fact
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+5. การเปรียบเทียบกับระบบที่เกี่ยวข้อง //fact check with real code
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 2200]
+
+
+[Paragraph 2201]
+
+
+[Paragraph 2202]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #13
+========================================================================================================================
+Paragraph Index: 2264
+Comment Type: //fact
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+งานวิจัยนี้มีผลงานที่มีคุณค่าใน 3 ด้าน ดังนี้ //fact check
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 2261]
+
+
+[Paragraph 2262]
+
+
+[Paragraph 2263]
+5.4 ผลงานของงานวิจัย
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #14
+========================================================================================================================
+Paragraph Index: 2294
+Comment Type: //recheck
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+5.3 ข้อเสนอแนะ  //recheck
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 2291]
+
+
+[Paragraph 2292]
+
+
+[Paragraph 2293]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #15
+========================================================================================================================
+Paragraph Index: 2468
+Comment Type: //recheck
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+เอกสาร API Documentation   //recheck
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 2465]
+
+
+[Paragraph 2466]
+
+
+[Paragraph 2467]
+ภาคผนวก ข
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+COMMENT #16
+========================================================================================================================
+Paragraph Index: 2610
+Comment Type: //admin
+
+FULL PARAGRAPH TEXT:
+------------------------------------------------------------------------------------------------------------------------
+- MONGODB_URI: mongodb://admin:adminpassword@mongodb:27017/authdb
+------------------------------------------------------------------------------------------------------------------------
+
+3 PRECEDING PARAGRAPHS (CONTEXT):
+------------------------------------------------------------------------------------------------------------------------
+
+[Paragraph 2607]
+2.4 แก้ไขไฟล์ .env ให้ตรงกับการตั้งค่า
+
+[Paragraph 2608]
+- JWT_SECRET: สร้าง random string อย่างน้อย 32 characters
+
+[Paragraph 2609]
+- SESSION_SECRET: สร้าง random string อย่างน้อย 32 characters
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+========================================================================================================================
+SUMMARY OF COMMENTS
+========================================================================================================================
+
+Total comments found: 16
+
+Comments by Type:
+  //admin: 1
+  //data: 1
+  //fact: 7
+  //readjust: 1
+  //recheck: 2
+  //sum: 1
+  //summarize: 1
+  //table: 2
+
+========================================================================================================================
+DETAILED SECTIONS REQUESTED
+========================================================================================================================
+
+
+========================================================================================================================
+SECTION: PDPA Section (2.4-2.5)
+========================================================================================================================
+
+[Paragraph 96]
+
+
+[Paragraph 97]
+
+
+[Paragraph 98]
+
+
+[Paragraph 99]
+บทคัดย่อ
+
+[Paragraph 100]
+การวิจัยนี้พัฒนาโปรแกรมยืนยันตัวตนแบบบูรณาการระหว่างระบบงานตามมาตรฐาน PDPA โดยใช้สถาปัตยกรรมโมโนลิธ (Monolithic Architecture) เพื่อรองรับการยืนยันตัวตนที่ปลอดภัยและมีความซับซ้อนในโค้ดเบสเดียว ระบบที่พัฒนาขึ้นรองรับ OAuth 2.0 และ OpenID Connect พร้อมการใช้งาน PKCE (Proof Key for Code Exchange) เพื่อเพิ่มความปลอดภัยในการแลกเปลี่ยนข้อมูล
+
+[Paragraph 101]
+ระบบประกอบด้วยโมดูลหลัก 3 โมดูลในโค้ดเบสเดียว ได้แก่ 1) โมดูลยืนยันตัวตน (Authentication Module) ซึ่งรวมการจัดการเซสชันไว้ด้วย 2) โมดูล OAuth (OAuth Module) และ 3) โมดูลจัดการผู้ใช้ (User Module) นอกจากนี้ยังมี Shared Services ได้แก่ Security Audit Service และ Session Service การสื่อสารระหว่างโมดูลใช้ function calls โดยตรง และใช้ Apache Kafka สำหรับการบันทึกข้อมูลแบบกระจาย
+
+[Paragraph 102]
+การทดสอบระบบพบว่าระบบสามารถทำงานได้ตามฟังก์ชันที่กำหนดไว้ทั้งหมด ได้แก่ การลงทะเบียน การเข้าสู่ระบบ การเข้าสู่ระบบผ่านผู้ให้บริการภายนอก (Google, GitHub) การจัดการเซสชัน และการจัดการความยินยอมตาม PDPA ผลการทดสอบความพึงพอใจของผู้ใช้งานพบว่าระบบได้รับคะแนนความพึงพอใจเฉลี่ย 4.70 จาก 5 คะแนน
+
+[Paragraph 103]
+คำสำคัญ: การยืนยันตัวตน, OAuth 2.0, โมโนลิธ, PDPA, ความปลอดภัย
+
+[Paragraph 104]
+TitleTrusted Authentication System Using Monolithic Architecture
+
+[Paragraph 105]
+
+
+[Paragraph 106]
+StudentsMr. Napat Muninnimitt Student ID 64050416
+
+[Paragraph 107]
+นาย ณัฐพล ว่องไวยุทธ์ Student ID 64050441
+
+[Paragraph 108]
+DegreeBachelor of Science (Computer Science)
+
+[Paragraph 109]
+DepartmentComputer Science
+
+[Paragraph 110]
+FacultyScience
+
+[Paragraph 111]
+University                     King Mongkut’s Institute of Technology Ladkrabang (KMITL)
+
+[Paragraph 112]
+Academic Year2567
+
+[Paragraph 113]
+AdvisorAsst. Prof. กฤษฎา บุศรา
+
+[Paragraph 114]
+
+
+[Paragraph 115]
+Abstract
+
+
+========================================================================================================================
+SECTION: OIDC Endpoints Section (2.7)
+========================================================================================================================
+
+[Paragraph 315]
+OIDC เป็น identity layer บน OAuth 2.0 จาก OpenID Foundation ช่วยให้ client ตรวจสอบตัวตนผู้ใช้ได้ นอกเหนือจาก authorization ปกติ โดยเพิ่ม ID Token (JWT ที่มี identity claims)
+
+[Paragraph 316]
+
+
+[Paragraph 317]
+OIDC Claims ที่ระบบรองรับ: sub (user ID), email, name, username, role, email_verified
+
+[Paragraph 318]
+
+
+[Paragraph 319]
+Endpoints ที่ระบบ implement ตาม OIDC spec //fact check
+
+[Paragraph 320]
+- GET /.well-known/openid-configuration - OIDC Discovery Document (auto-configuration)
+
+[Paragraph 321]
+- GET /.well-known/jwks.json - JSON Web Key Set สำหรับตรวจสอบ signature
+
+[Paragraph 322]
+- GET /api/oauth/userinfo - ดึง user claims ด้วย Bearer token
+
+[Paragraph 323]
+- GET /api/auth/oauth-session - สร้าง session หลัง OAuth login redirect
+
+[Paragraph 324]
+
+
+[Paragraph 325]
+Scopes ที่รองรับ: openid, profile, email
+
+[Paragraph 326]
+ในระบบนี้ใช้ OIDC + Authorization Code Flow + PKCE เพื่อความปลอดภัยสูงสุดตามมาตรฐาน 2024
+
+[Paragraph 327]
+
+
+[Paragraph 328]
+2.8 งานวิจัยที่เกี่ยวข้อง //fact check
+
+
+========================================================================================================================
+SECTION: Related Research Section (2.8)
+========================================================================================================================
+
+[Paragraph 329]
+ในการพัฒนาระบบยืนยันตัวตนนี้ ได้ทำการศึกษางานวิจัยที่เกี่ยวข้องทั้งในด้านเทคนิคและการนำไปใช้งานจริง ดังนี้
+
+[Paragraph 330]
+
+
+[Paragraph 331]
+2.8.1 Fett, Küsters & Schmitz (2016) — การวิเคราะห์ความปลอดภัย OAuth 2.0 เชิงคณิตศาสตร์
+
+[Paragraph 332]
+Fett et al. (2016) ได้ทำการวิเคราะห์ความปลอดภัยเชิงคณิตศาสตร์อย่างเป็นทางการสำหรับ OAuth 2.0 ทั้ง 4 grant types โดยใช้ web attacker model ที่ครอบคลุม ผลการศึกษาพิสูจน์ว่า authorization code flow เมื่อใช้ร่วมกับ HTTPS และการตรวจสอบ state parameter สามารถรับประกันความปลอดภัยด้าน authorization และ session integrity ได้อย่างแข็งแกร่ง นอกจากนี้ยังพิสูจน์ว่า implicit flow มีความปลอดภัยต่ำกว่าเนื่องจาก access token ถูกเปิดเผยใน URL fragment ระบบ TAS ได้นำ authorization code flow มาใช้แต่เพียงอย่างเดียวและเพิ่ม PKCE (S256) เพื่อป้องกัน code interception attacks ตามข้อพิสูจน์ของ Fett et al. [16]
+
+[Paragraph 333]
+
+
+[Paragraph 334]
+2.8.2 Koponen (2016) — การพัฒนา OAuth 2.0 Authorization Server ด้วย Node.js
+
+[Paragraph 335]
+Koponen (2016) ได้ออกแบบและพัฒนา OAuth 2.0 authorization server ด้วย Node.js เป็นส่วนหนึ่งของวิทยานิพนธ์ระดับปริญญาโทที่ University of Jyväskylä ประเทศฟินแลนด์ งานวิจัยนี้เสนอว่าการจำกัด grant type ให้ใช้เฉพาะ authorization code การบังคับใช้ authorization code แบบ single-use และการตรวจสอบ redirect URI อย่างเข้มงวด จะช่วยลด attack surface ได้อย่างมีนัยสำคัญ ระบบ TAS มีความสอดคล้องกับแนวทางของ Koponen โดยใช้ Node.js runtime เดียวกัน single-use authorization code pattern เดียวกัน และขยาย model ด้วย PKCE และ Apache Kafka audit logging [17]
+
+[Paragraph 336]
+
+
+[Paragraph 337]
+2.8.3 Philippaerts et al. (2022) — การทดสอบ OAuth 2.0 Compliance ด้วยเครื่องมือ OAuch
+
+[Paragraph 338]
+Philippaerts et al. (2022) ได้พัฒนาเครื่องมือ OAuch สำหรับทดสอบความสอดคล้องกับมาตรฐาน OAuth 2.0 และทำการทดสอบ identity providers จริงกว่า 20 รายการกับข้อกำหนดด้านความปลอดภัย 112 รายการ ผลการศึกษาพบว่า providers โดยเฉลี่ยไม่ปฏิบัติตาม 34% ของข้อกำหนด โดยที่พบบ่อยที่สุดคือ PKCE enforcement ที่ขาดหายไป การไม่มี refresh token rotation และ redirect URI validation ที่ไม่เข้มงวด ระบบ TAS ได้รับการออกแบบเพื่อปิดช่องว่างเหล่านี้: บังคับใช้ PKCE S256 เท่านั้น บังคับ refresh token rotation ทุกครั้ง และตรวจสอบ redirect URI แบบ exact matching [18]
+
+[Paragraph 339]
+
+
+[Paragraph 340]
+2.8.4 งานวิจัยด้าน JWT Session Management (2023)
+
+[Paragraph 341]
+งานวิจัยที่ตีพิมพ์ในปี 2023 ได้ประเมินความปลอดภัยของ JWT สำหรับ REST API session management โดยวิเคราะห์ signing algorithms และ refresh token rotation patterns ผลการศึกษาแนะนำว่า access token อายุสั้นร่วมกับ one-time-use refresh tokens และ server-side blacklist ให้ความปลอดภัยสูงสุด นอกจากนี้ยังระบุว่าการ logout ต้องทำการ blacklist ทั้ง access token และ refresh token พร้อมกัน ระบบ TAS ปฏิบัติตามคำแนะนำทั้งหมด: access token 1 ชั่วโมง, refresh token rotation แบบ one-use และ MongoDB TokenBlacklist ที่ revoke ทั้งสอง token เมื่อ logout [19]
+
+[Paragraph 342]
+
+
+[Paragraph 343]
+2.8.5 Melton et al. (2017) — การ Deploy ระบบ Single Sign-On ในสถานพยาบาล
+
+[Paragraph 344]
+Melton et al. (2017) ได้บันทึกการ deploy ระบบ Single Sign-On ในระบบโรงพยาบาล 6 แห่งที่ต้องการ password มากกว่า 12 รายการต่อคน การศึกษาวัดผลลัพธ์ที่เป็นรูปธรรม พบว่า SSO ช่วยลดเวลาที่ใช้ในการยืนยันตัวตน 9.51 นาทีต่อคนต่อวัน คิดเป็นมูลค่า 92,146 ดอลลาร์สหรัฐต่อสถานพยาบาลต่อปี นอกจากนี้ระบบ centralized authentication ยังช่วยรวม audit logs ไว้ในที่เดียว กรณีศึกษานี้ยืนยันว่าการเลือกสถาปัตยกรรมแบบ centralized authentication ซึ่งเป็นแนวทางเดียวกับที่ระบบ TAS ใช้ ให้ผลประโยชน์ด้านความปลอดภัยและประสิทธิภาพที่วัดได้จริงในองค์กร [20]
+
+[Paragraph 345]
+
+
+[Paragraph 346]
+
+
+[Paragraph 347]
+
+
+[Paragraph 348]
+
+
+[Paragraph 349]
+
+
+[Paragraph 350]
+
+
+[Paragraph 351]
+
+
+[Paragraph 352]
+
+
+[Paragraph 353]
+
+
+[Paragraph 354]
+
+
+[Paragraph 355]
+
+
+[Paragraph 356]
+
+
+[Paragraph 357]
+
+
+[Paragraph 358]
+
+
+[Paragraph 359]
+
+
+[Paragraph 360]
+
+
+
+========================================================================================================================
+SECTION: Authentication Endpoints Section (3.x)
+========================================================================================================================
+
+[Paragraph 959]
+POST   /api/auth/register                - ลงทะเบียนผู้ใช้ใหม่
+
+[Paragraph 960]
+POST   /api/auth/login                   - เข้าสู่ระบบ
+
+[Paragraph 961]
+POST   /api/auth/logout                  - ออกจากระบบ
+
+[Paragraph 962]
+POST   /api/auth/refresh-token           - ต่ออายุ access token
+
+[Paragraph 963]
+POST   /api/auth/validate-token          - ตรวจสอบความถูกต้อง token
+
+[Paragraph 964]
+GET    /api/auth/verify-email            - ยืนยันอีเมล
+
+[Paragraph 965]
+POST   /api/auth/resend-verification     - ส่งอีเมลยืนยันใหม่
+
+[Paragraph 966]
+POST   /api/auth/forgot-password         - ขอรหัสผ่านใหม่
+
+[Paragraph 967]
+POST   /api/auth/reset-password/:token   - รีเซ็ตรหัสผ่าน
+
+[Paragraph 968]
+POST   /api/auth/change-password         - เปลี่ยนรหัสผ่าน
+
+[Paragraph 969]
+GET    /api/auth/profile                 - ดูข้อมูลโปรไฟล์
+
+[Paragraph 970]
+DELETE /api/auth/delete-account          - ลบบัญชีผู้ใช้
+
+[Paragraph 971]
+GET    /api/auth/preferences             - ดูการตั้งค่าผู้ใช้
+
+[Paragraph 972]
+PUT    /api/auth/preferences             - แก้ไขการตั้งค่าผู้ใช้
+
+[Paragraph 973]
+GET    /api/auth/audit-logs              - ดู audit logs
+
+[Paragraph 974]
+GET    /api/auth/security-audit          - ดู security events
+
+[Paragraph 975]
+POST   /api/auth/emergency-lockdown      - ยกเลิกทุก sessions ฉุกเฉิน
+
+[Paragraph 976]
+
+
+[Paragraph 977]
+Social Login Endpoints
+
+[Paragraph 978]
+GET    /api/auth/oauth/status            - ตรวจสอบ providers ที่เปิดใช้งาน
+
+[Paragraph 979]
+GET    /api/auth/google                  - เริ่ม Google OAuth
+
+[Paragraph 980]
+GET    /api/auth/google/callback         - Google OAuth callback
+
+[Paragraph 981]
+GET    /api/auth/github                  - เริ่ม GitHub OAuth
+
+[Paragraph 982]
+GET    /api/auth/github/callback         - GitHub OAuth callback
+
+[Paragraph 983]
+
+
+[Paragraph 984]
+OAuth 2.0 Endpoints
+
+[Paragraph 985]
+GET    /api/oauth/authorize              - แสดงหน้า authorization
+
+
+========================================================================================================================
+SECTION: Security Features Section (3.8)
+========================================================================================================================
+
+[Paragraph 1036]
+
+
+[Paragraph 1037]
+3.8.1 Rate Limiting //table
+
+[Paragraph 1038]
+Endpoint
+
+[Paragraph 1039]
+จำนวนสูงสุด (req)
+
+[Paragraph 1040]
+ช่วงเวลา
+
+[Paragraph 1041]
+วัตถุประสงค์
+
+[Paragraph 1042]
+/api/auth/login
+
+[Paragraph 1043]
+5
+
+[Paragraph 1044]
+15 นาที
+
+[Paragraph 1045]
+ป้องกัน Brute Force Login
+
+[Paragraph 1046]
+/api/auth/register
+
+[Paragraph 1047]
+3
+
+[Paragraph 1048]
+60 นาที
+
+[Paragraph 1049]
+ป้องกันการสร้างบัญชีสแปม
+
+[Paragraph 1050]
+/api/oauth/token
+
+[Paragraph 1051]
+10
+
+[Paragraph 1052]
+15 นาที
+
+[Paragraph 1053]
+ป้องกัน Token Request Abuse
+
+[Paragraph 1054]
+/api/auth/forgot-password
+
+[Paragraph 1055]
+5
+
+[Paragraph 1056]
+60 นาที
+
+[Paragraph 1057]
+ป้องกันการส่ง Password Reset Email สแปม
+
+[Paragraph 1058]
+/api/oauth/authorize
+
+[Paragraph 1059]
+30
+
+[Paragraph 1060]
+15 นาที
+
+[Paragraph 1061]
+ป้องกัน Authorization Request Flood
+
+[Paragraph 1062]
+/api/oauth/introspect
+
+[Paragraph 1063]
+20
+
+[Paragraph 1064]
+15 นาที
+
+[Paragraph 1065]
+ป้องกัน Token Introspection Abuse
+
+[Paragraph 1066]
+/api/oauth/revoke
+
+[Paragraph 1067]
+20
+
+[Paragraph 1068]
+15 นาที
+
+[Paragraph 1069]
+ป้องกัน Token Revoke Flood
+
+[Paragraph 1070]
+ทั่วไป (General)
+
+[Paragraph 1071]
+100
+
+[Paragraph 1072]
+15 นาที
+
+[Paragraph 1073]
+Default Rate Limit สำหรับ Endpoint ทั่วไป
+
+[Paragraph 1074]
+
+
+[Paragraph 1075]
+ระดับผู้ใช้ (Tier)
+
+[Paragraph 1076]
+จำนวนสูงสุด (req)
+
+[Paragraph 1077]
+ช่วงเวลา
+
+[Paragraph 1078]
+free
+
+[Paragraph 1079]
+100
+
+[Paragraph 1080]
+15 นาที
+
+[Paragraph 1081]
+authenticated
+
+[Paragraph 1082]
+500
+
+[Paragraph 1083]
+15 นาที
+
+[Paragraph 1084]
+premium
+
+[Paragraph 1085]
+2,000
+
+[Paragraph 1086]
+15 นาที
+
+[Paragraph 1087]
+admin
+
+[Paragraph 1088]
+10,000
+
+[Paragraph 1089]
+15 นาที
+
+[Paragraph 1090]
+
+
+[Paragraph 1091]
+ใช้ Redis-based rate limiting โดยมี Memory Store เป็น fallback อัตโนมัติ เพื่อป้องกันการโจมตีแบบ brute force และ credential stuffing
+
+[Paragraph 1092]
+Key generation: IP + Email combination สำหรับ login, IP เพียงอย่างเดียวสำหรับ endpoints อื่น
+
+[Paragraph 1093]
+Rate limits ครอบคลุม 13 endpoints
+
+[Paragraph 1094]
+- Login: 5 requests / 15 นาที
+
+[Paragraph 1095]
+- Register: 3 requests / 1 ชั่วโมง
+
+[Paragraph 1096]
+- Forgot Password: 5 requests / 1 ชั่วโมง
+
+[Paragraph 1097]
+- Change Password: 5 requests / 1 ชั่วโมง
+
+[Paragraph 1098]
+- OAuth Token: 10 requests / 15 นาที
+
+[Paragraph 1099]
+- OAuth Authorize: 30 requests / 15 นาที
+
+[Paragraph 1100]
+- OAuth Introspect: 20 requests / 15 นาที
+
+[Paragraph 1101]
+- OAuth Revoke: 20 requests / 15 นาที
+
+[Paragraph 1102]
+- OAuth Userinfo: 100 requests / 15 นาที
+
+[Paragraph 1103]
+- Verify Email: 100 requests / 15 นาที
+
+[Paragraph 1104]
+- Delete Account: 100 requests / 15 นาที
+
+[Paragraph 1105]
+- Emergency Lockdown: 100 requests / 15 นาที
+
+[Paragraph 1106]
+- General API: 100 requests / 15 นาที
+
+[Paragraph 1107]
+
+
+[Paragraph 1108]
+3.8.2 Account Lockout
+
+[Paragraph 1109]
+ระบบจะ lock account อัตโนมัติเมื่อมีการ login ผิดพลาด 5 ครั้งติดกัน
+
+[Paragraph 1110]
+จะ unlock อัตโนมัติหลังจาก 15 นาที
+
+[Paragraph 1111]
+
+
+[Paragraph 1112]
+3.8.3 CSRF Protection
+
+[Paragraph 1113]
+ใช้ CSRF tokens สำหรับ web routes เพื่อป้องกัน Cross-Site Request Forgery
+
+[Paragraph 1114]
+
+
+[Paragraph 1115]
+3.8.4 Password Hashing
+
+[Paragraph 1116]
+ใช้ bcrypt ด้วย salt rounds 10 รอบในการเข้ารหัสรหัสผ่าน
+
+[Paragraph 1117]
+
+
+[Paragraph 1118]
+3.8.5 Refresh Token Rotation
+
+[Paragraph 1119]
+ทุกครั้งที่มีการใช้ refresh token จะสร้าง refresh token ใหม่ และ blacklist token เก่าทันที (ทั้ง Auth path และ OAuth session path)
+
+[Paragraph 1120]
+- Old refresh token ถูก blacklist ก่อนที่จะออก token ใหม่ (ป้องกัน race condition)
+
+[Paragraph 1121]
+- TokenBlacklist ใช้ upsert ป้องกัน duplicate key crash (E11000 safe)
+
+[Paragraph 1122]
+- เมื่อ logout: blacklist ทั้ง access token และ refresh token พร้อมกัน
+
+[Paragraph 1123]
+- เมื่อ reset password: revoke ทุก session และ blacklist refresh tokens ทั้งหมด
+
+[Paragraph 1124]
+- PKCE: รองรับเฉพาะ S256 method เท่านั้น (plain method ถูกปฏิเสธ)
+
+[Paragraph 1125]
+- Authorization code: atomic exchange ด้วย findOneAndUpdate ป้องกัน replay race condition
+
+[Paragraph 1126]
+
+
+[Paragraph 1127]
+3.8.6 Token Blacklisting
+
+[Paragraph 1128]
+เมื่อ user logout หรือ revoke token จะถูกเพิ่มเข้า blacklist
+
+[Paragraph 1129]
+จนกว่า token จะหมดอายุ
+
+[Paragraph 1130]
+
+
+[Paragraph 1131]
+3.8.7 Security Headers
+
+[Paragraph 1132]
+ใช้ Helmet.js สำหรับเพิ่ม security headers
+
+[Paragraph 1133]
+- X-Frame-Options: DENY
+
+[Paragraph 1134]
+- X-Content-Type-Options: nosniff
+
+[Paragraph 1135]
+- X-XSS-Protection: 1; mode=block
+
+[Paragraph 1136]
+- Strict-Transport-Security
+
+[Paragraph 1137]
+- Content-Security-Policy
+
+[Paragraph 1138]
+
+
+[Paragraph 1139]
+
+
+[Paragraph 1140]
+3.8.9 Token Blacklist Middleware Check
+
+[Paragraph 1141]
+ทุก request ผ่าน authenticate middleware จะตรวจสอบ token กับ TokenBlacklist ก่อน JWT verify
+
+[Paragraph 1142]
+- ทำให้ invalidate access token ได้ทันทีโดยไม่รอหมดอายุ
+
+[Paragraph 1143]
+- ใช้สำหรับ: logout, emergency lockdown, OAuth token revoke
+
+[Paragraph 1144]
+- TokenBlacklist.isBlacklisted(token) เรียกก่อน jwt.verify()
+
+[Paragraph 1145]
+- tokens ที่ถูก revoke จะถูก reject ทันที
+
+[Paragraph 1146]
+
+
+[Paragraph 1147]
+3.8.10 Emergency Lockdown
+
+[Paragraph 1148]
+POST /api/auth/emergency-lockdown สำหรับยกเลิก sessions ทั้งหมดในทันที
+
+[Paragraph 1149]
+- Revoke ทุก active sessions ของผู้ใช้
+
+[Paragraph 1150]
+- Blacklist refresh tokens ทั้งหมดในฐานข้อมูล
+
+
+========================================================================================================================
+SECTION: Summary Section (5.1)
+========================================================================================================================
+
+[Paragraph 2171]
+บทที่ 5
+
+[Paragraph 2172]
+สรุปผลการวิจัยและข้อเสนอแนะ
+
+[Paragraph 2173]
+
+
+[Paragraph 2174]
+5.1 สรุปผลการดำเนินงาน   // readjust and add more from real test
+
+[Paragraph 2175]
+การวิจัยนี้ประสบความสำเร็จในการพัฒนาระบบยืนยันตัวตนแบบบูรณาการระหว่างระบบงานตามมาตรฐาน PDPA โดยใช้สถาปัตยกรรมโมโนลิธ (Monolithic Architecture) ระบบที่พัฒนาขึ้นมีคุณสมบัติครบถ้วน
+
+[Paragraph 2176]
+
+
+[Paragraph 2177]
+1. การพัฒนาโปรแกรมยืนยันตัวตนกลางโดยใช้สถาปัตยกรรมโมโนลิธ
+
+[Paragraph 2178]
+- ระบบถูกพัฒนาเป็นโค้ดเบสเดียวที่มี 3 โมดูลหลักและ Shared Services ทำงานร่วมกัน
+
+[Paragraph 2179]
+- การสื่อสารระหว่างโมดูลใช้ function calls โดยตรง
+
+[Paragraph 2180]
+- การ deploy ทำได้ง่ายโดย deploy แอปพลิเคชันเดียว
+
+
+========================================================================================================================
+SECTION: Recommendations Section (5.3)
+========================================================================================================================
+
+[Paragraph 2291]
+
+
+[Paragraph 2292]
+
+
+[Paragraph 2293]
+
+
+[Paragraph 2294]
+5.3 ข้อเสนอแนะ  //recheck
+
+[Paragraph 2295]
+
+
+[Paragraph 2296]
+5.3.1 การพัฒนาในอนาคต
+
+[Paragraph 2297]
+1. เพิ่มการยืนยันตัวตนด้วย Biometrics (Fingerprint, Face Recognition)
+
+[Paragraph 2298]
+2. เพิ่มการรองรับ OAuth 2.1 ซึ่งเป็นเวอร์ชันใหม่ล่าสุด
+
+[Paragraph 2299]
+3. เพิ่ม Device Fingerprinting สำหรับตรวจจับอุปกรณ์ที่น่าสงสัย
+
+[Paragraph 2300]
+4. เพิ่ม Risk-Based Authentication (RBA)
+
+[Paragraph 2301]
+5. เพิ่มการรองรับ WebAuthn/FIDO2 สำหรับ passwordless login
+
+[Paragraph 2302]
+
+
+[Paragraph 2303]
+5.3.2 การปรับปรุงประสิทธิภาพ
+
+[Paragraph 2304]
+1. เพิ่ม Redis Cluster สำหรับ high availability
+
+[Paragraph 2305]
+2. เพิ่ม Database Sharding สำหรับ MongoDB
+
+[Paragraph 2306]
+3. เพิ่ม CDN สำหรับ static assets
+
+[Paragraph 2307]
+4. เพิ่ม Caching Layer สำหรับ API responses
+
+[Paragraph 2308]
+5. เพิ่ม Load Balancer สำหรับกระจาย traffic
+
+[Paragraph 2309]
+
+
+[Paragraph 2310]
+5.3.3 การปรับปรุงความปลอดภัย
+
+
+========================================================================================================================
+SECTION: API Documentation Appendix
+========================================================================================================================
+
+[Paragraph 2469]
+
+
+[Paragraph 2470]
+ตัวอย่างการใช้งาน API Endpoints
+
+[Paragraph 2471]
+
+
+[Paragraph 2472]
+1. การลงทะเบียนผู้ใช้ใหม่
+
+[Paragraph 2473]
+
+
+[Paragraph 2474]
+POST /api/auth/register
+
+[Paragraph 2475]
+Content-Type: application/json
+
+[Paragraph 2476]
+
+
+[Paragraph 2477]
+Request Body:
+
+[Paragraph 2478]
+{
+
+[Paragraph 2479]
+"username": "johndoe",
+
+[Paragraph 2480]
+"email": "john@example.com",
+
+[Paragraph 2481]
+"password": "SecurePass123!",
+
+[Paragraph 2482]
+"consentEssential": true,
+
+[Paragraph 2483]
+"consentAnalytics": true
+
+[Paragraph 2484]
+}
+
+[Paragraph 2485]
+
+
+[Paragraph 2486]
+Response (201 Created):
+
+[Paragraph 2487]
+{
+
+[Paragraph 2488]
+"success": true,
+
+[Paragraph 2489]
+"message": "User registered successfully",
+
+[Paragraph 2490]
+"data": {
+
+[Paragraph 2491]
+"user": {
+
+[Paragraph 2492]
+"id": "65f1234567890abcdef12345",
+
+[Paragraph 2493]
+"username": "johndoe",
+
+[Paragraph 2494]
+"email": "john@example.com"
+
+[Paragraph 2495]
+},
+
+[Paragraph 2496]
+"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+[Paragraph 2497]
+}
+
+[Paragraph 2498]
+}
+
+[Paragraph 2499]
+
+
+[Paragraph 2500]
+2. การเข้าสู่ระบบ
+

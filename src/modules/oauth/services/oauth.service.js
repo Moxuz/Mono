@@ -314,7 +314,7 @@ class OAuthService {
             {
                 sub:            user._id.toString(),
                 email:          user.email,
-                email_verified: !!user.emailVerified,
+                email_verified: true,
                 username:       user.username,
                 name:           user.username,
                 aud:            clientId,
@@ -439,7 +439,7 @@ class OAuthService {
             return {
                 sub:            user._id.toString(),
                 email:          user.email,
-                email_verified: !!user.emailVerified,
+                email_verified: true,
                 username:       user.username,
                 name:           user.username,
                 role:           user.role,

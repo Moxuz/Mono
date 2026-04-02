@@ -15,10 +15,7 @@ const securityAuditSchema = new mongoose.Schema({
             'password_changed',
             'password_reset_requested',
             'password_reset_completed',
-            'email_verified',
-            'verification_email_sent',
             'account_locked',
-            'account_unlocked',
             'token_refreshed',
             'token_revoked',
             'profile_updated',
@@ -29,7 +26,7 @@ const securityAuditSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['success', 'failure', 'pending'],
+        enum: ['success', 'failure'],
         default: 'success'
     },
     ipAddress: {

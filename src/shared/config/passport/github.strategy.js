@@ -60,7 +60,6 @@ if (!GITHUB_ENABLED) {
             email: userEmail,
             githubId: profile.id,
             avatar: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-            emailVerified: !!email,
             pdpaConsent: {
                 essentialAccepted: true,
                 essentialAcceptedAt: new Date(),
