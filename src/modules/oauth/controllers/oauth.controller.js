@@ -265,19 +265,43 @@ exports.authorize = async (req, res, next) => {
             }
 
             const bcrypt = require('bcryptjs');
-            const user   = await User.findOne({ email }).select('+password');
+            const SecurityAudit = require('../../../shared/models/SecurityAudit');
+            const user   = await User.findOne({ email }).select('+password +failedLoginAttempts +lockUntil');
             if (!user) {
-                return res.status(401).json({ error: 'Invalid credentials' });
-            }
-
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) {
                 return res.status(401).json({ error: 'Invalid credentials' });
             }
 
             if (!user.isActive) {
                 return res.status(403).json({ error: 'Account is inactive' });
             }
+
+            if (user.isLocked()) {
+                return res.status(423).json({ error: 'Account is temporarily locked due to too many failed attempts' });
+            }
+
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                await user.incrementLoginAttempts();
+                SecurityAudit.logEvent({
+                    userId: user._id,
+                    action: 'login_failed',
+                    status: 'failure',
+                    ipAddress: req.ip,
+                    userAgent: req.headers['user-agent'],
+                    metadata: { context: 'oauth_authorize', client_id }
+                }).catch(() => {});
+                return res.status(401).json({ error: 'Invalid credentials' });
+            }
+
+            await user.resetLoginAttempts();
+            SecurityAudit.logEvent({
+                userId: user._id,
+                action: 'login_success',
+                status: 'success',
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent'],
+                metadata: { context: 'oauth_authorize', client_id }
+            }).catch(() => {});
 
             // บันทึก session
             req.session.user = {
@@ -534,6 +558,30 @@ exports.introspectToken = async (req, res, next) => {
         res.json(result);
     } catch (error) {
         logger.error('Introspect token error:', error);
+        next(error);
+    }
+};
+
+/**
+ * Revoke user consent for a specific OAuth client (PDPA right to object)
+ * DELETE /api/oauth/consents/:clientId
+ */
+exports.revokeConsent = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        const { clientId } = req.params;
+
+        if (!clientId) {
+            return res.status(400).json({ success: false, error: 'clientId is required' });
+        }
+
+        await Consent.revokeConsent(userId, clientId);
+
+        logger.info(`Consent revoked: userId=${userId} clientId=${clientId}`);
+
+        res.json({ success: true, message: 'Consent revoked successfully' });
+    } catch (error) {
+        logger.error('Revoke consent error:', error);
         next(error);
     }
 }; 

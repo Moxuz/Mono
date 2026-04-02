@@ -180,7 +180,7 @@ async function getSecuritySummary(req, res) {
 
         // Get user info
         const user = await User.findById(userId).select(
-            'username email emailVerified twoFactorEnabled lastLogin createdAt'
+            'username email lastLogin createdAt'
         );
 
         // Get recent security events
@@ -189,10 +189,7 @@ async function getSecuritySummary(req, res) {
             action: {
                 $in: [
                     'password_changed',
-                    'email_verified',
-                    'account_locked',
-                    '2fa_enabled',
-                    '2fa_disabled'
+                    'account_locked'
                 ]
             },
             timestamp: { $gte: thirtyDaysAgo }
@@ -204,8 +201,6 @@ async function getSecuritySummary(req, res) {
                 user: {
                     username: user.username,
                     email: user.email,
-                    emailVerified: user.emailVerified,
-                    twoFactorEnabled: user.twoFactorEnabled,
                     lastLogin: user.lastLogin,
                     memberSince: user.createdAt
                 },

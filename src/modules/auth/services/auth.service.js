@@ -5,7 +5,6 @@ const config = require('../../../shared/config/config');
 const emailService = require('../../../shared/services/email.service');
 const crypto = require('crypto');
 const { validatePassword } = require('../../../shared/utils/passwordValidator');
-const emailVerificationService = require('../../../shared/services/emailVerification.service');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
 const sessionService = require('../../../shared/services/session.service');
 const logger = require('../../../shared/utils/logger');
@@ -48,11 +47,6 @@ class AuthService {
             emailService
                 .sendWelcomeEmail({ to: user.email, username: user.username })
                 .catch((err) => logger.error('Welcome email failed:', { email: user.email, error: err.message }));
-
-            // Send verification email
-            emailVerificationService
-                .sendVerificationEmail(user._id)
-                .catch((err) => logger.error('Verification email failed:', { email: user.email, error: err.message }));
 
             // Log security event
             securityAuditService.logSecurityEvent({
@@ -216,7 +210,7 @@ class AuthService {
         const expiresIn = remember ? '30d' : (config.JWT_EXPIRE || '1h');
         return jwt.sign(
             {
-                id: user._id,
+                sub: user._id.toString(),
                 email: user.email,
                 role: user.role,
                 provider: user.googleId ? 'google' : user.githubId ? 'github' : 'local',
@@ -231,7 +225,7 @@ class AuthService {
     generateRefreshToken(user) {
         return jwt.sign(
             {
-                id: user._id,
+                sub: user._id.toString(),
                 type: 'refresh_token',
                 jti: crypto.randomBytes(16).toString('hex')
             },

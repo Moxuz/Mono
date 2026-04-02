@@ -106,7 +106,19 @@
       "Bash(head -10 grep -n \"localStorage\\\\|location.href\\\\|login\" /c/Users/ASUS/Documents/TEST/TESTMONO/public/js/settings.js)",
       "Bash(head -10 grep -n \"localStorage\\\\|location.href\" /c/Users/ASUS/Documents/TEST/TESTMONO/public/js/api-keys.js)",
       "Bash(head -8 grep -n \"localStorage\\\\|location.href\" /c/Users/ASUS/Documents/TEST/TESTMONO/public/js/dashboard.js)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(sed 's/^[ \\\\t]*//')",
+      "Bash(wc -l /c/Users/ASUS/Documents/TEST/TESTMONO/tests/*.test.js)",
+      "Bash(find C:UsersASUSDocumentsTESTTESTMONOsrc -name *openid* -o -name *well-known*)",
+      "Bash(unzip -q \"TAS7-updated.docx\" -d \"TAS7-extracted\")",
+      "Bash(find C:UsersASUSDocumentsTESTTESTMONOsrcmodulesdashboardroutes -type f -name *.js)",
+      "WebFetch(domain:openid.net)",
+      "Bash(python -X utf8 -c \":*)",
+      "Bash(where soffice:*)",
+      "Bash(where \"C:\\\\Program Files\\\\LibreOffice\\\\program\\\\soffice.exe\")",
+      "Bash(wc -l *.drawio)",
+      "Bash(where drawio:*)",
+      "Bash(where \"draw.io\")"
     ]
   }
 }

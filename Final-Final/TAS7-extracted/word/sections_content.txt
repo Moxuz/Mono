@@ -1,0 +1,478 @@
+
+====================================================================================================
+SECTION: PDPA (Paragraph 100)
+====================================================================================================
+
+[Paragraph 100]
+การวิจัยนี้พัฒนาโปรแกรมยืนยันตัวตนแบบบูรณาการระหว่างระบบงานตามมาตรฐาน PDPA โดยใช้สถาปัตยกรรมโมโนลิธ (Monolithic Architecture) เพื่อรองรับการยืนยันตัวตนที่ปลอดภัยและมีความซับซ้อนในโค้ดเบสเดียว ระบบที่พัฒนาขึ้นรองรับ OAuth 2.0 และ OpenID Connect พร้อมการใช้งาน PKCE (Proof Key for Code Exchange) เพื่อเพิ่มความปลอดภัยในการแลกเปลี่ยนข้อมูล
+
+[Paragraph 101]
+ระบบประกอบด้วยโมดูลหลัก 3 โมดูลในโค้ดเบสเดียว ได้แก่ 1) โมดูลยืนยันตัวตน (Authentication Module) ซึ่งรวมการจัดการเซสชันไว้ด้วย 2) โมดูล OAuth (OAuth Module) และ 3) โมดูลจัดการผู้ใช้ (User Module) นอกจากนี้ยังมี Shared Services ได้แก่ Security Audit Service และ Session Service การสื่อสารระหว่างโมดูลใช้ function calls โดยตรง และใช้ Apache Kafka สำหรับการบันทึกข้อมูลแบบกระจาย
+
+[Paragraph 102]
+การทดสอบระบบพบว่าระบบสามารถทำงานได้ตามฟังก์ชันที่กำหนดไว้ทั้งหมด ได้แก่ การลงทะเบียน การเข้าสู่ระบบ การเข้าสู่ระบบผ่านผู้ให้บริการภายนอก (Google, GitHub) การจัดการเซสชัน และการจัดการความยินยอมตาม PDPA ผลการทดสอบความพึงพอใจของผู้ใช้งานพบว่าระบบได้รับคะแนนความพึงพอใจเฉลี่ย 4.70 จาก 5 คะแนน
+
+[Paragraph 103]
+คำสำคัญ: การยืนยันตัวตน, OAuth 2.0, โมโนลิธ, PDPA, ความปลอดภัย
+
+[Paragraph 104]
+TitleTrusted Authentication System Using Monolithic Architecture
+
+[Paragraph 105]
+
+
+[Paragraph 106]
+StudentsMr. Napat Muninnimitt Student ID 64050416
+
+[Paragraph 107]
+นาย ณัฐพล ว่องไวยุทธ์ Student ID 64050441
+
+[Paragraph 108]
+DegreeBachelor of Science (Computer Science)
+
+[Paragraph 109]
+DepartmentComputer Science
+
+[Paragraph 110]
+FacultyScience
+
+[Paragraph 111]
+University                     King Mongkut’s Institute of Technology Ladkrabang (KMITL)
+
+[Paragraph 112]
+Academic Year2567
+
+[Paragraph 113]
+AdvisorAsst. Prof. กฤษฎา บุศรา
+
+[Paragraph 114]
+
+
+[Paragraph 115]
+Abstract
+
+[Paragraph 116]
+This research develops an integrated authentication system compliant with PDPA standards using Monolithic Architecture to support secure and flexible authentication within a single codebase. The developed system supports OAuth 2.0 and OpenID Connect with PKCE (Proof Key for Code Exchange) implementation for enhanced security in data exchange.
+
+[Paragraph 117]
+The system consists of 5 main modules in a single codebase: 1) Authentication Module, 2) OAuth Module, 3) User Module, 4) Session Module, and 5) Security Audit Module. Inter-module communication uses direct function calls and Apache Kafka for distributed logging.
+
+[Paragraph 118]
+System testing results show that the system can perform all specified functions including registration, login, external provider login (Google, GitHub), session management, and PDPA consent management. User satisfaction testing results show an average satisfaction score of 4.70 out of 5.
+
+[Paragraph 119]
+Keywords: Authentication, OAuth 2.0, Monolith, PDPA, Security
+
+
+====================================================================================================
+SECTION: OIDC (2.7) (Paragraph 314)
+====================================================================================================
+
+[Paragraph 314]
+2.7 OpenID Connect (OIDC)
+
+[Paragraph 315]
+OIDC เป็น identity layer บน OAuth 2.0 จาก OpenID Foundation ช่วยให้ client ตรวจสอบตัวตนผู้ใช้ได้ นอกเหนือจาก authorization ปกติ โดยเพิ่ม ID Token (JWT ที่มี identity claims)
+
+[Paragraph 316]
+
+
+[Paragraph 317]
+OIDC Claims ที่ระบบรองรับ: sub (user ID), email, name, username, role, email_verified
+
+[Paragraph 318]
+
+
+[Paragraph 319]
+Endpoints ที่ระบบ implement ตาม OIDC spec //fact check
+
+[Paragraph 320]
+- GET /.well-known/openid-configuration - OIDC Discovery Document (auto-configuration)
+
+[Paragraph 321]
+- GET /.well-known/jwks.json - JSON Web Key Set สำหรับตรวจสอบ signature
+
+[Paragraph 322]
+- GET /api/oauth/userinfo - ดึง user claims ด้วย Bearer token
+
+[Paragraph 323]
+- GET /api/auth/oauth-session - สร้าง session หลัง OAuth login redirect
+
+[Paragraph 324]
+
+
+[Paragraph 325]
+Scopes ที่รองรับ: openid, profile, email
+
+[Paragraph 326]
+ในระบบนี้ใช้ OIDC + Authorization Code Flow + PKCE เพื่อความปลอดภัยสูงสุดตามมาตรฐาน 2024
+
+[Paragraph 327]
+
+
+[Paragraph 328]
+2.8 งานวิจัยที่เกี่ยวข้อง //fact check
+
+[Paragraph 329]
+ในการพัฒนาระบบยืนยันตัวตนนี้ ได้ทำการศึกษางานวิจัยที่เกี่ยวข้องทั้งในด้านเทคนิคและการนำไปใช้งานจริง ดังนี้
+
+[Paragraph 330]
+
+
+[Paragraph 331]
+2.8.1 Fett, Küsters & Schmitz (2016) — การวิเคราะห์ความปลอดภัย OAuth 2.0 เชิงคณิตศาสตร์
+
+[Paragraph 332]
+Fett et al. (2016) ได้ทำการวิเคราะห์ความปลอดภัยเชิงคณิตศาสตร์อย่างเป็นทางการสำหรับ OAuth 2.0 ทั้ง 4 grant types โดยใช้ web attacker model ที่ครอบคลุม ผลการศึกษาพิสูจน์ว่า authorization code flow เมื่อใช้ร่วมกับ HTTPS และการตรวจสอบ state parameter สามารถรับประกันความปลอดภัยด้าน authorization และ session integrity ได้อย่างแข็งแกร่ง นอกจากนี้ยังพิสูจน์ว่า implicit flow มีความปลอดภัยต่ำกว่าเนื่องจาก access token ถูกเปิดเผยใน URL fragment ระบบ TAS ได้นำ authorization code flow มาใช้แต่เพียงอย่างเดียวและเพิ่ม PKCE (S256) เพื่อป้องกัน code interception attacks ตามข้อพิสูจน์ของ Fett et al. [16]
+
+[Paragraph 333]
+
+
+
+====================================================================================================
+SECTION: Related Research (2.8) (Paragraph 343)
+====================================================================================================
+
+[Paragraph 343]
+2.8.5 Melton et al. (2017) — การ Deploy ระบบ Single Sign-On ในสถานพยาบาล
+
+[Paragraph 344]
+Melton et al. (2017) ได้บันทึกการ deploy ระบบ Single Sign-On ในระบบโรงพยาบาล 6 แห่งที่ต้องการ password มากกว่า 12 รายการต่อคน การศึกษาวัดผลลัพธ์ที่เป็นรูปธรรม พบว่า SSO ช่วยลดเวลาที่ใช้ในการยืนยันตัวตน 9.51 นาทีต่อคนต่อวัน คิดเป็นมูลค่า 92,146 ดอลลาร์สหรัฐต่อสถานพยาบาลต่อปี นอกจากนี้ระบบ centralized authentication ยังช่วยรวม audit logs ไว้ในที่เดียว กรณีศึกษานี้ยืนยันว่าการเลือกสถาปัตยกรรมแบบ centralized authentication ซึ่งเป็นแนวทางเดียวกับที่ระบบ TAS ใช้ ให้ผลประโยชน์ด้านความปลอดภัยและประสิทธิภาพที่วัดได้จริงในองค์กร [20]
+
+[Paragraph 345]
+
+
+[Paragraph 346]
+
+
+[Paragraph 347]
+
+
+[Paragraph 348]
+
+
+[Paragraph 349]
+
+
+[Paragraph 350]
+
+
+[Paragraph 351]
+
+
+[Paragraph 352]
+
+
+[Paragraph 353]
+
+
+[Paragraph 354]
+
+
+[Paragraph 355]
+
+
+[Paragraph 356]
+
+
+[Paragraph 357]
+
+
+[Paragraph 358]
+
+
+[Paragraph 359]
+
+
+[Paragraph 360]
+
+
+[Paragraph 361]
+
+
+[Paragraph 362]
+
+
+
+====================================================================================================
+SECTION: Authentication Endpoints (3.x) (Paragraph 958)
+====================================================================================================
+
+[Paragraph 958]
+Authentication Endpoints //fact check
+
+[Paragraph 959]
+POST   /api/auth/register                - ลงทะเบียนผู้ใช้ใหม่
+
+[Paragraph 960]
+POST   /api/auth/login                   - เข้าสู่ระบบ
+
+[Paragraph 961]
+POST   /api/auth/logout                  - ออกจากระบบ
+
+[Paragraph 962]
+POST   /api/auth/refresh-token           - ต่ออายุ access token
+
+[Paragraph 963]
+POST   /api/auth/validate-token          - ตรวจสอบความถูกต้อง token
+
+[Paragraph 964]
+GET    /api/auth/verify-email            - ยืนยันอีเมล
+
+[Paragraph 965]
+POST   /api/auth/resend-verification     - ส่งอีเมลยืนยันใหม่
+
+[Paragraph 966]
+POST   /api/auth/forgot-password         - ขอรหัสผ่านใหม่
+
+[Paragraph 967]
+POST   /api/auth/reset-password/:token   - รีเซ็ตรหัสผ่าน
+
+[Paragraph 968]
+POST   /api/auth/change-password         - เปลี่ยนรหัสผ่าน
+
+[Paragraph 969]
+GET    /api/auth/profile                 - ดูข้อมูลโปรไฟล์
+
+[Paragraph 970]
+DELETE /api/auth/delete-account          - ลบบัญชีผู้ใช้
+
+[Paragraph 971]
+GET    /api/auth/preferences             - ดูการตั้งค่าผู้ใช้
+
+[Paragraph 972]
+PUT    /api/auth/preferences             - แก้ไขการตั้งค่าผู้ใช้
+
+[Paragraph 973]
+GET    /api/auth/audit-logs              - ดู audit logs
+
+[Paragraph 974]
+GET    /api/auth/security-audit          - ดู security events
+
+[Paragraph 975]
+POST   /api/auth/emergency-lockdown      - ยกเลิกทุก sessions ฉุกเฉิน
+
+[Paragraph 976]
+
+
+[Paragraph 977]
+Social Login Endpoints
+
+
+====================================================================================================
+SECTION: Security Features (3.8) (Paragraph 1131)
+====================================================================================================
+
+[Paragraph 1131]
+3.8.7 Security Headers
+
+[Paragraph 1132]
+ใช้ Helmet.js สำหรับเพิ่ม security headers
+
+[Paragraph 1133]
+- X-Frame-Options: DENY
+
+[Paragraph 1134]
+- X-Content-Type-Options: nosniff
+
+[Paragraph 1135]
+- X-XSS-Protection: 1; mode=block
+
+[Paragraph 1136]
+- Strict-Transport-Security
+
+[Paragraph 1137]
+- Content-Security-Policy
+
+[Paragraph 1138]
+
+
+[Paragraph 1139]
+
+
+[Paragraph 1140]
+3.8.9 Token Blacklist Middleware Check
+
+[Paragraph 1141]
+ทุก request ผ่าน authenticate middleware จะตรวจสอบ token กับ TokenBlacklist ก่อน JWT verify
+
+[Paragraph 1142]
+- ทำให้ invalidate access token ได้ทันทีโดยไม่รอหมดอายุ
+
+[Paragraph 1143]
+- ใช้สำหรับ: logout, emergency lockdown, OAuth token revoke
+
+[Paragraph 1144]
+- TokenBlacklist.isBlacklisted(token) เรียกก่อน jwt.verify()
+
+[Paragraph 1145]
+- tokens ที่ถูก revoke จะถูก reject ทันที
+
+[Paragraph 1146]
+
+
+[Paragraph 1147]
+3.8.10 Emergency Lockdown
+
+[Paragraph 1148]
+POST /api/auth/emergency-lockdown สำหรับยกเลิก sessions ทั้งหมดในทันที
+
+[Paragraph 1149]
+- Revoke ทุก active sessions ของผู้ใช้
+
+[Paragraph 1150]
+- Blacklist refresh tokens ทั้งหมดในฐานข้อมูล
+
+
+====================================================================================================
+SECTION: Summary (5.1) (Paragraph 2661)
+====================================================================================================
+
+[Paragraph 2661]
+5.1 เปิด Client Application
+
+[Paragraph 2662]
+http://localhost:3001
+
+[Paragraph 2663]
+
+
+[Paragraph 2664]
+5.2 คลิก Login
+
+[Paragraph 2665]
+จะถูก redirect ไป Auth Server
+
+[Paragraph 2666]
+
+
+[Paragraph 2667]
+5.3 กรอก Username/Password หรือเลือก Social Login
+
+[Paragraph 2668]
+
+
+[Paragraph 2669]
+5.4 อนุญาตการเข้าถึง (Consent Page)
+
+[Paragraph 2670]
+
+
+[Paragraph 2671]
+5.5 จะถูก redirect กลับ Client Application พร้อม Authorization Code
+
+[Paragraph 2672]
+
+
+[Paragraph 2673]
+5.6 Client Application จะแลกเปลี่ยน Code เป็น Access Token
+
+[Paragraph 2674]
+
+
+[Paragraph 2675]
+5.7 เข้าใช้งานระบบได้สำเร็จ
+
+[Paragraph 2676]
+
+
+
+====================================================================================================
+SECTION: Recommendations (5.3) (Paragraph 2667)
+====================================================================================================
+
+[Paragraph 2667]
+5.3 กรอก Username/Password หรือเลือก Social Login
+
+[Paragraph 2668]
+
+
+[Paragraph 2669]
+5.4 อนุญาตการเข้าถึง (Consent Page)
+
+[Paragraph 2670]
+
+
+[Paragraph 2671]
+5.5 จะถูก redirect กลับ Client Application พร้อม Authorization Code
+
+[Paragraph 2672]
+
+
+[Paragraph 2673]
+5.6 Client Application จะแลกเปลี่ยน Code เป็น Access Token
+
+[Paragraph 2674]
+
+
+[Paragraph 2675]
+5.7 เข้าใช้งานระบบได้สำเร็จ
+
+[Paragraph 2676]
+
+
+
+====================================================================================================
+SECTION: API Documentation (Paragraph 2468)
+====================================================================================================
+
+[Paragraph 2468]
+เอกสาร API Documentation   //recheck
+
+[Paragraph 2469]
+
+
+[Paragraph 2470]
+ตัวอย่างการใช้งาน API Endpoints
+
+[Paragraph 2471]
+
+
+[Paragraph 2472]
+1. การลงทะเบียนผู้ใช้ใหม่
+
+[Paragraph 2473]
+
+
+[Paragraph 2474]
+POST /api/auth/register
+
+[Paragraph 2475]
+Content-Type: application/json
+
+[Paragraph 2476]
+
+
+[Paragraph 2477]
+Request Body:
+
+[Paragraph 2478]
+{
+
+[Paragraph 2479]
+"username": "johndoe",
+
+[Paragraph 2480]
+"email": "john@example.com",
+
+[Paragraph 2481]
+"password": "SecurePass123!",
+
+[Paragraph 2482]
+"consentEssential": true,
+
+[Paragraph 2483]
+"consentAnalytics": true
+
+[Paragraph 2484]
+}
+
+[Paragraph 2485]
+
+
+[Paragraph 2486]
+Response (201 Created):
+
+[Paragraph 2487]
+{
+

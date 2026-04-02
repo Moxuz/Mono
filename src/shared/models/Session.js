@@ -37,11 +37,6 @@ const sessionSchema = new mongoose.Schema({
         os: String,
         device: String
     },
-    // Location (approximate from IP)
-    location: {
-        country: String,
-        city: String
-    },
     // Session status
     isActive: {
         type: Boolean,
@@ -168,7 +163,6 @@ sessionSchema.statics.createSession = async function(data) {
             userAgent: data.userAgent || '',
             ipAddress: data.ipAddress || 'unknown',
             deviceInfo: data.deviceInfo || { browser: 'Unknown', os: 'Unknown', device: 'Unknown' },
-            location: data.location || {}
         });
 
         return {

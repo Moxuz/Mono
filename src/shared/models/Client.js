@@ -63,10 +63,6 @@ const clientSchema = new mongoose.Schema({
         default: true
     },
     // Statistics
-    totalUsers: {
-        type: Number,
-        default: 0
-    },
     totalRequests: {
         type: Number,
         default: 0

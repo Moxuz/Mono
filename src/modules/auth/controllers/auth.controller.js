@@ -1,8 +1,8 @@
 const authService = require('../services/auth.service');
 const logger      = require('../../../shared/utils/logger');
 const { passport, GOOGLE_ENABLED } = require('../../../shared/config/passport');
-const emailVerificationService = require('../../../shared/services/emailVerification.service');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
+const userService = require('../../user/services/user.service');
 const User = require('../../../shared/models/User');
 const bcrypt = require('bcryptjs');
 const Session = require('../../../shared/models/Session');
@@ -261,8 +261,15 @@ exports.logout = async (req, res, next) => {
             const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
             const SessionModel = require('../../../shared/models/Session');
 
+            // Extract client_id from token if present (OAuth tokens carry it; regular login tokens do not)
+            let tokenClientId = null;
+            try {
+                const decoded = jwt.decode(token);
+                tokenClientId = decoded?.client_id || null;
+            } catch (_) { /* ignore decode errors */ }
+
             // Blacklist current access token
-            await TokenBlacklist.revokeToken(token, userId, null, 'user_logout');
+            await TokenBlacklist.revokeToken(token, userId, tokenClientId, 'user_logout');
 
             // Find active session and blacklist its refresh token too
             const session = await SessionModel.findOne({
@@ -273,7 +280,7 @@ exports.logout = async (req, res, next) => {
 
             if (session) {
                 if (session.refreshToken) {
-                    await TokenBlacklist.revokeToken(session.refreshToken, userId, null, 'user_logout')
+                    await TokenBlacklist.revokeToken(session.refreshToken, userId, tokenClientId, 'user_logout')
                         .catch(err => logger.warn('Failed to blacklist refresh token on logout:', err.message));
                 }
                 session.isActive = false;
@@ -301,7 +308,7 @@ exports.logout = async (req, res, next) => {
     }
 };
 
-// ตรวจสอบรหัสผ่านหรือ reauth token ก่อนลบบัญชีและข้อมูลทั้งหมดอย่างถาวร
+// ตรวจสอบรหัสผ่านหรือ reauth token ก่อนลบบัญชี (soft delete + anonymize ตาม PDPA)
 exports.deleteAccount = async (req, res) => {
     try {
         const userId = req.user._id || req.user.id;
@@ -358,26 +365,8 @@ exports.deleteAccount = async (req, res) => {
             logger.info('deleteAccount: OAuth re-authentication verified', { function: 'deleteAccount', userId });
         }
 
-        // Revoke all sessions
-        await Session.deleteMany({ userId });
-        logger.info('deleteAccount: all sessions removed', { function: 'deleteAccount', userId });
-
-        // Audit log before deletion (userId reference will be orphaned after delete)
-        await SecurityAudit.logEvent({
-            userId,
-            action: 'account_deactivated',
-            status: 'success',
-            ipAddress: clientIp,
-            userAgent: req.headers['user-agent'],
-            metadata: {
-                email: user.email,
-                reason: 'Account permanently deleted by user',
-                eventType: 'permanent_deletion'
-            }
-        });
-
-        await User.findByIdAndDelete(userId);
-        logger.security(`Account permanently deleted: ${user.email}`, { function: 'deleteAccount', userId });
+        // Delegate to userService — soft delete: anonymize data, revoke sessions, audit log
+        await userService.deleteUser(userId, 'user_request');
 
         res.json({
             success: true,
@@ -501,51 +490,6 @@ exports.resetPassword = async (req, res, next) => {
     }
     res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
   }
-};
-
-// ─── Verify Email ─────────────────────────────────────────────────────────────
-// ตรวจสอบ token จาก query string และยืนยัน email ของ user
-exports.verifyEmail = async (req, res, next) => {
-    try {
-        const { token } = req.query;
-        const result = await emailVerificationService.verifyEmail(token);
-        
-        logger.info(`Email verified: ${result.user.email}`);
-        
-        // Redirect to success page
-        res.redirect('/login.html?verified=true');
-    } catch (error) {
-        logger.error('Email verification error:', error);
-        res.redirect('/login.html?error=verification_failed');
-    }
-};
-
-// ─── Resend Verification Email ────────────────────────────────────────────────
-// ส่งอีเมลยืนยันใหม่ให้ user ที่ยังไม่ได้ยืนยัน email
-exports.resendVerificationEmail = async (req, res, next) => {
-    try {
-        const { email } = req.body;
-        
-        if (!email) {
-            return res.status(400).json({
-                success: false,
-                error: 'Email is required'
-            });
-        }
-        
-        const result = await emailVerificationService.resendVerificationEmail(email);
-        
-        res.json({
-            success: true,
-            message: result.message
-        });
-    } catch (error) {
-        logger.error('Resend verification email error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to resend verification email'
-        });
-    }
 };
 
 // ─── Change Password ──────────────────────────────────────────────────────────
@@ -771,7 +715,6 @@ exports.getProfile = async (req, res, next) => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
-                isEmailVerified: user.emailVerified,
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin,
                 hasPassword: !!user.password

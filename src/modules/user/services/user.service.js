@@ -21,7 +21,6 @@ async function getUserById(userId) {
             username: user.username,
             email: user.email,
             role: user.role,
-            emailVerified: user.emailVerified,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };
@@ -104,8 +103,6 @@ async function deleteUser(userId, reason = 'user_request') {
         user.password = undefined;
         user.passwordResetToken = undefined;
         user.passwordResetExpires = undefined;
-        user.emailVerificationToken = undefined;
-        user.emailVerificationExpires = undefined;
         // Keep PDPA consent record for compliance
         user.pdpaConsent = {
             ...user.pdpaConsent,
@@ -149,7 +146,6 @@ async function exportUserData(userId) {
                 username: user.username,
                 email: user.email,
                 role: user.role,
-                emailVerified: user.emailVerified,
                 createdAt: user.createdAt,
                 updatedAt: user.updatedAt,
                 lastLogin: user.lastLogin

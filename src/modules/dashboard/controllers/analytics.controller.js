@@ -45,10 +45,6 @@ async function getUserStats(req, res) {
             { $group: { _id: '$role', count: { $sum: 1 } } }
         ]);
 
-        // Email verified vs unverified
-        const verifiedEmails = await User.countDocuments({ emailVerified: true });
-        const unverifiedEmails = await User.countDocuments({ emailVerified: false });
-
         logger.info('User stats retrieved');
 
         res.json({
@@ -65,11 +61,6 @@ async function getUserStats(req, res) {
                     acc[item._id] = item.count;
                     return acc;
                 }, {}),
-                emailVerification: {
-                    verified: verifiedEmails,
-                    unverified: unverifiedEmails,
-                    percentage: totalUsers > 0 ? ((verifiedEmails / totalUsers) * 100).toFixed(1) : 0
-                },
                 timestamp: now.toISOString()
             }
         });
