@@ -9,13 +9,14 @@ const {
     introspectLimiter,
     revokeLimiter,
     generalLimiter,
+    userinfoLimiter,
 } = require('../../../shared/middleware/rateLimiter');
 
 // OAuth 2.0 Flow (Public endpoints)
 router.get('/authorize',   authorizeLimiter,  oauthController.showAuthorizeForm);
 router.post('/authorize',  authorizeLimiter,  oauthController.authorize);
 router.post('/token',      tokenLimiter,       oauthController.token);
-router.get('/userinfo',    generalLimiter,        oauthController.userinfo);
+router.get('/userinfo',    userinfoLimiter,       oauthController.userinfo);
 router.post('/introspect', introspectLimiter,  oauthController.introspectToken);
 
 // Client Management (Protected endpoints)

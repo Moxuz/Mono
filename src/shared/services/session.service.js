@@ -68,7 +68,6 @@ async function createSession(userId, accessToken, refreshToken, req) {
         
         return {
             sessionId: result.sessionId,
-            sessionToken: result.sessionToken,
             deviceInfo
         };
     } catch (error) {
@@ -213,23 +212,21 @@ async function cleanupExpiredSessions() {
  */
 async function validateAndRotateRefreshToken(sessionToken, refreshToken) {
     try {
-        const session = await Session.findOne({ sessionToken }).select('+refreshTokenHash +refreshTokenFamily');
-        
+        const accessTokenHash = Session.hashToken(sessionToken);
+        const session = await Session.findOne({ accessTokenHash }).select('+refreshTokenHash +refreshTokenFamily');
+
         if (!session || !session.isActive) {
             return { valid: false, error: 'Invalid session' };
         }
         
-        // Hash the provided token and compare
         const providedHash = Session.hashRefreshToken(refreshToken);
-        
+
         if (!crypto.timingSafeEqual(Buffer.from(providedHash), Buffer.from(session.refreshTokenHash))) {
-            // Token mismatch - possible token theft attempt
             logger.warn('Refresh token mismatch - possible theft attempt', {
                 sessionId: session._id,
                 userId: session.userId
             });
-            
-            // Revoke this session and all sessions in the family
+
             await session.revoke('token_compromised');
             await Session.revokeAllSessions(
                 session.userId,
@@ -262,14 +259,14 @@ async function validateAndRotateRefreshToken(sessionToken, refreshToken) {
  */
 async function updateRefreshToken(sessionToken, newRefreshToken) {
     try {
-        const session = await Session.findOne({ sessionToken });
-        
+        const accessTokenHash = Session.hashToken(sessionToken);
+        const session = await Session.findOne({ accessTokenHash });
+
         if (!session) {
             throw new Error('Session not found');
         }
-        
-        session.refreshToken = newRefreshToken;
-        session.refreshTokenHash = Session.hashRefreshToken(newRefreshToken);
+
+        session.refreshTokenHash = Session.hashToken(newRefreshToken);
         await session.save();
         
         return { success: true };

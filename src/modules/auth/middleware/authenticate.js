@@ -58,8 +58,9 @@ exports.authenticate = async (req, res, next) => {
             });
         }
 
+        const accessTokenHash = Session.hashToken(token);
         const session = await Session.findOne({
-            sessionToken: token,
+            accessTokenHash,
             isActive: true
         });
 

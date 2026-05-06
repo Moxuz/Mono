@@ -43,19 +43,27 @@ function validatePassword(password) {
     errors.push('Password must contain at least 1 number');
   }
 
-  // นับ score สำหรับ UI feedback เท่านั้น ไม่บล็อกการสมัคร
+  // Block common passwords
+  if (COMMON_PASSWORDS && COMMON_PASSWORDS.has(password.toLowerCase())) {
+    errors.push('Password is too common');
+  }
 
-  // Optional: Bonus points for UI (doesn't block registration)
+  // Block sequential characters (3+ in a row)
+  if (checkSequentialChars(password)) {
+    errors.push('Password must not contain sequential characters');
+  }
+
+  // Block repeated characters (4+ same char in a row)
+  if (/(.)\1{3,}/.test(password)) {
+    errors.push('Password must not contain repeated characters');
+  }
+
+  // Bonus points for UI (doesn't block registration)
   if (password.length >= 12) score += 1;
   if (/[A-Z]/.test(password)) score += 1;
   if (/[a-z]/.test(password)) score += 1;
   if (/[0-9]/.test(password)) score += 1;
   if (/[!@#$%^&*()_+\-=$$$${};':"\\|,.<>\/?]/.test(password)) score += 1;
-
-  // Optional: Warn about common passwords (but don't block)
-  // if (COMMON_PASSWORDS && COMMON_PASSWORDS.has(password.toLowerCase())) {
-  //   score = Math.max(0, score - 2); // Reduce score but don't block
-  // }
 
   // Determine if password is valid
   const valid = errors.length === 0;

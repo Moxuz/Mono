@@ -1,0 +1,272 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="main" name="Use Case Diagram">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1150" pageHeight="1250" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- TITLE -->
+        <mxCell id="t1" value="TAS Authentication Server — Use Case Diagram"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=15;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="180" y="10" width="720" height="28" as="geometry"/>
+        </mxCell>
+
+        <!-- SYSTEM BOUNDARY (no packages inside — spacing only) -->
+        <mxCell id="sb" value="TAS Authentication Server"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#2F6FAE;strokeWidth=2;fontSize=13;fontStyle=1;verticalAlign=top;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="235" y="45" width="582" height="1065" as="geometry"/>
+        </mxCell>
+
+        <!-- ===========================================================
+             LEFT COLUMN  (x=245, w=240)
+             Groups separated by 40 px whitespace. No sub-boxes.
+             =========================================================== -->
+
+        <!-- Account Management  (y 80–344) -->
+        <mxCell id="UC_REG"     value="Register Account"  style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="80"  width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_LOGIN"   value="Login (Local)"      style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="135" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_LGOOGLE" value="Login via Google"   style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="190" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_LGITHUB" value="Login via GitHub"   style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="245" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_LOGOUT"  value="Logout"             style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="300" width="240" height="45" as="geometry"/></mxCell>
+
+        <!-- Password Management  (y 385–539, gap 40) -->
+        <mxCell id="UC_FORGOT"   value="Forgot Password"  style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="385" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_RESET"    value="Reset Password"   style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="440" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_CHANGEPW" value="Change Password"  style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="495" width="240" height="45" as="geometry"/></mxCell>
+
+        <!-- Profile &amp; Settings  (y 580–844, gap 40) -->
+        <mxCell id="UC_PROFILE"  value="View / Update Profile"       style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="580" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_PREFS"    value="Update Preferences"          style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="635" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_ACTIVITY" value="View Activity Log"           style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="690" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_EXPORT"   value="Export Personal Data (PDPA)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="745" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_DELETE"   value="Delete Account"              style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="800" width="240" height="45" as="geometry"/></mxCell>
+
+        <!-- Session Management  (y 885–1039, gap 40)  [moved to left so Admin lines stay short] -->
+        <mxCell id="UC_SESSIONS" value="View Active Sessions" style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="885" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_REVOKESS" value="Revoke Session"       style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="940" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_LOCKDOWN" value="Emergency Lockdown"   style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="245" y="995" width="240" height="45" as="geometry"/></mxCell>
+
+        <!-- ===========================================================
+             RIGHT COLUMN  (x=535, w=240)
+             =========================================================== -->
+
+        <!-- OAuth Client Management  (y 80–179) -->
+        <mxCell id="UC_REGCLIENT"  value="Register OAuth Client" style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="80"  width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_MGMTCLIENT" value="Manage OAuth Clients"  style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="135" width="240" height="45" as="geometry"/></mxCell>
+
+        <!-- OAuth 2.0 Server  (y 220–594, gap 40) -->
+        <mxCell id="UC_CONSENT"       value="Grant Authorization (Consent)"  style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="220" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_TOKEN"         value="Exchange Code for Token"         style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="275" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_REFRESH"       value="Refresh Access Token"            style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="330" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_INTROSPECT"    value="Introspect Token"                style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="385" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_USERINFO"      value="Get User Info"                   style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="440" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_REVOKETOKEN"   value="Revoke Token"                    style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="495" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_REVOKECONSENT" value="Revoke OAuth Consent (PDPA)"     style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="550" width="240" height="45" as="geometry"/></mxCell>
+
+        <!-- Admin Dashboard  (y 635–889, gap 40) -->
+        <mxCell id="UC_USERS"     value="View All Users"        style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="635" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_ANALYTICS" value="View Analytics"        style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="690" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_LOGS"      value="View Security Logs"    style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="745" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_MONITOR"   value="Monitor System Health" style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="800" width="240" height="45" as="geometry"/></mxCell>
+        <mxCell id="UC_EXPORTLOG" value="Export Audit Logs"     style="ellipse;whiteSpace=wrap;html=1;fillColor=#EEF5FF;strokeColor=#2F6FAE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="535" y="855" width="240" height="45" as="geometry"/></mxCell>
+
+        <!-- ===========================================================
+             ACTORS — LEFT (human actors, warm yellow fill)
+             =========================================================== -->
+
+        <!-- User — positioned to minimise line distances to frequently-used UCs -->
+        <mxCell id="ACT_USER" value="User"
+          style="shape=umlActor;html=1;verticalLabelPosition=bottom;labelBackgroundColor=none;verticalAlign=top;align=center;fillColor=#FFFBCC;strokeColor=#B8860B;"
+          vertex="1" parent="1">
+          <mxGeometry x="80" y="410" width="40" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Admin — between Session Mgmt (left, y≈885) and Admin Dashboard (right, y≈635) -->
+        <mxCell id="ACT_ADMIN" value="Admin"
+          style="shape=umlActor;html=1;verticalLabelPosition=bottom;labelBackgroundColor=none;verticalAlign=top;align=center;fillColor=#FFFBCC;strokeColor=#B8860B;"
+          vertex="1" parent="1">
+          <mxGeometry x="80" y="760" width="40" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Generalization Admin→User (hollow triangle at User, Admin IS-A User) -->
+        <mxCell id="GEN" value=""
+          style="html=1;endArrow=block;endFill=0;endSize=12;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;"
+          edge="1" source="ACT_ADMIN" target="ACT_USER" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ===========================================================
+             ACTORS — RIGHT (external systems, grey fill, «system» label)
+             All positioned outside system boundary right edge (x=817)
+             =========================================================== -->
+
+        <!-- Google OAuth — aligned with Login via Google (y≈212) -->
+        <mxCell id="ACT_GOOGLE" value="«system»&#xa;Google OAuth"
+          style="shape=umlActor;html=1;verticalLabelPosition=bottom;labelBackgroundColor=none;verticalAlign=top;align=center;fillColor=#f5f5f5;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="868" y="183" width="40" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- GitHub OAuth — aligned with Login via GitHub (y≈267) -->
+        <mxCell id="ACT_GITHUB" value="«system»&#xa;GitHub OAuth"
+          style="shape=umlActor;html=1;verticalLabelPosition=bottom;labelBackgroundColor=none;verticalAlign=top;align=center;fillColor=#f5f5f5;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="868" y="258" width="40" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Email Service — aligned with Account+Password UCs (center ≈ y310) -->
+        <mxCell id="ACT_EMAIL" value="«system»&#xa;Email Service"
+          style="shape=umlActor;html=1;verticalLabelPosition=bottom;labelBackgroundColor=none;verticalAlign=top;align=center;fillColor=#f5f5f5;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="868" y="430" width="40" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- OAuth Client App — aligned with OAuth 2.0 Server group (center y≈407) -->
+        <mxCell id="ACT_CLIENT" value="«system»&#xa;OAuth Client App"
+          style="shape=umlActor;html=1;verticalLabelPosition=bottom;labelBackgroundColor=none;verticalAlign=top;align=center;fillColor=#f5f5f5;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="868" y="340" width="40" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- ===========================================================
+             USER ASSOCIATIONS
+             =========================================================== -->
+        <mxCell id="eu1"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_REG"      parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu2"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_LOGIN"    parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu3"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_LGOOGLE"  parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu4"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_LGITHUB"  parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu5"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_LOGOUT"   parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu6"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_FORGOT"   parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu7"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_RESET"    parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu8"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_CHANGEPW" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu9"  value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_PROFILE"  parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu10" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_PREFS"    parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu11" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_ACTIVITY" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu12" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_EXPORT"   parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu13" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_DELETE"   parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu14" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_SESSIONS" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu15" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_REVOKESS" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu16" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_LOCKDOWN" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu17" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_REGCLIENT"    parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu18" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_MGMTCLIENT"   parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu19" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_CONSENT"       parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eu20" value="" style="html=1;endArrow=none;" edge="1" source="ACT_USER" target="UC_REVOKECONSENT" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===========================================================
+             ADMIN ASSOCIATIONS
+             Admin Dashboard (5 UCs) + Session Management (3 UCs) — FIXED
+             =========================================================== -->
+        <mxCell id="ea1" value="" style="html=1;endArrow=none;" edge="1" source="ACT_ADMIN" target="UC_USERS"     parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea2" value="" style="html=1;endArrow=none;" edge="1" source="ACT_ADMIN" target="UC_ANALYTICS" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea3" value="" style="html=1;endArrow=none;" edge="1" source="ACT_ADMIN" target="UC_LOGS"      parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea4" value="" style="html=1;endArrow=none;" edge="1" source="ACT_ADMIN" target="UC_MONITOR"   parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea5" value="" style="html=1;endArrow=none;" edge="1" source="ACT_ADMIN" target="UC_EXPORTLOG" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <!-- FIXED: Admin → Session Management -->
+        <mxCell id="ea6" value="" style="html=1;endArrow=none;" edge="1" source="ACT_ADMIN" target="UC_SESSIONS"  parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea7" value="" style="html=1;endArrow=none;" edge="1" source="ACT_ADMIN" target="UC_REVOKESS"  parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ea8" value="" style="html=1;endArrow=none;" edge="1" source="ACT_ADMIN" target="UC_LOCKDOWN"  parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===========================================================
+             EXTERNAL SYSTEM ASSOCIATIONS
+             =========================================================== -->
+        <mxCell id="eg1" value="" style="html=1;endArrow=none;" edge="1" source="ACT_GOOGLE" target="UC_LGOOGLE" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="eg2" value="" style="html=1;endArrow=none;" edge="1" source="ACT_GITHUB" target="UC_LGITHUB" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- OAuth Client App — FIXED: only 4 OAuth-operation UCs -->
+        <mxCell id="ec1" value="" style="html=1;endArrow=none;" edge="1" source="ACT_CLIENT" target="UC_TOKEN"      parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ec2" value="" style="html=1;endArrow=none;" edge="1" source="ACT_CLIENT" target="UC_REFRESH"    parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ec3" value="" style="html=1;endArrow=none;" edge="1" source="ACT_CLIENT" target="UC_INTROSPECT" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ec4" value="" style="html=1;endArrow=none;" edge="1" source="ACT_CLIENT" target="UC_USERINFO"   parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Email Service — plain associations (no «notify») -->
+        <mxCell id="em1" value="" style="html=1;endArrow=none;" edge="1" source="ACT_EMAIL" target="UC_REG"      parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="em2" value="" style="html=1;endArrow=none;" edge="1" source="ACT_EMAIL" target="UC_LOGIN"    parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="em3" value="" style="html=1;endArrow=none;" edge="1" source="ACT_EMAIL" target="UC_FORGOT"   parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="em4" value="" style="html=1;endArrow=none;" edge="1" source="ACT_EMAIL" target="UC_RESET"    parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="em5" value="" style="html=1;endArrow=none;" edge="1" source="ACT_EMAIL" target="UC_CHANGEPW" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===========================================================
+             «extend» RELATIONSHIPS  (dashed, fontSize=13)
+
+             CORRECT direction: extending UC → base UC (arrowhead at base)
+
+             Login via Google «extend» Login (Local):
+               UC_LGOOGLE → UC_LOGIN  (Login via Google is optional/extending)
+               Routed LEFT to avoid visual overlap with GitHub arrow
+
+             Login via GitHub «extend» Login (Local):
+               UC_LGITHUB → UC_LOGIN
+               Routed RIGHT to avoid overlap with Google arrow
+
+             Forgot Password «extend» Reset Password:
+               UC_FORGOT → UC_RESET  (Forgot is the optional trigger)
+             =========================================================== -->
+
+        <!-- ext1: Login via Google «extend» Login (Local) — LEFT side routing -->
+        <mxCell id="ext1" value="«extend»"
+          style="dashed=1;html=1;endArrow=open;endFill=0;fontSize=12;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;"
+          edge="1" source="UC_LGOOGLE" target="UC_LOGIN" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="222" y="212"/>
+              <mxPoint x="222" y="180"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ext2: Login via GitHub «extend» Login (Local) — RIGHT side routing to avoid overlap -->
+        <mxCell id="ext2" value="«extend»"
+          style="dashed=1;html=1;endArrow=open;endFill=0;fontSize=12;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=1;entryDx=0;entryDy=0;"
+          edge="1" source="UC_LGITHUB" target="UC_LOGIN" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="508" y="267"/>
+              <mxPoint x="508" y="180"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ext3: Forgot Password «extend» Reset Password -->
+        <mxCell id="ext3" value="«extend»"
+          style="dashed=1;html=1;endArrow=open;endFill=0;fontSize=12;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;"
+          edge="1" source="UC_FORGOT" target="UC_RESET" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ===========================================================
+             «include» RELATIONSHIPS
+             Routed to opposite sides so they do NOT overlap:
+               inc1 → left side of ellipses
+               inc2 → right side of ellipses
+             =========================================================== -->
+
+        <!-- inc1: Exchange Code for Token «include» Grant Authorization — LEFT side -->
+        <mxCell id="inc1" value="«include»"
+          style="dashed=1;html=1;endArrow=open;endFill=0;fontSize=12;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;"
+          edge="1" source="UC_TOKEN" target="UC_CONSENT" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="512" y="297"/>
+              <mxPoint x="512" y="265"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- inc2: Refresh Access Token «include» Grant Authorization — RIGHT side (no overlap) -->
+        <mxCell id="inc2" value="«include»"
+          style="dashed=1;html=1;endArrow=open;endFill=0;fontSize=12;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=1;entryDx=0;entryDy=0;"
+          edge="1" source="UC_REFRESH" target="UC_CONSENT" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="798" y="352"/>
+              <mxPoint x="798" y="265"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

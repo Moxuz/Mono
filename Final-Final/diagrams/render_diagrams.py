@@ -203,7 +203,6 @@ UC_REG ..> UC_VER : <<include>>
 # ════════════════════════════════════════════════════════════════════════════════
 SEQ_LOGIN = """
 @startuml
-!theme plain
 skinparam defaultFontName Arial
 skinparam defaultFontSize 12
 skinparam sequenceMessageAlign center
@@ -220,54 +219,73 @@ actor       "User"           as user
 participant "Browser/Client" as browser
 participant "Auth Server"    as server #EEF5FF
 participant "Rate Limiter"   as rate   #F0F0F0
-database    "MongoDB"        as mongo  #E8F5E9
-database    "Redis"          as redis  #FFF3E0
+participant "MongoDB"        as mongo  #E8F5E9
 participant "Email Service"  as email  #FCE4EC
 
-user -> browser   : Enter email + password
-browser -> server : POST /api/auth/login\\n{email, password}
+user -> browser : Enter email + password
+activate browser
 
-server -> rate    : Check rate limit (IP)
-alt Rate limit exceeded
-  rate --> server : 429 Too Many Requests
+browser -> server ++ : POST /api/auth/login\\n{email, password, remember?}
+
+server -> rate ++ : Check rate limit (email + IP)
+rate --> server -- : result
+
+opt Rate limit exceeded
   server --> browser : 429 {"error": "Too many attempts"}
+  browser --> user : Show error: Too many attempts
 end
 
-server -> mongo   : findOne({ email })
-mongo --> server  : User document
+server -> mongo ++ : findOne({ email })
+mongo --> server -- : User document
 
-alt User not found
+opt User not found
+  server -> mongo : insertOne(securityAudit: login_failed)
   server --> browser : 401 {"error": "Invalid credentials"}
+  browser --> user : Show error: Invalid credentials
 end
 
-server -> server  : Check account active & not locked
-
-alt Account locked (failedAttempts >= 5)
-  server --> browser : 423 {"error": "Account locked (15 min)"}
+opt Account is inactive
+  server -> mongo : insertOne(securityAudit: login_failed)
+  server --> browser : 403 {"error": "Account inactive"}
+  browser --> user : Show error: Account inactive
 end
 
-server -> server  : bcrypt.compare(password, hash)
+opt Account locked (lockUntil > now)
+  server -> mongo : insertOne(securityAudit: login_failed)
+  server --> browser : 423 {"error": "Account locked (N min)"}
+  browser --> user : Show error: Account locked
+end
 
-alt Password mismatch
-  server -> mongo   : Increment failedLoginAttempts
-  note right of mongo : Lock if attempts >= 5
-  server -> mongo   : insertOne(securityAudit: login_failed)
+server -> server : bcrypt.compare(password, hash)
+
+opt Password mismatch
+  server -> mongo : Increment failedLoginAttempts\\n(lock if attempts >= 5)
+  server -> mongo : insertOne(securityAudit: login_failed)
   server --> browser : 401 {"error": "Invalid credentials"}
+  browser --> user : Show error: Invalid credentials
 end
 
-server -> mongo   : Reset failedAttempts = 0
-server -> mongo   : Update lastLogin timestamp
-server -> mongo   : insertOne(Session {\\ntoken, refreshTokenHash,\\ndeviceInfo, ipAddress})
-server -> mongo   : insertOne(securityAudit: login_success)
-server -> redis   : Set sess:<sessionId> (1h TTL)
+server -> mongo ++ : Reset failedAttempts = 0
+mongo --> server --
 
-server ->> email  : sendLoginAlert(email) [async]
+server -> mongo ++ : Update lastLogin timestamp
+mongo --> server --
+
+server ->> email : sendLoginAlert(email) [async]
 note right of email : Non-blocking
 
-server -> server  : Generate JWT access token (1h)\\nGenerate refresh token (30d)
+server -> mongo ++ : insertOne(securityAudit: login_success)
+mongo --> server --
 
-server --> browser : 200 {\\n  token,\\n  refreshToken,\\n  sessionId,\\n  user: {id, email, role}\\n}
-browser -> user   : Redirect to /dashboard
+server -> server : Generate JWT access token (1h)\\nGenerate refresh token (30d)
+
+server -> mongo ++ : insertOne(Session {\\naccessTokenHash, refreshTokenHash,\\ndeviceInfo, ipAddress})
+mongo --> server --
+
+server --> browser -- : 200 {\\n  token,\\n  refreshToken,\\n  sessionId,\\n  user: {id, email, role}\\n}
+
+browser -> user : Redirect to /dashboard
+deactivate browser
 
 @enduml
 """.strip()
@@ -290,7 +308,7 @@ title OAuth 2.0 PKCE Authorization Code Flow
 actor       "User"         as user
 participant "Client App\\n(port 3001)" as client #EEF5FF
 participant "Auth Server\\n(port 80)"  as server #E8F5E9
-database    "MongoDB"      as mongo  #FFF3E0
+participant "MongoDB"      as mongo  #FFF3E0
 
 == Step 1: Initiate Login ==
 user -> client  : GET /login

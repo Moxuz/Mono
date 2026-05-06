@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
+// token field stores SHA256 hash of the raw JWT — never the raw token itself
 const tokenBlacklistSchema = new mongoose.Schema({
     token: {
         type: String,
@@ -19,11 +21,18 @@ const tokenBlacklistSchema = new mongoose.Schema({
     },
     clientId: {
         type: String,
-        index: true
+        default: null  // nullable — local login tokens have no clientId
     },
     reason: {
         type: String,
-        enum: ['user_logout', 'admin_revoke', 'security_breach', 'expired'],
+        enum: [
+            'user_logout',
+            'admin_revoke',
+            'security_breach',
+            'token_rotation',
+            'password_changed',
+            'expired'
+        ],
         default: 'user_logout'
     },
     expiresAt: {
@@ -33,35 +42,46 @@ const tokenBlacklistSchema = new mongoose.Schema({
     }
 });
 
-// Static method to check if token is blacklisted
-tokenBlacklistSchema.statics.isBlacklisted = async function(token) {
-    const entry = await this.findOne({ token });
+// Hash raw token — used internally so DB always stores hashes
+function hashToken(rawToken) {
+    return crypto.createHash('sha256').update(rawToken).digest('hex');
+}
+
+// Check if a raw token is blacklisted (hashes before lookup)
+tokenBlacklistSchema.statics.isBlacklisted = async function(rawToken) {
+    const hash = hashToken(rawToken);
+    const entry = await this.findOne({ token: hash });
     return !!entry;
 };
 
-// Static method to revoke token
-tokenBlacklistSchema.statics.revokeToken = async function(token, userId, clientId, reason = 'user_logout') {
+// Revoke a raw token — decodes JWT for expiry, stores hash
+tokenBlacklistSchema.statics.revokeToken = async function(rawToken, userId, clientId, reason = 'user_logout') {
     const jwt = require('jsonwebtoken');
-    
-    try {
-        // Decode token to get expiry (don't verify, just decode)
-        const decoded = jwt.decode(token);
-        
-        if (!decoded || !decoded.exp) {
-            throw new Error('Invalid token format');
-        }
 
-        // Ensure expiresAt is always in the future so the TTL index doesn't delete the entry immediately
-        const expiresAt = new Date(Math.max(decoded.exp * 1000, Date.now() + 60000));
-
-        return await this.findOneAndUpdate(
-            { token },
-            { $setOnInsert: { token, userId, clientId, reason, expiresAt } },
-            { upsert: true, new: true }
-        );
-    } catch (error) {
-        throw error;
+    const decoded = jwt.decode(rawToken);
+    if (!decoded || !decoded.exp) {
+        throw new Error('Invalid token format');
     }
+
+    const expiresAt = new Date(Math.max(decoded.exp * 1000, Date.now() + 60000));
+    const hash = hashToken(rawToken);
+
+    return await this.findOneAndUpdate(
+        { token: hash },
+        { $setOnInsert: { token: hash, userId, clientId: clientId || null, reason, expiresAt } },
+        { upsert: true, new: true }
+    );
+};
+
+// Revoke by hash directly — used when the raw token is no longer available
+// (e.g. revoke session refresh token stored only as refreshTokenHash)
+tokenBlacklistSchema.statics.revokeByHash = async function(hash, userId, clientId, reason = 'user_logout', expiresAt) {
+    const exp = expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30d default
+    return await this.findOneAndUpdate(
+        { token: hash },
+        { $setOnInsert: { token: hash, userId, clientId: clientId || null, reason, expiresAt: exp } },
+        { upsert: true, new: true }
+    );
 };
 
 tokenBlacklistSchema.set('timestamps', true);

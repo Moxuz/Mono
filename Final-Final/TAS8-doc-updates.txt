@@ -1,0 +1,316 @@
+================================================================================
+  TAS8-final (1).docx — COMPLETE UPDATE LIST
+  Generated: 2026-05-07
+  Based on: Latest test run results (Jest 145/145, Playwright 211/211)
+================================================================================
+
+28 CRITICAL items to fix  |  5 items verified OK (no change needed)
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION A — JEST / UNIT & INTEGRATION TESTS
+────────────────────────────────────────────────────────────────────────────────
+
+[C-01a] Para 921 — ตาราง 4.1 title
+  OLD : ตารางที่ 4.1 ผลการทดสอบ Unit/Integration Testing ด้วย Jest v29 (108 test cases)
+  NEW : ตารางที่ 4.1 ผลการทดสอบ Unit/Integration Testing ด้วย Jest v29 (145 test cases)
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-01b] Para 1082 — สรุปผลทดสอบ bullet list
+  OLD : - Unit/Integration Testing (Jest v29): 108 test cases, ผ่านครบ 108/108 (100%),
+          27 กลุ่มทดสอบ, 6 test files
+  NEW : - Unit/Integration Testing (Jest v29): 145 test cases, ผ่านครบ 145/145 (100%),
+          34 กลุ่มทดสอบ, 7 test files
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-01c] Para 1098 — ผลทางวิชาการ (Academic Contribution)
+  OLD : ...ผ่าน 108 test cases 100% ครอบคลุม 27 describe blocks ใน 6 test files...
+  NEW : ...ผ่าน 145 test cases 100% ครอบคลุม 34 describe blocks ใน 7 test files...
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-01d] Table 10 (ตาราง 4.0 สรุปผล), Row 1 — คอลัมน์ "Test Cases"
+  OLD : 108
+  NEW : 145
+
+[C-01e] Table 10 (ตาราง 4.0 สรุปผล), Row 1 — คอลัมน์ "ผ่าน"
+  OLD : 108/108 (100%)
+  NEW : 145/145 (100%)
+
+[C-01f] Table 10 (ตาราง 4.0 สรุปผล), Row 1 — คอลัมน์ "หมายเหตุ"
+  OLD : 27 กลุ่มทดสอบ; 6 ไฟล์ทดสอบ
+  NEW : 34 กลุ่มทดสอบ; 7 ไฟล์ทดสอบ
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-01g] Table 11 (ตาราง 4.1 Jest detail), แถว TOTAL — คอลัมน์ 2
+  OLD : 27 กลุ่มทดสอบ
+  NEW : 34 กลุ่มทดสอบ
+
+[C-01h] Table 11 (ตาราง 4.1 Jest detail), แถว TOTAL — คอลัมน์ 3
+  OLD : 108
+  NEW : 145
+
+[C-01i] Table 11 (ตาราง 4.1 Jest detail), แถว TOTAL — คอลัมน์ 4
+  OLD : 108/108 ผ่าน
+  NEW : 145/145 ผ่าน
+
+──────────────────────────────────────────────────────────────────────────────
+
+[T-01] Table 11 (ตาราง 4.1 Jest detail) — เพิ่ม 7 แถวใหม่ สำหรับ 7-pdpa.test.js
+  หลังแถว 27 (6-security.test.js) ให้เพิ่มแถวต่อไปนี้:
+
+  ลำดับ | ไฟล์ทดสอบ        | ชุดทดสอบ                               | จำนวน | ผลลัพธ์
+  ──────┼──────────────────┼────────────────────────────────────────┼───────┼────────
+  28    | 7-pdpa.test.js   | สิทธิ์เข้าถึงข้อมูลส่วนบุคคล (Art.30) | 4     | ผ่าน
+  29    | 7-pdpa.test.js   | ความสามารถในการพกพาข้อมูล (Art.27)     | 3     | ผ่าน
+  30    | 7-pdpa.test.js   | สิทธิ์ในการลบข้อมูลส่วนบุคคล (Art.33) | 5     | ผ่าน
+  31    | 7-pdpa.test.js   | การจัดการความยินยอม (Art.19)            | 5     | ผ่าน
+  32    | 7-pdpa.test.js   | สิทธิ์แก้ไขข้อมูลที่ไม่ถูกต้อง (Art.28)| 4     | ผ่าน
+  33    | 7-pdpa.test.js   | มาตรการรักษาความปลอดภัย (Art.37)       | 5     | ผ่าน
+  34    | 7-pdpa.test.js   | เส้นทางตรวจสอบการประมวลผล (Art.40)     | 3     | ผ่าน
+  ──────┴──────────────────┴────────────────────────────────────────┴───────┴────────
+  รวมแถว TOTAL: 34 กลุ่มทดสอบ | 145 | 145/145 ผ่าน
+
+  NOTE: ผลการทดสอบจริง npx jest --runInBand → 145 passed, 0 failed, 0 skipped
+        ไฟล์: Final-Final/tests/jest/7-pdpa.test.js (29 test cases รวม)
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION B — PLAYWRIGHT / E2E BROWSER TESTS
+────────────────────────────────────────────────────────────────────────────────
+
+[C-04a] Para 1008 — บทนำส่วน Playwright
+  OLD : ...ครอบคลุม 213 test cases (0 skip)...
+  NEW : ...ครอบคลุม 211 test cases (0 skip)...
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-04b] Para 1084 — สรุปผลทดสอบ bullet list
+  OLD : - E2E Browser Testing (Playwright v1.58.2, Chromium): 213 test cases,
+          ผ่าน 213/213 (100.0%), 38 กลุ่ม, 0 skip
+  NEW : - E2E Browser Testing (Playwright v1.58.2, Chromium): 211 test cases,
+          ผ่าน 211/211 (100.0%), 38 กลุ่ม, 0 skip
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-04c] Table 10 (ตาราง 4.0 สรุปผล), Row 3 — คอลัมน์ "Test Cases"
+  OLD : 213
+  NEW : 211
+
+[C-04d] Table 10 (ตาราง 4.0 สรุปผล), Row 3 — คอลัมน์ "ผ่าน"
+  OLD : 213/213 (100.0%)
+  NEW : 211/211 (100.0%)
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-04e] Table 16 (ตาราง 4.6 Playwright), แถว TOTAL — คอลัมน์ "Tests"
+  OLD : 213
+  NEW : 211
+
+[C-04f] Table 16 (ตาราง 4.6 Playwright), แถว TOTAL — คอลัมน์ "Pass"
+  OLD : 213
+  NEW : 211
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-05] Para 1024 — Known issues paragraph (ลบออก / แทนที่)
+  OLD : - Known issues (3 skip): OAuth client GET/PUT/DELETE tests ต้องใช้ clientId
+          จากการ register ก่อนหน้า (state dependency ระหว่าง test workers)
+  NEW : ลบย่อหน้านี้ออก  หรือแทนด้วย:
+        - แก้ไขแล้ว (2026-05-07): เพิ่ม test.describe.configure({ mode: 'serial' })
+          และย้าย authorize/DELETE tests เข้า group 14 ทำให้ผ่าน 211/211 (0 skip, 0 flaky)
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-PW-14] Table 16 (ตาราง 4.6), Row 14 — 14 — OAuth Client Management
+  OLD : Tests = 5
+  NEW : Tests = 7
+  เหตุผล: ย้าย "GET /api/oauth/authorize" และ "DELETE /api/oauth/clients/:id"
+           จาก group 15 เข้า group 14 เพื่อแก้ state dependency
+
+[C-PW-15] Table 16 (ตาราง 4.6), Row 15 — 15 — OAuth Token Operations
+  OLD : Tests = 6
+  NEW : Tests = 4
+  เหตุผล: ย้าย 2 tests ไปยัง group 14 (ดู C-PW-14)
+
+[C-PW-20] Table 16 (ตาราง 4.6), Row 20 — 20 — Security Headers
+  OLD : Tests = 12
+  NEW : Tests = 15
+
+[C-PW-28] Table 16 (ตาราง 4.6), Row 29 — 28 — Public Pages (no auth)
+  OLD : Tests = 10
+  NEW : Tests = 11
+
+[C-PW-29] Table 16 (ตาราง 4.6), Row 30 — 29 — User Pages (localStorage token)
+  OLD : Tests = 20
+  NEW : Tests = 17
+
+[C-PW-30] Table 16 (ตาราง 4.6), Row 31 — 30 — Admin Pages (admin token)
+  OLD : Tests = 12
+  NEW : Tests = 14
+
+──────────────────────────────────────────────────────────────────────────────
+
+[T-02] Table 16 (ตาราง 4.6) — แก้ตำแหน่งแถว TOTAL
+  ปัญหา: แถว TOTAL ปัจจุบันอยู่ที่ Row 28 (กลางตาราง) แต่ยังมีแถว 29-31
+          (groups 28/29/30 จาก pages-full.spec.ts) อยู่หลัง TOTAL
+  แก้ไข: ย้ายแถว TOTAL ไปเป็นแถวสุดท้าย (หลัง Row 31) และอัปเดตค่าเป็น 211
+
+──────────────────────────────────────────────────────────────────────────────
+
+[T-03] Table 16 (ตาราง 4.6) — เพิ่ม 8 describe groups ที่หายไป (auth.spec.ts)
+  ปัญหา: ตารางมี 30 กลุ่ม แต่เอกสารอ้าง 38 กลุ่ม — ขาด 8 กลุ่มจาก auth.spec.ts
+
+  กลุ่มที่ต้องเพิ่ม (ทั้งหมดจาก auth.spec.ts):
+  ──────────────────────────────────────────────────────────────────
+  Describe Group                           | Tests | Pass | File
+  ─────────────────────────────────────────┼───────┼──────┼──────────────
+  01 — Page Navigation                     |   6   |   6  | auth.spec.ts
+  02 — Security Headers                    |   4   |   4  | auth.spec.ts
+  03 — Login Flow                          |   3   |   3  | auth.spec.ts
+  04 — Register Flow                       |   2   |   2  | auth.spec.ts
+  05 — API Calls via Browser Context       |   5   |   5  | auth.spec.ts
+  06 — OAuth 2.0 via Browser               |   2   |   2  | auth.spec.ts
+  07 — Session Management                  |   2   |   2  | auth.spec.ts
+  08 — Dashboard Access Control            |   1   |   1  | auth.spec.ts
+  ─────────────────────────────────────────┴───────┴──────┴──────────────
+  รวม 8 กลุ่ม = 25 tests (ทั้งหมดผ่าน)
+
+  ค่าที่ถูกต้องของตาราง 4.6 หลังแก้ไขทั้งหมด:
+
+  Describe Group                                    | File              | Tests | Pass | Skip
+  ──────────────────────────────────────────────────┼───────────────────┼───────┼──────┼─────
+  01 — Page Rendering                               | pages.spec.ts     |  13   |  13  |  0
+  01 — Page Navigation                              | auth.spec.ts      |   6   |   6  |  0
+  02 — Authentication — Register                    | auth-full.spec.ts |   4   |   4  |  0
+  02 — Security Headers                             | auth.spec.ts      |   4   |   4  |  0
+  03 — Authentication — Login                       | auth-full.spec.ts |   4   |   4  |  0
+  03 — Login Flow                                   | auth.spec.ts      |   3   |   3  |  0
+  04 — Authentication — Profile & Token             | auth-full.spec.ts |   6   |   6  |  0
+  04 — Register Flow                                | auth.spec.ts      |   2   |   2  |  0
+  05 — Authentication — Password Management         | auth-full.spec.ts |   4   |   4  |  0
+  05 — API Calls via Browser Context                | auth.spec.ts      |   5   |   5  |  0
+  06 — Authentication — Preferences & Consent       | auth-full.spec.ts |   3   |   3  |  0
+  06 — OAuth 2.0 via Browser                        | auth.spec.ts      |   2   |   2  |  0
+  07 — Authentication — Audit & Security            | auth-full.spec.ts |   3   |   3  |  0
+  07 — Session Management                           | auth.spec.ts      |   2   |   2  |  0
+  08 — Authentication — OAuth Social                | auth-full.spec.ts |   3   |   3  |  0
+  08 — Dashboard Access Control                     | auth.spec.ts      |   1   |   1  |  0
+  09 — Authentication — Logout                      | auth-full.spec.ts |   1   |   1  |  0
+  10 — User — Profile & Settings                    | user.spec.ts      |   5   |   5  |  0
+  11 — User — PDPA Rights                           | user.spec.ts      |   3   |   3  |  0
+  12 — Sessions                                     | session.spec.ts   |   9   |   9  |  0
+  13 — OAuth — OIDC Discovery & JWKS                | oauth.spec.ts     |   2   |   2  |  0
+  14 — OAuth — Client Management                    | oauth.spec.ts     |   7   |   7  |  0
+  15 — OAuth — Token Operations                     | oauth.spec.ts     |   4   |   4  |  0
+  16 — Dashboard — User                             | dashboard.spec.ts |   7   |   7  |  0
+  17 — Dashboard — Admin Analytics                  | dashboard.spec.ts |   7   |   7  |  0
+  18 — Dashboard — Admin Monitoring                 | dashboard.spec.ts |   6   |   6  |  0
+  19 — Dashboard — Admin Logs                       | dashboard.spec.ts |   8   |   8  |  0
+  20 — Security Headers                             | security.spec.ts  |  15   |  15  |  0
+  21 — Input Validation                             | security.spec.ts  |   5   |   5  |  0
+  22 — Rate Limiting                                | security.spec.ts  |   2   |   2  |  0
+  23 — Access Control                               | security.spec.ts  |   2   |   2  |  0
+  24 — Client App — Page Rendering                  | client.spec.ts    |   4   |   4  |  0
+  25 — Client App — Unauthenticated Access Control  | client.spec.ts    |   5   |   5  |  0
+  26 — Client App — Authenticated Session           | client.spec.ts    |   5   |   5  |  0
+  27 — Client App — Logout & OAuth Callbacks        | client.spec.ts    |   7   |   7  |  0
+  28 — Auth-App Pages — Public (no auth)            | pages-full.spec.ts|  11   |  11  |  0
+  29 — Auth-App Pages — User (localStorage token)   | pages-full.spec.ts|  17   |  17  |  0
+  30 — Auth-App Pages — Admin (admin token)         | pages-full.spec.ts|  14   |  14  |  0
+  ──────────────────────────────────────────────────┴───────────────────┴───────┴──────┴─────
+  TOTAL                                             | 9 spec files      | 211   | 211  |  0
+  ──────────────────────────────────────────────────────────────────────────────────────────
+  Pass rate: 100.0%   Duration: ~1.7 min   Status: PASSED
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION C — ZAP SECURITY SCAN
+────────────────────────────────────────────────────────────────────────────────
+
+[C-06a] Para 1086 — สรุปผล ZAP bullet
+  OLD : - Security Testing (OWASP ZAP v2.16): 42 URLs, 0 FAIL, 59 PASS,
+          5 Medium (CSP), 1 Low, 6 Informational
+  NEW : - Security Testing (OWASP ZAP v2.16): 42 URLs, 0 FAIL, 59 PASS,
+          5 Medium (CSP), 1 Low, 7 Informational
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-06b] Table 14 (ตาราง 4.4 ZAP), Row 3 — คอลัมน์ "จำนวน" (Informational)
+  OLD : 6
+  NEW : 7
+  Informational alerts ทั้ง 7 รายการ:
+    1. Authentication Request Identified
+    2. Information Disclosure - Sensitive Information in URL
+    3. Information Disclosure - Suspicious Comments
+    4. Modern Web Application
+    5. Non-Storable Content
+    6. Storable and Cacheable Content
+    7. Storable but Non-Cacheable Content
+
+──────────────────────────────────────────────────────────────────────────────
+
+[C-07] Table 10 (ตาราง 4.0 สรุปผล), Row 5 — Security, คอลัมน์ "หมายเหตุ"
+  OLD : 12 WARN (CSP, SRI, Private IP)
+  NEW : 8 WARN-NEW (5 Medium: CSP/SRI, 1 Low: Private IP, 7 Informational)
+  เหตุผล: ZAP baseline output รายงาน WARN-NEW: 8 (ไม่ใช่ 12)
+           รายละเอียด: 5 Medium + 1 Low = 6 alerts ที่ต้องแก้ไข
+                       7 Informational = ข้อมูลเพิ่มเติม ไม่ใช่ WARN
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION D — รายการที่ถูกต้องแล้ว (ไม่ต้องแก้ไข)
+────────────────────────────────────────────────────────────────────────────────
+
+[OK-01] Para 1083 — Newman/Postman: "31 requests, 69 assertions, ผ่าน 69/69 (100.0%)"
+         ✓ ถูกต้อง
+
+[OK-02] Table 15 (ตาราง 4.5 Newman detail) — ทุกแถว 31 requests / 69 assertions
+         ✓ ถูกต้อง
+
+[OK-03] Table 14 (ตาราง 4.4 ZAP) — Medium=5, Low=1, PASS=59
+         ✓ ถูกต้อง (แก้เฉพาะ Informational 6→7)
+
+[OK-04] Table 17 (ตาราง 4.7 UAT) — 15 test cases, 15/15 ผ่าน, ความพึงพอใจ 4.70/5.0
+         ✓ ถูกต้อง
+
+[OK-05] Table 13 (ตาราง 4.3 k6 Phase comparison) — Error rate 0.47%, Profile P95 5,450 ms
+         ✓ ถูกต้อง
+
+────────────────────────────────────────────────────────────────────────────────
+SUMMARY OF ALL CHANGES
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────┬───────┬───────┐
+  │ หัวข้อ                                  │ เดิม  │ ใหม่  │
+  ├─────────────────────────────────────────┼───────┼───────┤
+  │ Jest total tests                        │  108  │  145  │
+  │ Jest test files                         │    6  │    7  │
+  │ Jest describe groups                    │   27  │   34  │
+  │ Jest 7-pdpa.test.js (แถวในตาราง)        │    0  │    7  │
+  │ Playwright total tests                  │  213  │  211  │
+  │ Playwright skipped tests                │    3  │    0  │
+  │ Playwright group 14 tests               │    5  │    7  │
+  │ Playwright group 15 tests               │    6  │    4  │
+  │ Playwright group 20 tests               │   12  │   15  │
+  │ Playwright group 28 tests               │   10  │   11  │
+  │ Playwright group 29 tests               │   20  │   17  │
+  │ Playwright group 30 tests               │   12  │   14  │
+  │ Playwright missing groups in table      │    8  │    0  │
+  │ ZAP Informational alerts                │    6  │    7  │
+  │ ZAP WARN count (Table 4.0 summary)      │   12  │    8  │
+  │ "Known issues (3 skip)" paragraph       │ มีอยู่ │ ลบออก │
+  ├─────────────────────────────────────────┼───────┼───────┤
+  │ จำนวน CRITICAL issues ที่ต้องแก้        │   28  │       │
+  │ จำนวนรายการที่ถูกต้องแล้ว               │    5  │       │
+  └─────────────────────────────────────────┴───────┴───────┘
+
+  Source files (actual test run 2026-05-07):
+    jest/results/jest-results.json         → 145 passed
+    playwright/results/playwright-results.txt → 211 passed, 0 skip
+    postman/results/postman-results.txt    → 69/69 passed
+    k6/results/k6-results.txt             → 4 scenarios complete
+    zap/results/zap-results.txt            → 0 FAIL, 59 PASS, 8 WARN-NEW
+
+================================================================================
+  END OF UPDATE LIST
+================================================================================

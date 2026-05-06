@@ -1,0 +1,124 @@
+@startuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign center
+skinparam SequenceBoxBackgroundColor #EEF5FF
+skinparam SequenceBoxBorderColor    #2F6FAE
+skinparam ParticipantBackgroundColor #FFFBCC
+skinparam ParticipantBorderColor    #B8860B
+skinparam ArrowColor #444444
+skinparam SequenceLifeLineBorderColor #888888
+
+title Token Refresh & Rotation Sequence
+
+actor       "User"           as user
+participant "Browser/Client" as browser
+participant "Auth Server"    as server #EEF5FF
+participant "Rate Limiter"   as rate   #F0F0F0
+participant "MongoDB"        as mongo  #E8F5E9
+
+note over browser
+  Browser/Client acts on behalf of User.
+  Token refresh is triggered automatically
+  when access token expires (401 response).
+end note
+
+user -> browser : Trigger authenticated request
+activate browser #lightblue
+
+browser -> rate ++ : POST /api/auth/refresh-token\n{refreshToken, sessionId?}
+activate rate #F0F0F0
+note right of rate : Middleware — runs\nbefore Auth Server\nKeyed per userId+IP\n(decoded from token)
+
+opt Rate limit exceeded [10 req / 15 min]
+  rate --> browser -- : 429 {"error": "Too many attempts"}
+  deactivate rate
+  browser --> user : Show error: Too many requests
+end
+
+rate -> server ++ : POST /api/auth/refresh-token\n{refreshToken, sessionId?}
+deactivate rate
+
+server -> server : jwt.verify(refreshToken, JWT_SECRET)
+
+opt Invalid or expired token
+  server -> mongo ++ : insertOne(SecurityAudit: token_refresh_failed,\n  status: failure, reason: invalid_token)
+  mongo --> server -- : acknowledged
+  server --> browser : 401 {"error": "Invalid refresh token"}
+  browser --> user : Show error: Session expired
+end
+
+server -> server : Check decoded.type === 'refresh_token'
+
+opt Wrong token type
+  server -> mongo ++ : insertOne(SecurityAudit: token_refresh_failed,\n  status: failure, reason: wrong_token_type)
+  mongo --> server -- : acknowledged
+  server --> browser : 401 {"error": "Invalid refresh token"}
+  browser --> user : Show error: Invalid token
+end
+
+server -> mongo ++ : TokenBlacklist.isBlacklisted(refreshToken)
+mongo --> server -- : blacklisted: true / false
+
+alt Token already blacklisted [reuse / theft detected]
+  server -> mongo ++ : blacklistAllUserTokens(userId, 'security_breach')\n• Blacklist ALL access + refresh tokens\n• Set ALL active sessions isActive = false
+  mongo --> server -- : acknowledged
+  server -> mongo ++ : insertOne(SecurityAudit: security_breach,\n  status: failure,\n  reason: token_reuse_detected)
+  mongo --> server -- : acknowledged
+  server -[#888888]->> email : sendSecurityBreachEmail(userId) [async]
+  activate email #FCE4EC
+  note right of email : Notify user: all sessions\nterminated due to token reuse
+  deactivate email
+  server --> browser : 401 {"error": "Invalid refresh token"}
+  browser --> user : Show error: Security breach detected
+else Token not blacklisted
+  note right of server : Token valid\n→ continue flow
+end
+
+server -> mongo ++ : User.findById(decoded.sub)
+mongo --> server -- : User document
+
+opt User not found or isActive = false
+  server -> mongo ++ : insertOne(SecurityAudit: token_refresh_failed,\n  status: failure, reason: user_not_found_or_inactive)
+  mongo --> server -- : acknowledged
+  server --> browser : 401 {"error": "Invalid refresh token"}
+  browser --> user : Show error: Account unavailable
+end
+
+opt sessionId provided
+  note right of server : sessionId is optional — if omitted,\ntoken rotates without session update.\nConsider requiring sessionId for\nhigher-security deployments.
+  server -> mongo ++ : Session.findOne(\n  {_id: sessionId, userId, isActive: true})
+  mongo --> server -- : Session document
+
+  alt Session not found or revoked
+    server -> mongo ++ : insertOne(SecurityAudit: token_refresh_failed,\n  status: failure, reason: session_revoked)
+    mongo --> server -- : acknowledged
+    server --> browser : 401 {"error": "Invalid refresh token"}
+    browser --> user : Show error: Session revoked
+  else Session valid
+    server -> mongo ++ : session.save()\n(lastActiveAt = now, ipAddress updated)
+    mongo --> server -- : updated
+  end
+end
+
+server -> server : oldHash ← Session.hashRefreshToken(refreshToken)\n(computed before rotation)
+
+server -> mongo ++ : TokenBlacklist.revokeToken(\n  refreshToken, userId, null,\n  reason: 'token_rotation',\n  expiresAt: decoded.exp)\n  (TTL index auto-cleans expired entries)
+mongo --> server -- : acknowledged
+
+server -> server : Generate new access token (1h)\nGenerate new refresh token (30d)
+
+opt sessionId provided
+  server -> mongo ++ : Session.findOneAndUpdate(\n  {refreshTokenHash: oldHash,\n   userId: decoded.sub, isActive: true},\n  {accessTokenHash, refreshTokenHash, lastActiveAt})
+  mongo --> server -- : updated
+end
+
+server -> mongo ++ : insertOne(SecurityAudit: token_refreshed)
+mongo --> server -- : acknowledged
+
+server --> browser -- : 200 {\n  token,\n  refreshToken,\n  expiresIn: '1h'\n}
+
+browser --> user : Retry original request (silent)
+deactivate browser
+
+@enduml

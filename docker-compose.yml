@@ -33,7 +33,7 @@ x-app-env: &app-env
   KAFKA_BROKER: kafka:29092
   KAFKA_CLIENT_ID: auth-app
   # Rate limit whitelist — includes Nginx container IPs so health probes are not throttled
-  RATE_LIMIT_WHITELIST: "127.0.0.1,::ffff:127.0.0.1,::1,172.22.0.1,::ffff:172.22.0.1,172.25.0.1,::ffff:172.25.0.1,172.26.0.1,::ffff:172.26.0.1,172.27.0.1,::ffff:172.27.0.1"
+  RATE_LIMIT_WHITELIST: "127.0.0.1,::ffff:127.0.0.1,::1,172.19.0.1,::ffff:172.19.0.1,172.22.0.1,::ffff:172.22.0.1,172.25.0.1,::ffff:172.25.0.1,172.26.0.1,::ffff:172.26.0.1,172.27.0.1,::ffff:172.27.0.1"
 
 x-app-depends: &app-depends
   mongodb:

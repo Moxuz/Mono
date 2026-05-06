@@ -14,6 +14,10 @@ const consentSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    grantedAt: {
+        type: Date,
+        default: Date.now
+    },
     expiresAt: {
         type: Date,
         default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 วัน
@@ -44,13 +48,17 @@ consentSchema.statics.hasConsented = async function(userId, clientId, scope) {
 
 // ─── บันทึก consent ───────────────────────────────────────────────
 consentSchema.statics.saveConsent = async function(userId, clientId, scope) {
+    // Scope-based TTL: standard OIDC scopes → 30d; extended scopes → 7d
+    const OIDC_BASE = new Set(['openid', 'profile', 'email']);
+    const hasExtendedScopes = scope.split(/\s+/).some(s => s && !OIDC_BASE.has(s));
+    const ttlDays = hasExtendedScopes ? 7 : 30;
     return this.findOneAndUpdate(
         { userId, clientId },
         {
             userId,
             clientId,
             scope,
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            expiresAt: new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
         },
         { upsert: true, new: true }
     );

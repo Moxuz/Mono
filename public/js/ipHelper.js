@@ -6,9 +6,9 @@
 
 /**
  * Clean IPv4-mapped IPv6 address
- * ::ffff:192.168.1.1 → 192.168.1.1
- * ::1 → localhost
- * 172.17.0.1 → internal
+ * IPv4-mapped IPv6 → plain IPv4
+ * loopback → localhost
+ * private/internal ranges → internal
  */
 function cleanIPAddress(ip) {
     if (!ip) return 'unknown';

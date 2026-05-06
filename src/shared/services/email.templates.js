@@ -123,8 +123,35 @@ const getPasswordChangedTemplate = ({ username }) =>
     </div>
   `);
 
+const getVerificationTemplate = ({ username, verificationUrl }) =>
+  baseLayout(`
+    <h2>Verify Your Email Address ✉️</h2>
+    <p>Hi <strong>${username}</strong>,</p>
+    <p>Thanks for registering! Please verify your email address by clicking the button below.</p>
+
+    <div style="text-align:center; margin: 32px 0;">
+      <a href="${verificationUrl}" class="btn">✅ Verify Email</a>
+    </div>
+
+    <div class="note">
+      ⏱️ This link will expire in <strong>24 hours</strong>.<br />
+      If you did not create an account, you can safely ignore this email.
+    </div>
+
+    <hr class="divider" />
+
+    <p style="font-size:13px;color:#888">
+      If the button above doesn't work, copy and paste this URL into your browser:<br />
+      <a href="${verificationUrl}" style="color:#667eea;word-break:break-all">${verificationUrl}</a>
+    </p>
+    <p style="font-size:13px;color:#888;margin-top:8px">
+      ${config.AUTH_SERVER_URL}
+    </p>
+  `);
+
 module.exports = {
   getPasswordResetTemplate,
   getWelcomeTemplate,
   getPasswordChangedTemplate,
+  getVerificationTemplate,
 };

@@ -1,0 +1,105 @@
+@startuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign center
+skinparam SequenceBoxBackgroundColor #EEF5FF
+skinparam SequenceBoxBorderColor    #2F6FAE
+skinparam ParticipantBackgroundColor #FFFBCC
+skinparam ParticipantBorderColor    #B8860B
+skinparam ArrowColor #444444
+skinparam SequenceLifeLineBorderColor #888888
+
+title User Registration Sequence
+
+actor       "User"           as user
+participant "Browser/Client" as browser
+participant "Auth Server"    as server #EEF5FF
+participant "Rate Limiter"   as rate   #F0F0F0
+participant "MongoDB"        as mongo  #E8F5E9
+participant "Email Service"  as email  #FCE4EC
+
+user -> browser : Fill form\n(username, email, password,\nPDPA consent checkboxes)
+activate browser #lightblue
+
+browser -> rate ++ : POST /api/auth/register {\n  username, email, password,\n  consentEssential, consentAnalytics?\n}
+activate rate #F0F0F0
+note right of rate : Middleware — runs\nbefore Auth Server
+
+opt Rate limit exceeded [5 req / 1 hour]
+  rate -> mongo ++ : insertOne(SecurityAudit: registration_failed,\n  reason: rate_limit_exceeded, ip: req.ip)
+  mongo --> rate -- : acknowledged
+  rate --> browser -- : 429\n  Header: Retry-After: 3600\n  {"error": "Too many attempts",\n   "retryAfter": 3600}
+  deactivate rate
+  browser --> user : Show error: Too many requests
+end
+
+rate -> server ++ : POST /api/auth/register {\n  username, email, password,\n  consentEssential, consentAnalytics?\n}
+deactivate rate
+
+opt consentEssential !== true
+  server -> mongo ++ : insertOne(SecurityAudit: registration_failed,\n  reason: consent_not_granted,\n  email: attempted, ip: req.ip)
+  mongo --> server -- : acknowledged
+  server --> browser : 400 {"error": "Essential consent required"}
+  browser --> user : Show error: Consent required
+end
+
+server -> server : Capture PDPA consent {\n  essentialAccepted: true,\n  essentialAcceptedAt: now,\n  analyticsAccepted: boolean,\n  policyVersion: '1.0.0',\n  consentIp\n}
+
+server -> server : validatePassword(password)
+
+opt Weak password
+  server -> mongo ++ : insertOne(SecurityAudit: registration_failed,\n  reason: weak_password,\n  email: attempted, ip: req.ip)
+  mongo --> server -- : acknowledged
+  server --> browser : 400 {"error": "WEAK_PASSWORD", details: [...]}
+  browser --> user : Show error: Password too weak
+end
+
+server -> mongo ++ : findOne({ username })
+mongo --> server -- : User document (or null)
+
+opt Username already taken
+  server -> mongo ++ : insertOne(SecurityAudit: registration_failed,\n  reason: username_already_exists,\n  email: attempted, ip: req.ip)
+  mongo --> server -- : acknowledged
+  server --> browser : 409 {"error": "Username already taken"}
+  browser --> user : Show error: Username in use
+end
+
+server -> mongo ++ : findOne({ email })
+mongo --> server -- : User document (or null)
+
+opt Email already registered
+  server -> mongo ++ : insertOne(SecurityAudit: registration_failed,\n  reason: email_already_exists,\n  email: attempted, ip: req.ip)
+  mongo --> server -- : acknowledged
+  server --> browser : 409 {"error": "User already exists"}
+  browser --> user : Show error: Email already in use
+end
+
+server -> mongo ++ : user.save()\n(bcrypt hash runs in pre-save hook)
+mongo --> server -- : saved
+
+server -> mongo ++ : insertOne(SecurityAudit: account_created,\n  userId: user._id,\n  email: user.email, ip: req.ip)
+mongo --> server -- : acknowledged
+
+server -[#888888]->> email : sendWelcomeEmail({ to, username }) [async]
+activate email #FCE4EC
+note right of email : Non-blocking (fire and forget)
+deactivate email
+
+server -> server : createToken(user) + generateRefreshToken(user)\nJWT access token (1h) + refresh token (30d)
+
+alt JWT generation fails
+  server -> mongo ++ : deleteOne({ _id: user._id })\n(rollback — user creation reverted)
+  mongo --> server -- : acknowledged
+  server --> browser : 500 {"error": "Registration failed:\ncould not generate access token"}
+  browser --> user : Show error: Registration failed
+else JWT generation succeeds
+  server -> mongo ++ : insertOne(Session {\n  userId: user._id,\n  token, refreshTokenHash,\n  deviceInfo, ipAddress,\n  isActive: true,\n  createdAt: now,\n  lastActiveAt: now})
+  mongo --> server -- : acknowledged
+end
+
+server --> browser -- : 201 {\n  token, refreshToken, sessionId,\n  user: {id, username, email, role}\n}
+
+browser -> user : Redirect to /dashboard
+deactivate browser
+
+@enduml

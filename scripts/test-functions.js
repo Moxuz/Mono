@@ -43,7 +43,7 @@ section('Password Validator');
 const { validatePassword } = require('../src/shared/utils/passwordValidator');
 
 test('valid password (8+ chars, has number) → { valid: true }', () => {
-    const r = validatePassword('Secure123');
+    const r = validatePassword('SecureX99!');
     assert.strictEqual(r.valid, true, JSON.stringify(r.errors));
 });
 
@@ -164,17 +164,17 @@ test('hashRefreshToken → different inputs produce different hashes', () => {
     assert.notStrictEqual(h1, h2);
 });
 
-test('generateSessionToken → 64-char hex string', () => {
-    const token = Session.generateSessionToken();
-    assert.strictEqual(typeof token, 'string');
-    assert.strictEqual(token.length, 64);
-    assert.ok(/^[0-9a-f]+$/.test(token));
+test('hashToken → 64-char hex string', () => {
+    const hash = Session.hashToken('some-access-token');
+    assert.strictEqual(typeof hash, 'string');
+    assert.strictEqual(hash.length, 64);
+    assert.ok(/^[0-9a-f]+$/.test(hash));
 });
 
-test('generateSessionToken → unique on each call', () => {
-    const t1 = Session.generateSessionToken();
-    const t2 = Session.generateSessionToken();
-    assert.notStrictEqual(t1, t2, 'Tokens must be unique');
+test('hashToken → unique for different inputs', () => {
+    const h1 = Session.hashToken('access-token-a');
+    const h2 = Session.hashToken('access-token-b');
+    assert.notStrictEqual(h1, h2, 'Different tokens must produce different hashes');
 });
 
 test('hashRefreshToken → throws on empty input', () => {

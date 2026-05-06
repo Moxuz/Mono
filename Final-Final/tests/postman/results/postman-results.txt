@@ -1,0 +1,46 @@
+
++------------------------------------------------------------------------------------+
+|  POSTMAN / NEWMAN API TEST SUMMARY  [2026-05-07 03:25:15]                           |
++------------------------------------------------------------------------------------+
+| Category                                              Total   Passed   Failed |
++------------------------------------------------------------------------------------+
+| Requests                                                 31       31        0 |
+| Assertions                                               69       69        0 |
++------------------------------------------------------------------------------------+
+| Request Name                                        Status      Assertions |
++------------------------------------------------------------------------------------+
+|   [GET] GET /health                                      200          4/4 ok     |
+|   [GET] GET /.well-known/openid-configuration            200          4/4 ok     |
+|   [POST] POST /api/auth/register — new user              201          4/4 ok     |
+|   [POST] POST /api/auth/login — valid                    200          5/5 ok     |
+|   [POST] POST /api/auth/login — wrong password → 401     401          2/2 ok     |
+|   [POST] POST /api/auth/login — missing password → 400     400          1/1 ok     |
+|   [GET] GET /api/auth/profile — authenticated            200          3/3 ok     |
+|   [GET] GET /api/auth/profile — no token → 401           401          1/1 ok     |
+|   [POST] POST /api/auth/refresh-token                    200          2/2 ok     |
+|   [POST] POST /api/auth/forgot-password                  200          2/2 ok     |
+|   [POST] POST /api/auth/logout                           200          1/1 ok     |
+|   [POST] Login k6user2 for user tests                    200          1/1 ok     |
+|   [GET] GET /api/users/me                                200          3/3 ok     |
+|   [PUT] PUT /api/users/profile — update own profile      200          2/2 ok     |
+|   [GET] GET /api/users/me — unauthenticated → 401        401          1/1 ok     |
+|   [POST] Login k6user3 for session tests                 200          1/1 ok     |
+|   [GET] GET /api/sessions                                200          3/3 ok     |
+|   [POST] POST /api/auth/sessions/revoke-all-others       200          2/2 ok     |
+|   [POST] Login k6user1 for OAuth tests                   200          1/1 ok     |
+|   [POST] POST /api/oauth/clients — register client       201          4/4 ok     |
+|   [GET] GET /api/oauth/clients                           200          2/2 ok     |
+|   [POST] POST /api/oauth/introspect — with client cred     200          2/2 ok     |
+|   [GET] GET /api/oauth/userinfo                          200          2/2 ok     |
+|   [POST] POST /api/oauth/revoke — revoke token           401          1/1 ok     |
+|   [GET] Security headers on /                            200          6/6 ok     |
+|   [POST] Wrong password → 401 (not 500)                  401          2/2 ok     |
+|   [POST] Rate limit headers present                      200          2/2 ok     |
+|   [GET] 404 on unknown route                             404          2/2 ok     |
+|   [GET] GET /api/dashboard/monitoring — no auth → 401     401          1/1 ok     |
+|   [GET] GET /api/dashboard/logs — no auth → 401          401          1/1 ok     |
+|   [GET] GET /api/dashboard/analytics — no auth → 401     401          1/1 ok     |
++------------------------------------------------------------------------------------+
+| Pass rate: 100.0%   Duration: 15.88s   Failures: 0                                 |
++------------------------------------------------------------------------------------+
+

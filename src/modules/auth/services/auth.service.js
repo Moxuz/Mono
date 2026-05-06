@@ -1,5 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
+// Pre-computed dummy hash for timing-safe user lookup — prevents timing attacks
+// when user is not found (bcrypt.compare takes ~100ms; skipping it leaks user existence)
+const TIMING_DUMMY_HASH = bcrypt.hashSync('timing_normalization_placeholder', 12);
 const User = require('../../../shared/models/User');
 const config = require('../../../shared/config/config');
 const emailService = require('../../../shared/services/email.service');
@@ -11,7 +15,7 @@ const logger = require('../../../shared/utils/logger');
 
 class AuthService {
     // สมัครสมาชิกใหม่ ตรวจสอบรหัสผ่าน ส่งอีเมลยืนยัน และสร้าง JWT
-    async register({ username, email, password, pdpaConsent }) {
+    async register({ username, email, password, pdpaConsent, req }) {
         try {
             logger.info(`Register attempt for user: ${email}`);
 
@@ -25,10 +29,31 @@ class AuthService {
                 throw error;
             }
 
+            // Check if username already taken
+            const existingUsername = await User.findOne({ username });
+            if (existingUsername) {
+                logger.warn(`Registration failed - username already taken: ${username}`);
+                await securityAuditService.logSecurityEvent({
+                    userId: null,
+                    action: 'registration_failed',
+                    status: 'failure',
+                    ipAddress: pdpaConsent?.consentIp,
+                    metadata: { reason: 'username_already_exists', username, email }
+                });
+                throw new Error('Username already taken');
+            }
+
             // Check if user exists
             const existingUser = await User.findOne({ email });
             if (existingUser) {
                 logger.warn(`Registration failed - user already exists: ${email}`);
+                await securityAuditService.logSecurityEvent({
+                    userId: null,
+                    action: 'registration_failed',
+                    status: 'failure',
+                    ipAddress: pdpaConsent?.consentIp,
+                    metadata: { reason: 'email_already_exists', email }
+                });
                 throw new Error('User already exists');
             }
 
@@ -43,12 +68,7 @@ class AuthService {
             await user.save();
             logger.info(`User created successfully: ${user.email} (ID: ${user._id})`);
 
-            // Send welcome email
-            emailService
-                .sendWelcomeEmail({ to: user.email, username: user.username })
-                .catch((err) => logger.error('Welcome email failed:', { email: user.email, error: err.message }));
-
-            // Log security event
+            // Log security event first — audit must succeed before firing email
             securityAuditService.logSecurityEvent({
                 userId: user._id,
                 action: 'account_created',
@@ -60,9 +80,31 @@ class AuthService {
                 }
             });
 
-            // Generate token
-            const token = this.createToken(user);
-            logger.info(`Token generated for new user: ${user.email}`);
+            // Send welcome email (async, non-blocking)
+            emailService
+                .sendWelcomeEmail({ to: user.email, username: user.username })
+                .catch((err) => logger.error('Welcome email failed:', { email: user.email, error: err.message }));
+
+            // Generate tokens — rollback user creation if this fails
+            let token, refreshToken;
+            try {
+                token = this.createToken(user);
+                refreshToken = this.generateRefreshToken(user);
+            } catch (tokenErr) {
+                logger.error(`JWT generation failed for new user ${user.email} — rolling back`, tokenErr.message);
+                await User.deleteOne({ _id: user._id });
+                throw new Error('Registration failed: could not generate access token');
+            }
+            logger.info(`Tokens generated for new user: ${user.email}`);
+
+            // Create session (consistent with login flow)
+            let session = null;
+            try {
+                session = await sessionService.createSession(user._id, token, refreshToken, req);
+                logger.info(`Session created for new user: ${user.email}`);
+            } catch (err) {
+                logger.error('Failed to create session after registration:', err.message);
+            }
 
             return {
                 user: {
@@ -71,7 +113,9 @@ class AuthService {
                     email: user.email,
                     role: user.role
                 },
-                token
+                token,
+                refreshToken,
+                sessionId: session?.sessionId || null
             };
         } catch (error) {
             logger.error('Registration failed:', { error: error.message, email });
@@ -119,6 +163,7 @@ class AuthService {
             if (!user) {
                 logger.warn(`Login failed - user not found: ${email}`);
                 await securityAuditService.logLoginFailed(email, req, 'user_not_found');
+                await bcrypt.compare(password, TIMING_DUMMY_HASH); // prevent timing attack
                 throw new Error('Invalid credentials');
             }
 
@@ -131,10 +176,13 @@ class AuthService {
 
             // Check if account is locked
             if (user.isLocked()) {
-                const lockTime = Math.ceil((user.lockUntil - new Date()) / 60000);
+                const retryAfterSec = Math.ceil((user.lockUntil - new Date()) / 1000);
+                const lockTime = Math.ceil(retryAfterSec / 60);
                 logger.warn(`Login failed - account locked: ${email} (${lockTime} minutes remaining)`);
                 await securityAuditService.logLoginFailed(email, req, 'account_locked');
-                throw new Error(`Account is locked. Try again in ${lockTime} minutes`);
+                const lockErr = new Error(`Account is locked. Try again in ${lockTime} minutes`);
+                lockErr.retryAfter = retryAfterSec;
+                throw lockErr;
             }
 
             // Check password
@@ -145,7 +193,9 @@ class AuthService {
                 if (isNowLocked) {
                     logger.warn(`Login failed - account locked due to too many attempts: ${email}`);
                     await securityAuditService.logAccountLocked(user, req, 'too_many_failed_attempts');
-                    throw new Error('Account is locked due to too many failed attempts. Try again in 15 minutes');
+                    const lockErr = new Error('Account is locked due to too many failed attempts. Try again in 15 minutes');
+                    lockErr.retryAfter = 15 * 60;
+                    throw lockErr;
                 }
 
                 logger.warn(`Login failed - invalid password for user: ${email}`);
@@ -161,13 +211,13 @@ class AuthService {
             await user.save();
             logger.info(`Password verified for user: ${email}`);
 
+            // Log successful login — audit first, then fire email
+            await securityAuditService.logLoginSuccess(user, req);
+
             // ส่ง Login Alert Email (async - ไม่ block login process)
             sendLoginAlertIfEnabled(user, req).catch(err => {
                 logger.error('Login alert email failed:', { email: user.email, error: err.message });
             });
-
-            // Log successful login
-            await securityAuditService.logLoginSuccess(user, req);
             logger.info(`Login successful for user: ${email}`);
 
             // Generate token
@@ -299,6 +349,12 @@ class AuthService {
             
             if (decoded.type !== 'refresh_token') {
                 logger.warn('Refresh token failed - invalid token type');
+                await securityAuditService.logSecurityEvent({
+                    userId: decoded.sub || decoded.id,
+                    action: 'token_refresh_failed',
+                    status: 'failure',
+                    metadata: { reason: 'wrong_token_type', jti: decoded.jti }
+                });
                 throw new Error('Invalid refresh token');
             }
 
@@ -306,11 +362,28 @@ class AuthService {
             const isBlacklisted = await TokenBlacklist.isBlacklisted(refreshToken);
             if (isBlacklisted) {
                 logger.warn('Refresh token failed - token is blacklisted (possible reuse attack)');
-                await this.blacklistAllUserTokens(decoded.id, 'security_breach');
+                const breachUserId = decoded.sub || decoded.id;
+                await securityAuditService.logSecurityEvent({
+                    userId: breachUserId,
+                    action: 'security_breach',
+                    status: 'failure',
+                    metadata: { reason: 'token_reuse_detected', jti: decoded.jti }
+                });
+                await this.blacklistAllUserTokens(breachUserId, 'security_breach');
+                // Notify user of breach (best-effort, non-blocking)
+                User.findById(breachUserId).select('email username').then(breachUser => {
+                    if (breachUser) {
+                        emailService.sendEmail({
+                            to: breachUser.email,
+                            subject: 'Security Alert: Unusual Activity Detected on Your Account',
+                            text: `Dear ${breachUser.username},\n\nWe detected suspicious activity on your account — a refresh token was reused, which may indicate theft. All active sessions have been terminated.\n\nIf this was not you, please contact support immediately and change your password.\n\nAuthSys Security Team`
+                        }).catch(err => logger.error('Breach notification email failed:', err.message));
+                    }
+                }).catch(() => {});
                 throw new Error('Token has been revoked due to security concerns');
             }
 
-            const user = await User.findById(decoded.id);
+            const user = await User.findById(decoded.sub || decoded.id);
 
             if (!user) {
                 logger.warn('Refresh token failed - user not found');
@@ -329,22 +402,26 @@ class AuthService {
 
                 if (!session) {
                     logger.warn('Refresh token failed - session not found or inactive');
+                    await securityAuditService.logSecurityEvent({
+                        userId: user._id,
+                        action: 'token_refresh_failed',
+                        status: 'failure',
+                        metadata: { reason: 'session_revoked', sessionId }
+                    });
                     await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'user_logout');
                     throw new Error('Session has expired or been revoked');
                 }
 
-                session.lastActiveAt = new Date();
-                if (deviceInfo?.ipAddress) {
-                    session.ipAddress = deviceInfo.ipAddress;
-                }
-                await session.save();
+                const sessionUpdate = { lastActiveAt: new Date() };
+                if (deviceInfo?.ipAddress) sessionUpdate.ipAddress = deviceInfo.ipAddress;
+                await Session.updateOne({ _id: session._id }, { $set: sessionUpdate });
                 logger.info(`Session activity updated for user: ${user.email}`);
             }
 
             const Session = require('../../../shared/models/Session');
             const oldRefreshHash = Session.hashRefreshToken(refreshToken);
 
-            await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'user_logout');
+            await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'token_rotation');
             logger.info(`Old refresh token blacklisted for user: ${user.email} (rotation)`);
 
             const newAccessToken = this.createToken(user);
@@ -352,10 +429,10 @@ class AuthService {
 
             // Update session with new tokens so req.authSession stays valid
             const updatedSession = await Session.findOneAndUpdate(
-                { refreshTokenHash: oldRefreshHash, isActive: true },
+                { refreshTokenHash: oldRefreshHash, userId: user._id, isActive: true },
                 {
-                    sessionToken: newAccessToken,
-                    refreshTokenHash: Session.hashRefreshToken(newRefreshToken),
+                    accessTokenHash: Session.hashToken(newAccessToken),
+                    refreshTokenHash: Session.hashToken(newRefreshToken),
                     lastActiveAt: new Date()
                 }
             );
@@ -404,18 +481,17 @@ class AuthService {
             const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
             const Session = require('../../../shared/models/Session');
 
-            const sessions = await Session.find({ userId, isActive: true }).select('+refreshToken');
+            const sessions = await Session.find({ userId, isActive: true });
 
             for (const session of sessions) {
-                if (session.sessionToken) {
-                    await TokenBlacklist.revokeToken(session.sessionToken, userId, null, reason);
+                if (session.accessTokenHash) {
+                    await TokenBlacklist.revokeByHash(session.accessTokenHash, userId, null, reason);
                 }
-                if (session.refreshToken) {
-                    await TokenBlacklist.revokeToken(session.refreshToken, userId, null, reason);
+                if (session.refreshTokenHash) {
+                    await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, null, reason);
                 }
 
-                session.isActive = false;
-                await session.save();
+                await Session.updateOne({ _id: session._id }, { $set: { isActive: false, revokedAt: new Date(), revokeReason: 'security_breach' } });
             }
 
             logger.warn(`All tokens blacklisted for user ${userId} - Reason: ${reason}`);
@@ -452,21 +528,20 @@ class AuthService {
             const Session = require('../../../shared/models/Session');
             const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 
-            const session = await Session.findOne({ _id: sessionId, userId, isActive: true }).select('+refreshToken');
+            const session = await Session.findOne({ _id: sessionId, userId, isActive: true });
 
             if (!session) {
                 throw new Error('Session not found');
             }
 
-            if (session.sessionToken) {
-                await TokenBlacklist.revokeToken(session.sessionToken, userId, null, 'user_logout');
+            if (session.accessTokenHash) {
+                await TokenBlacklist.revokeByHash(session.accessTokenHash, userId, null, 'user_logout');
             }
-            if (session.refreshToken) {
-                await TokenBlacklist.revokeToken(session.refreshToken, userId, null, 'user_logout');
+            if (session.refreshTokenHash) {
+                await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, null, 'user_logout');
             }
 
-            session.isActive = false;
-            await session.save();
+            await Session.updateOne({ _id: session._id }, { $set: { isActive: false, revokedAt: new Date(), revokeReason: 'user_logout' } });
 
             logger.info(`Session ${sessionId} revoked for user ${userId}`);
 
@@ -487,18 +562,17 @@ class AuthService {
                 userId,
                 isActive: true,
                 _id: { $ne: currentSessionId }
-            }).select('+refreshToken');
+            });
 
             for (const session of sessions) {
-                if (session.sessionToken) {
-                    await TokenBlacklist.revokeToken(session.sessionToken, userId, null, 'user_logout');
+                if (session.accessTokenHash) {
+                    await TokenBlacklist.revokeByHash(session.accessTokenHash, userId, null, 'user_logout');
                 }
-                if (session.refreshToken) {
-                    await TokenBlacklist.revokeToken(session.refreshToken, userId, null, 'user_logout');
+                if (session.refreshTokenHash) {
+                    await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, null, 'user_logout');
                 }
 
-                session.isActive = false;
-                await session.save();
+                await Session.updateOne({ _id: session._id }, { $set: { isActive: false, revokedAt: new Date(), revokeReason: 'user_logout' } });
             }
 
             logger.info(`Revoked ${sessions.length} other sessions for user ${userId}`);

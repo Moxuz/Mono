@@ -5,6 +5,8 @@ const userSchema = new mongoose.Schema({
     username: {
         type: String,
         required: [true, 'Username is required'],
+        unique: true,
+        sparse: true,
         trim: true
     },
     email: {
@@ -21,6 +23,7 @@ const userSchema = new mongoose.Schema({
     },
     googleId: {
         type: String,
+        unique: true,
         sparse: true
     },
     
@@ -47,6 +50,19 @@ const userSchema = new mongoose.Schema({
     lockUntil: {
         type: Date,
         default: null
+    },
+
+    emailVerified: {
+        type: Boolean,
+        default: false
+    },
+    emailVerificationToken: {
+        type: String,
+        select: false
+    },
+    emailVerificationExpires: {
+        type: Date,
+        select: false
     },
 
     passwordResetToken: {
@@ -119,7 +135,7 @@ const userSchema = new mongoose.Schema({
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
+    if (!this.isModified('password') || !this.password) return next();
     try {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);

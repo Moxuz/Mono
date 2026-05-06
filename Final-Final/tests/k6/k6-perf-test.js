@@ -8,18 +8,33 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost';
 const HEADERS  = { 'Content-Type': 'application/json' };
 
-// Pre-fetched tokens for 3 test accounts (rotated round-robin across VUs)
+// Test accounts — tokens fetched fresh at runtime via setup()
 const ACCOUNTS = [
-  { email: 'k6user1@example.com', password: 'K6Test99!', token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YzgwZThhOGFmNTI2MjFlM2FlNDRlMiIsImVtYWlsIjoiazZ1c2VyMUBleGFtcGxlLmNvbSIsInJvbGUiOiJ1c2VyIiwicHJvdmlkZXIiOiJsb2NhbCIsImp0aSI6ImY4ZGM3MjdiMjU0OGJiYzViZTU2MjhjZDQ4OWVjNDlmIiwiaWF0IjoxNzc0NzE4NzYyLCJleHAiOjE3NzQ3MjIzNjJ9.WXQrSfvR_xpqk2ynvcjswcvQ3TPsrCkXC1xPAfXkqvw' },
-  { email: 'k6user2@example.com', password: 'K6Test99!', token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YzgwZThiOGFmNTI2MjFlM2FlNDRlYSIsImVtYWlsIjoiazZ1c2VyMkBleGFtcGxlLmNvbSIsInJvbGUiOiJ1c2VyIiwicHJvdmlkZXIiOiJsb2NhbCIsImp0aSI6IjM5YjJlNDMyZjNkNWZhMWNmZWM1NjAzZWNiNDgyOTgyIiwiaWF0IjoxNzc0NzE4NzY1LCJleHAiOjE3NzQ3MjIzNjV9.dAn3FXgwMPyV0Nf1nA31oubsttrabbmUg7gKHPXdhYo' },
-  { email: 'k6user3@example.com', password: 'K6Test99!', token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YzgwZThjOGFmNTI2MjFlM2FlNDRmMiIsImVtYWlsIjoiazZ1c2VyM0BleGFtcGxlLmNvbSIsInJvbGUiOiJ1c2VyIiwicHJvdmlkZXIiOiJsb2NhbCIsImp0aSI6IjI4ODc5ZDQzMjA0YzRjMDhhMmVlNTQwY2Q3YmNiZTk5IiwiaWF0IjoxNzc0NzE4NzY4LCJleHAiOjE3NzQ3MjIzNjh9.H6t38PlfwgFPqQninOFSip63ezGgrIhaw_PfkB7L7BQ' },
+  { email: 'k6user1@example.com', password: 'K6Test99!' },
+  { email: 'k6user2@example.com', password: 'K6Test99!' },
+  { email: 'k6user3@example.com', password: 'K6Test99!' },
 ];
 
 const loginDur   = new Trend('login_duration',   true);
 const profileDur = new Trend('profile_duration', true);
+
+// Fetch fresh tokens once before the test starts
+export function setup() {
+    const tokens = [];
+    for (const acct of ACCOUNTS) {
+        const res = http.post(
+            BASE_URL + '/api/auth/login',
+            JSON.stringify({ email: acct.email, password: acct.password }),
+            { headers: HEADERS }
+        );
+        const token = (res.status === 200) ? res.json('accessToken') : null;
+        tokens.push(token);
+    }
+    return { tokens };
+}
 
 export const options = {
     scenarios: {
@@ -56,7 +71,7 @@ export const options = {
     },
 };
 
-export function loginTest() {
+export function loginTest(data) {
     const acct = ACCOUNTS[(__VU - 1) % ACCOUNTS.length];
     const t = Date.now();
     const res = http.post(
@@ -69,12 +84,13 @@ export function loginTest() {
     sleep(Math.random() * 0.5 + 0.1);
 }
 
-export function profileTest() {
-    const acct = ACCOUNTS[(__VU - 1) % ACCOUNTS.length];
+export function profileTest(data) {
+    const idx   = (__VU - 1) % ACCOUNTS.length;
+    const token = data.tokens[idx];
     const t = Date.now();
     const res = http.get(
         BASE_URL + '/api/auth/profile',
-        { headers: { ...HEADERS, 'Authorization': 'Bearer ' + acct.token } }
+        { headers: { ...HEADERS, 'Authorization': 'Bearer ' + token } }
     );
     profileDur.add(Date.now() - t);
     check(res, { 'profile 200 or 401': (r) => r.status === 200 || r.status === 401 || r.status === 429 });

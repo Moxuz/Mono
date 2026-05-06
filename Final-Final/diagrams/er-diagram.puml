@@ -1,0 +1,183 @@
+@startdot
+digraph TAS_ER {
+    graph [fontname="Arial", rankdir=TB, splines=ortho,
+           nodesep=0.8, ranksep=1.2, label="TAS — ER Diagram (Chen Notation)",
+           labelloc=t, fontsize=14, fontname="Arial Bold"]
+    edge  [fontname="Arial", fontsize=10, color="#555555"]
+    node  [fontname="Arial", fontsize=11]
+
+    // ─── ENTITY style ────────────────────────────────────────────
+    node [shape=rectangle, style="filled", fillcolor="#FFFBCC",
+          color="#B8860B", penwidth=2.5]
+    USER
+    SESSION
+    TOKEN_BLACKLIST [label="TOKEN\nBLACKLIST"]
+    CLIENT
+    CONSENT
+    AUTH_CODE [label="AUTHORIZATION\nCODE"]
+    SECURITY_AUDIT [label="SECURITY\nAUDIT"]
+
+    // ─── RELATIONSHIP style ───────────────────────────────────────
+    node [shape=diamond, style="filled", fillcolor="#DCE6F1",
+          color="#4472C4", penwidth=2]
+    r_session     [label="HAS"]
+    r_blacklist   [label="BLACKLISTED\nBY"]
+    r_audit       [label="RECORDED\nIN"]
+    r_consent_u   [label="GRANTS\nCONSENT"]
+    r_consent_c   [label="RECEIVES\nCONSENT"]
+    r_code_u      [label="AUTHORIZES"]
+    r_code_c      [label="ISSUED BY"]
+
+    // ─── ATTRIBUTE style ──────────────────────────────────────────
+    node [shape=ellipse, style="filled", fillcolor="#FFFFFF",
+          color="#999999", penwidth=1, fontsize=10]
+
+    // USER attributes
+    u_id       [label=<<u>_id</u>>, color="#B8860B"]
+    u_username [label="username\n(unique)"]
+    u_email    [label="email\n(unique)"]
+    u_password [label="password\n(bcrypt)"]
+    u_role     [label="role"]
+    u_isActive [label="isActive"]
+    u_lock     [label="lockUntil /\nfailedAttempts"]
+    u_pdpa     [label="pdpaConsent\n(embedded)"]
+
+    // SESSION attributes
+    s_id         [label=<<u>_id</u>>, color="#B8860B"]
+    s_userId     [label="userId (FK)"]
+    s_stoken     [label="sessionToken\n(JWT)"]
+    s_rthash     [label="refreshTokenHash\n(SHA256)"]
+    s_rtfamily   [label="refreshToken\nFamily"]
+    s_device     [label="deviceInfo /\nipAddress"]
+    s_isActive   [label="isActive"]
+    s_dates      [label="createdAt /\nlastActiveAt\n(TTL 90d)"]
+
+    // TOKEN_BLACKLIST attributes
+    tb_id      [label=<<u>_id</u>>, color="#B8860B"]
+    tb_token   [label="token\n(SHA256 hash)"]
+    tb_type    [label="tokenType"]
+    tb_userId  [label="userId (FK)"]
+    tb_cid     [label="clientId (FK)\n(nullable)"]
+    tb_reason  [label="reason"]
+    tb_exp     [label="expiresAt\n(TTL)"]
+
+    // CLIENT attributes
+    c_id       [label=<<u>_id</u>>, color="#B8860B"]
+    c_cid      [label="client_id\n(unique)"]
+    c_secret   [label="client_secret_hash\n(bcrypt)"]
+    c_name     [label="name"]
+    c_uris     [label="redirect_uris"]
+    c_scope    [label="scope"]
+
+    // CONSENT attributes
+    co_id      [label=<<u>_id</u>>, color="#B8860B"]
+    co_userId  [label="userId (FK)"]
+    co_cid     [label="clientId (FK)"]
+    co_scope   [label="scope"]
+    co_exp     [label="expiresAt\n(TTL 30d / 7d)"]
+
+    // AUTHORIZATION_CODE attributes
+    ac_id      [label=<<u>_id</u>>, color="#B8860B"]
+    ac_code    [label="code\n(64-char hex)"]
+    ac_cid     [label="clientId (FK)"]
+    ac_uid     [label="userId (FK)"]
+    ac_pkce    [label="code_challenge\ncode_challenge_method\n(S256 only)"]
+    ac_usedAt  [label="usedAt\n(null = unused)"]
+    ac_exp     [label="expiresAt\n(TTL 2 min)"]
+
+    // SECURITY_AUDIT attributes
+    sa_id      [label=<<u>_id</u>>, color="#B8860B"]
+    sa_uid     [label="userId (FK)\n(nullable)"]
+    sa_action  [label="action\n(24 types)"]
+    sa_status  [label="status"]
+    sa_ip      [label="ipAddress\n(indexed)"]
+    sa_meta    [label="metadata"]
+    sa_exp     [label="expiresAt\n(TTL 90d)"]
+
+    // ─── ATTRIBUTE CONNECTIONS ────────────────────────────────────
+    USER -- u_id
+    USER -- u_username
+    USER -- u_email
+    USER -- u_password
+    USER -- u_role
+    USER -- u_isActive
+    USER -- u_lock
+    USER -- u_pdpa
+
+    SESSION -- s_id
+    SESSION -- s_userId
+    SESSION -- s_stoken
+    SESSION -- s_rthash
+    SESSION -- s_rtfamily
+    SESSION -- s_device
+    SESSION -- s_isActive
+    SESSION -- s_dates
+
+    TOKEN_BLACKLIST -- tb_id
+    TOKEN_BLACKLIST -- tb_token
+    TOKEN_BLACKLIST -- tb_type
+    TOKEN_BLACKLIST -- tb_userId
+    TOKEN_BLACKLIST -- tb_cid
+    TOKEN_BLACKLIST -- tb_reason
+    TOKEN_BLACKLIST -- tb_exp
+
+    CLIENT -- c_id
+    CLIENT -- c_cid
+    CLIENT -- c_secret
+    CLIENT -- c_name
+    CLIENT -- c_uris
+    CLIENT -- c_scope
+
+    CONSENT -- co_id
+    CONSENT -- co_userId
+    CONSENT -- co_cid
+    CONSENT -- co_scope
+    CONSENT -- co_exp
+
+    AUTH_CODE -- ac_id
+    AUTH_CODE -- ac_code
+    AUTH_CODE -- ac_cid
+    AUTH_CODE -- ac_uid
+    AUTH_CODE -- ac_pkce
+    AUTH_CODE -- ac_usedAt
+    AUTH_CODE -- ac_exp
+
+    SECURITY_AUDIT -- sa_id
+    SECURITY_AUDIT -- sa_uid
+    SECURITY_AUDIT -- sa_action
+    SECURITY_AUDIT -- sa_status
+    SECURITY_AUDIT -- sa_ip
+    SECURITY_AUDIT -- sa_meta
+    SECURITY_AUDIT -- sa_exp
+
+    // ─── RELATIONSHIP CONNECTIONS ─────────────────────────────────
+    // USER —[HAS]— SESSION  (1:N)
+    USER          -- r_session   [label="1"]
+    r_session     -- SESSION     [label="N"]
+
+    // USER —[BLACKLISTED BY]— TOKEN_BLACKLIST  (1:N)
+    USER          -- r_blacklist  [label="1"]
+    r_blacklist   -- TOKEN_BLACKLIST [label="N"]
+
+    // USER —[RECORDED IN]— SECURITY_AUDIT  (0..1 : N)
+    USER          -- r_audit     [label="0..1"]
+    r_audit       -- SECURITY_AUDIT [label="N"]
+
+    // USER ——[GRANTS CONSENT]—— CONSENT ——[RECEIVES CONSENT]—— CLIENT  (N:N)
+    USER          -- r_consent_u [label="N"]
+    r_consent_u   -- CONSENT     [label="1"]
+    CLIENT        -- r_consent_c [label="N"]
+    r_consent_c   -- CONSENT     [label="1"]
+
+    // USER ——[AUTHORIZES]—— AUTH_CODE ——[ISSUED BY]—— CLIENT  (N:N)
+    USER          -- r_code_u    [label="1"]
+    r_code_u      -- AUTH_CODE   [label="N"]
+    CLIENT        -- r_code_c    [label="1"]
+    r_code_c      -- AUTH_CODE   [label="N"]
+
+    // ─── LAYOUT HINTS ─────────────────────────────────────────────
+    { rank=same; USER; CLIENT }
+    { rank=same; SESSION; TOKEN_BLACKLIST; SECURITY_AUDIT }
+    { rank=same; CONSENT; AUTH_CODE }
+}
+@enddot

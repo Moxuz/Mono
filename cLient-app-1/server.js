@@ -9,12 +9,14 @@ const app  = express();
 const PORT = process.env.PORT || 3001;
 
 const config = {
-    appName:       process.env.APP_NAME       || 'Client App 1',
-    oauthProvider: process.env.OAUTH_PROVIDER || 'http://localhost:5000',
-    clientId:      process.env.CLIENT_ID,
-    clientSecret:  process.env.CLIENT_SECRET,
-    redirectUri:   process.env.REDIRECT_URI   || `http://localhost:${PORT}/callback`,
-    sessionSecret: process.env.SESSION_SECRET || 'change_this_secret'
+    appName:          process.env.APP_NAME          || 'Client App 1',
+    oauthProvider:    process.env.OAUTH_PROVIDER    || 'http://localhost:5000',
+    // Browser-facing redirect URL (must be reachable by the user's browser)
+    oauthPublicUrl:   process.env.OAUTH_PUBLIC_URL  || process.env.OAUTH_PROVIDER || 'http://localhost:5000',
+    clientId:         process.env.CLIENT_ID,
+    clientSecret:     process.env.CLIENT_SECRET,
+    redirectUri:      process.env.REDIRECT_URI      || `http://localhost:${PORT}/callback`,
+    sessionSecret:    process.env.SESSION_SECRET    || 'change_this_secret'
 };
 
 app.use(express.json());
@@ -68,7 +70,7 @@ app.get('/login', (req, res) => {
     res.cookie('oauth_state',         state,        { httpOnly: true, sameSite: 'lax', maxAge: 300000 });
     res.cookie('oauth_code_verifier', codeVerifier, { httpOnly: true, sameSite: 'lax', maxAge: 300000 });
 
-    const authUrl = `${config.oauthProvider}/api/oauth/authorize?` +
+    const authUrl = `${config.oauthPublicUrl}/api/oauth/authorize?` +
         `client_id=${config.clientId}&` +
         `redirect_uri=${encodeURIComponent(config.redirectUri)}&` +
         `response_type=code&scope=openid profile email&` +

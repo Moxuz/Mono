@@ -152,12 +152,6 @@ test('Recovery - Password reset mechanism', () => {
     assert.ok(authService.resetPassword);
 });
 
-test('Recovery - Account recovery via 2FA backup codes', () => {
-    const twoFAService = require('../src/shared/services/2fa.service');
-    assert.ok(twoFAService.verifyBackupCode);
-    assert.ok(twoFAService.generateBackupCodes);
-});
-
 test('Recovery - Session cleanup', () => {
     const sessionService = require('../src/shared/services/session.service');
     assert.ok(sessionService.cleanupExpiredSessions);

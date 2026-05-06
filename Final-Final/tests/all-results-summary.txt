@@ -1,0 +1,190 @@
+================================================================================
+  TAS — COMPLETE TEST SUITE RESULTS
+  Generated: 2026-05-07 03:25:15
+================================================================================
+
+--------------------------------------------------------------------------------
+  JEST INTEGRATION TESTS
+--------------------------------------------------------------------------------
+
++--------------------------------------------------------------------------------------+
+|  JEST INTEGRATION TEST SUMMARY  [2026-05-07 03:25:15]                                 |
++--------------------------------------------------------------------------------------+
+| Suite (File)                                          Total   Pass   Fail   Skip |
++--------------------------------------------------------------------------------------+
+| 7-pdpa.test.js                                           29     29      0      0      |
+| 2-auth-password.test.js                                  13     13      0      0      |
+| 4-auth-profile.test.js                                   18     18      0      0      |
+| 5-oauth.test.js                                          24     24      0      0      |
+| 1-auth-core.test.js                                      22     22      0      0      |
+| 6-security.test.js                                       25     25      0      0      |
+| 3-auth-sessions.test.js                                  14     14      0      0      |
++--------------------------------------------------------------------------------------+
+| Total: 145  Passed: 145  Failed: 0  Skipped: 0  Pass rate: 100.0%  Duration: 0.0s    |
++--------------------------------------------------------------------------------------+
+
+
+
+--------------------------------------------------------------------------------
+  PLAYWRIGHT E2E TESTS
+--------------------------------------------------------------------------------
+
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ PLAYWRIGHT TEST SUMMARY  [2026-05-06 20:25:10]                                                        │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Test Suite                                                       Total   Passed   Failed  Skipped │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 02 — Authentication — Register                                       4        4        0        0  │
+│ 03 — Authentication — Login                                          4        4        0        0  │
+│ 04 — Authentication — Profile & Token                                6        6        0        0  │
+│ 05 — Authentication — Password Management                            4        4        0        0  │
+│ 06 — Authentication — Preferences & Consent                          3        3        0        0  │
+│ 07 — Authentication — Audit & Security                               3        3        0        0  │
+│ 08 — Authentication — OAuth Social                                   3        3        0        0  │
+│ 09 — Authentication — Logout                                         1        1        0        0  │
+│ 01 — Page Navigation                                                 6        6        0        0  │
+│ 02 — Security Headers                                                4        4        0        0  │
+│ 03 — Login Flow                                                      3        3        0        0  │
+│ 05 — API Calls via Browser Context                                   5        5        0        0  │
+│ 04 — Register Flow                                                   2        2        0        0  │
+│ 06 — OAuth 2.0 via Browser                                           2        2        0        0  │
+│ 24 — Client App — Page Rendering                                     4        4        0        0  │
+│ 08 — Dashboard Access Control                                        1        1        0        0  │
+│ 07 — Session Management                                              2        2        0        0  │
+│ 25 — Client App — Unauthenticated Access Control                     5        5        0        0  │
+│ 26 — Client App — Authenticated Session (via social-callback)        5        5        0        0  │
+│ 27 — Client App — Logout & OAuth Callback Edge Cases                 7        7        0        0  │
+│ 16 — Dashboard — User                                                7        7        0        0  │
+│ 17 — Dashboard — Admin Analytics (requires admin role)               7        7        0        0  │
+│ 18 — Dashboard — Admin Monitoring (requires admin role)              6        6        0        0  │
+│ 19 — Dashboard — Admin Logs (requires admin role)                    8        8        0        0  │
+│ 13 — OAuth — OIDC Discovery & JWKS                                   2        2        0        0  │
+│ 28 — Auth-App Pages — Public (no token required)                    11       11        0        0  │
+│ 14 — OAuth — Client Management                                       7        7        0        0  │
+│ 15 — OAuth — Token Operations                                        4        4        0        0  │
+│ 29 — Auth-App Pages — User (requires token in localStorage)         17       17        0        0  │
+│ 30 — Auth-App Pages — Admin (requires admin token)                  14       14        0        0  │
+│ 01 — Page Rendering                                                 13       13        0        0  │
+│ 20 — Security Headers                                               15       15        0        0  │
+│ 21 — Input Validation                                                5        5        0        0  │
+│ 23 — Access Control                                                  2        2        0        0  │
+│ 22 — Rate Limiting                                                   2        2        0        0  │
+│ 12 — Sessions                                                        9        9        0        0  │
+│ 10 — User — Profile & Settings                                       5        5        0        0  │
+│ 11 — User — PDPA Rights                                              3        3        0        0  │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ TOTAL                                                              211      211        0        0  │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Pass rate: 100.0%   Duration: 105.07s   Status: PASSED                                                │
+└───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+--------------------------------------------------------------------------------
+  POSTMAN API TESTS
+--------------------------------------------------------------------------------
+
++------------------------------------------------------------------------------------+
+|  POSTMAN / NEWMAN API TEST SUMMARY  [2026-05-07 03:25:15]                           |
++------------------------------------------------------------------------------------+
+| Category                                              Total   Passed   Failed |
++------------------------------------------------------------------------------------+
+| Requests                                                 31       31        0 |
+| Assertions                                               69       69        0 |
++------------------------------------------------------------------------------------+
+| Request Name                                        Status      Assertions |
++------------------------------------------------------------------------------------+
+|   [GET] GET /health                                      200          4/4 ok     |
+|   [GET] GET /.well-known/openid-configuration            200          4/4 ok     |
+|   [POST] POST /api/auth/register — new user              201          4/4 ok     |
+|   [POST] POST /api/auth/login — valid                    200          5/5 ok     |
+|   [POST] POST /api/auth/login — wrong password → 401     401          2/2 ok     |
+|   [POST] POST /api/auth/login — missing password → 400     400          1/1 ok     |
+|   [GET] GET /api/auth/profile — authenticated            200          3/3 ok     |
+|   [GET] GET /api/auth/profile — no token → 401           401          1/1 ok     |
+|   [POST] POST /api/auth/refresh-token                    200          2/2 ok     |
+|   [POST] POST /api/auth/forgot-password                  200          2/2 ok     |
+|   [POST] POST /api/auth/logout                           200          1/1 ok     |
+|   [POST] Login k6user2 for user tests                    200          1/1 ok     |
+|   [GET] GET /api/users/me                                200          3/3 ok     |
+|   [PUT] PUT /api/users/profile — update own profile      200          2/2 ok     |
+|   [GET] GET /api/users/me — unauthenticated → 401        401          1/1 ok     |
+|   [POST] Login k6user3 for session tests                 200          1/1 ok     |
+|   [GET] GET /api/sessions                                200          3/3 ok     |
+|   [POST] POST /api/auth/sessions/revoke-all-others       200          2/2 ok     |
+|   [POST] Login k6user1 for OAuth tests                   200          1/1 ok     |
+|   [POST] POST /api/oauth/clients — register client       201          4/4 ok     |
+|   [GET] GET /api/oauth/clients                           200          2/2 ok     |
+|   [POST] POST /api/oauth/introspect — with client cred     200          2/2 ok     |
+|   [GET] GET /api/oauth/userinfo                          200          2/2 ok     |
+|   [POST] POST /api/oauth/revoke — revoke token           401          1/1 ok     |
+|   [GET] Security headers on /                            200          6/6 ok     |
+|   [POST] Wrong password → 401 (not 500)                  401          2/2 ok     |
+|   [POST] Rate limit headers present                      200          2/2 ok     |
+|   [GET] 404 on unknown route                             404          2/2 ok     |
+|   [GET] GET /api/dashboard/monitoring — no auth → 401     401          1/1 ok     |
+|   [GET] GET /api/dashboard/logs — no auth → 401          401          1/1 ok     |
+|   [GET] GET /api/dashboard/analytics — no auth → 401     401          1/1 ok     |
++------------------------------------------------------------------------------------+
+| Pass rate: 100.0%   Duration: 15.88s   Failures: 0                                 |
++------------------------------------------------------------------------------------+
+
+
+
+--------------------------------------------------------------------------------
+  K6 PERFORMANCE TESTS
+--------------------------------------------------------------------------------
+
++----------------------------------------------------------------------------+
+|  K6 PERFORMANCE TEST SUMMARY  [2026-05-07 03:25:15]                         |
++----------------------------------------------------------------------------+
+| Metric                                             Value         Threshold |
++----------------------------------------------------------------------------+
+| Total HTTP Requests                                67592                -- |
+| Request Duration p(95)                          563.6 ms        p(95)<8000 |
+| Failed Requests (%)                               98.24%          rate<0.9 |
+| Max Virtual Users                                    500                -- |
+| Blocked Time avg (ms)                            0.01 ms                -- |
+| Connecting Time avg (ms)                         0.01 ms                -- |
+| Send Time avg (ms)                               0.00 ms                -- |
+| Receive Time avg (ms)                            0.06 ms                -- |
+| Total Iterations                                   67573                -- |
++----------------------------------------------------------------------------+
+
+
+
+--------------------------------------------------------------------------------
+  ZAP SECURITY SCAN
+--------------------------------------------------------------------------------
+
++----------------------------------------------------------------------+
+|  ZAP SECURITY SCAN SUMMARY  [2026-05-07 03:25:15]                     |
++----------------------------------------------------------------------+
+| Risk Level       Count  Alerts                   |
++----------------------------------------------------------------------+
+| High                 0                           !|
+| Medium               5  CSP: Wildcard Directive, !|
+| Low                  1  Private IP Disclosure     |
+| Informational        7  Authentication Request I  |
++----------------------------------------------------------------------+
+| Total alerts: 13   Host: nginx   Generated: Wed, 6 May 2026 19:46:43 |
++----------------------------------------------------------------------+
+
+  ALERT DETAILS:
+  -----------------------------------------------------------------
+  [Medium       ] CSP: Wildcard Directive (instances: 4)
+  [Medium       ] CSP: script-src unsafe-eval (instances: 4)
+  [Medium       ] CSP: script-src unsafe-inline (instances: 4)
+  [Medium       ] CSP: style-src unsafe-inline (instances: 4)
+  [Medium       ] Sub Resource Integrity Attribute Missing (instances: 5)
+  [Low          ] Private IP Disclosure (instances: 1)
+  [Informational] Authentication Request Identified (instances: 1)
+  [Informational] Information Disclosure - Sensitive Information in URL (instances: 5)
+  [Informational] Information Disclosure - Suspicious Comments (instances: 14)
+  [Informational] Modern Web Application (instances: 2)
+  [Informational] Non-Storable Content (instances: 2)
+  [Informational] Storable and Cacheable Content (instances: 2)
+  [Informational] Storable but Non-Cacheable Content (instances: 5)
+
+
+

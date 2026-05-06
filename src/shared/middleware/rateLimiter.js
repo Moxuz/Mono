@@ -223,12 +223,48 @@ const loginLimiter = createLimiter({
     message: 'Too many login attempts. Please try again in 15 minutes.'
 }, 'login');
 
-// จำกัดการสมัคร: 3 ครั้ง / 1 ชั่วโมง
+// จำกัดการสมัคร: 5 ครั้ง / 1 ชั่วโมง
 const registerLimiter = createLimiter({
     windowMs: 60 * 60 * 1000,
-    max: 3,
-    message: 'Too many account creations. Please try again in 1 hour.'
+    max: 5,
+    message: 'Too many account creations. Please try again in 1 hour.',
+    handler: (req, res) => {
+        const SecurityAudit = require('../models/SecurityAudit');
+        SecurityAudit.logEvent({
+            userId: null,
+            action: 'registration_failed',
+            status: 'failure',
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'],
+            metadata: { reason: 'rate_limit_exceeded', endpoint: '/api/auth/register' }
+        }).catch(() => {});
+        res.set('Retry-After', 3600);
+        res.status(429).json({
+            success: false,
+            error: 'Too Many Requests',
+            message: 'Too many account creations. Please try again in 1 hour.',
+            retryAfter: 3600
+        });
+    }
 }, 'register');
+
+// จำกัดการ refresh token: 10 ครั้ง / 15 นาที — keyed per user+IP (decoded from token)
+const refreshTokenLimiter = createLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    keyGenerator: (req) => {
+        const token = req.body?.refreshToken;
+        if (token) {
+            try {
+                const jwt = require('jsonwebtoken');
+                const decoded = jwt.decode(token);
+                if (decoded?.sub) return `${decoded.sub}_${getIpFromRequest(req)}`;
+            } catch {}
+        }
+        return getIpFromRequest(req);
+    },
+    message: 'Too many refresh token requests. Please try again in 15 minutes.'
+}, 'refresh-token');
 
 // จำกัดการขอ token: 10 ครั้ง / 15 นาที
 const tokenLimiter = createLimiter({
@@ -244,11 +280,40 @@ const forgotPasswordLimiter = createLimiter({
     message: 'Too many password reset requests. Please try again in 1 hour.'
 }, 'forgot-password');
 
+// จำกัดการ userinfo: 60 ครั้ง / 1 นาที — keyed per token (Bearer)
+const userinfoLimiter = createLimiter({
+    windowMs: 60 * 1000,
+    max: 60,
+    keyGenerator: (req) => {
+        const auth = req.headers.authorization;
+        if (auth?.startsWith('Bearer ')) return auth.split(' ')[1].slice(0, 32);
+        return getIpFromRequest(req);
+    },
+    message: 'Too many userinfo requests. Please try again in 1 minute.'
+}, 'userinfo');
+
 // จำกัดการ authorize: 30 ครั้ง / 15 นาที
 const authorizeLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     max: 30,
-    message: 'Too many authorization requests. Please try again in 15 minutes.'
+    message: 'Too many authorization requests. Please try again in 15 minutes.',
+    handler: (req, res) => {
+        const SecurityAudit = require('../models/SecurityAudit');
+        SecurityAudit.logEvent({
+            userId: null,
+            action: 'rate_limit_exceeded',
+            status: 'failure',
+            ipAddress: getIpFromRequest(req),
+            userAgent: req.headers['user-agent'],
+            metadata: { reason: 'too_many_auth_attempts', endpoint: '/api/oauth/authorize' }
+        }).catch(() => {});
+        res.status(429).json({
+            success: false,
+            error: 'Too Many Requests',
+            message: 'Too many authorization requests. Please try again in 15 minutes.',
+            retryAfter: 15 * 60
+        });
+    }
 }, 'authorize');
 
 // จำกัดการ introspect token: 20 ครั้ง / 15 นาที
@@ -337,6 +402,8 @@ module.exports = {
     loginLimiter,
     registerLimiter,
     tokenLimiter,
+    refreshTokenLimiter,
+    userinfoLimiter,
     forgotPasswordLimiter,
     authorizeLimiter,
     introspectLimiter,

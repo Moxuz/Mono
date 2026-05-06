@@ -5,17 +5,14 @@ const logger = require('../utils/logger');
 /**
  * Log security event
  */
-async function logSecurityEvent({ userId, action, status, ipAddress, userAgent, metadata }) {
+async function logSecurityEvent({ userId, email, action, status, ipAddress, userAgent, metadata }) {
     try {
-        
-    
-        //const cleanedIP = cleanIPAddress(ipAddress);
-        
         const audit = await SecurityAudit.logEvent({
             userId,
+            email: email || metadata?.email || null,
             action,
             status,
-            ipAddress,  
+            ipAddress,
             userAgent,
             metadata
         });
@@ -41,12 +38,12 @@ async function logSecurityEvent({ userId, action, status, ipAddress, userAgent, 
 async function logLoginSuccess(user, req) {
     return logSecurityEvent({
         userId: user._id,
+        email: user.email,
         action: 'login_success',
         status: 'success',
         ipAddress: req?.ip || req?.headers?.['x-forwarded-for']?.split(',')[0],
         userAgent: req?.headers?.['user-agent'],
         metadata: {
-            email: user.email,
             method: 'password'
         }
     });
@@ -58,14 +55,12 @@ async function logLoginSuccess(user, req) {
 async function logLoginFailed(email, req, reason = 'invalid_credentials') {
     return logSecurityEvent({
         userId: null,
+        email,
         action: 'login_failed',
         status: 'failure',
         ipAddress: req?.ip || req?.headers?.['x-forwarded-for']?.split(',')[0],
         userAgent: req?.headers?.['user-agent'],
-        metadata: {
-            email,
-            reason
-        }
+        metadata: { reason }
     });
 }
 
@@ -113,13 +108,12 @@ async function getUserAuditLogs(userId, limitOrPage = 50, limit = null) {
 async function logPasswordChanged(user, req) {
     return logSecurityEvent({
         userId: user._id,
+        email: user.email,
         action: 'password_changed',
         status: 'success',
         ipAddress: req?.ip,
         userAgent: req?.headers?.['user-agent'],
-        metadata: {
-            email: user.email
-        }
+        metadata: {}
     });
 }
 
@@ -129,13 +123,12 @@ async function logPasswordChanged(user, req) {
 async function logPasswordResetRequested(email, req) {
     return logSecurityEvent({
         userId: null,
+        email,
         action: 'password_reset_requested',
         status: 'success',
         ipAddress: req?.ip,
         userAgent: req?.headers?.['user-agent'],
-        metadata: {
-            email
-        }
+        metadata: {}
     });
 }
 
@@ -145,13 +138,12 @@ async function logPasswordResetRequested(email, req) {
 async function logPasswordResetCompleted(user, req) {
     return logSecurityEvent({
         userId: user._id,
+        email: user.email,
         action: 'password_reset_completed',
         status: 'success',
         ipAddress: req?.ip,
         userAgent: req?.headers?.['user-agent'],
-        metadata: {
-            email: user.email
-        }
+        metadata: {}
     });
 }
 
@@ -161,13 +153,12 @@ async function logPasswordResetCompleted(user, req) {
 async function logEmailVerified(user, req) {
     return logSecurityEvent({
         userId: user._id,
+        email: user.email,
         action: 'email_verified',
         status: 'success',
         ipAddress: req?.ip,
         userAgent: req?.headers?.['user-agent'],
-        metadata: {
-            email: user.email
-        }
+        metadata: {}
     });
 }
 
@@ -177,14 +168,12 @@ async function logEmailVerified(user, req) {
 async function logAccountLocked(user, req, reason) {
     return logSecurityEvent({
         userId: user._id,
+        email: user.email,
         action: 'account_locked',
         status: 'failure',
         ipAddress: req?.ip,
         userAgent: req?.headers?.['user-agent'],
-        metadata: {
-            email: user.email,
-            reason
-        }
+        metadata: { reason }
     });
 }
 

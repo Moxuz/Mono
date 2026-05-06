@@ -12,7 +12,7 @@ title OAuth 2.0 PKCE Authorization Code Flow
 actor       "User"         as user
 participant "Client App\n(port 3001)" as client #EEF5FF
 participant "Auth Server\n(port 80)"  as server #E8F5E9
-database    "MongoDB"      as mongo  #FFF3E0
+participant "MongoDB"      as mongo  #FFF3E0
 
 == Step 1: Initiate Login ==
 user -> client  : GET /login

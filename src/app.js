@@ -45,17 +45,17 @@ const app = express();
 app.set('trust proxy', 1);
 
 // ── Redis client for session store ────────────────────────────────────────────
+// No password: the Redis container runs without --requirepass.
+// redis v4 (unlike ioredis) fails permanently on ERR AUTH, so we never pass a password here.
 const sessionRedisClient = createClient({
     socket: {
-        host:    config.REDIS_HOST || 'localhost',
-        port:    parseInt(config.REDIS_PORT) || 6379,
+        host: config.REDIS_HOST || 'localhost',
+        port: parseInt(config.REDIS_PORT) || 6379,
         reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
     },
-    password: config.REDIS_PASSWORD || undefined,
 });
-sessionRedisClient.connect().catch(err => {
-    console.error('Session Redis connection error:', err.message);
-});
+sessionRedisClient.on('error', err => console.error('Session Redis error:', err.message));
+sessionRedisClient.connect().catch(err => console.error('Session Redis connect failed:', err.message));
 
 connectDB().catch(err => {
     logger.error('Database connection failed:', err);
@@ -170,7 +170,7 @@ const scheduleCleanup = () => {
 
     setTimeout(() => {
         // ลบ authorization codes ที่ถูกใช้แล้ว
-        AuthorizationCode.deleteMany({ used: true })
+        AuthorizationCode.deleteMany({ usedAt: { $ne: null } })
             .then(result => {
                 logger.info(`Cleaned up ${result.deletedCount} used authorization codes`);
             })

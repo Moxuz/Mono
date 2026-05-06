@@ -5,6 +5,11 @@ const securityAuditSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
+    // email stored separately — userId may be null for pre-auth events (e.g. login_failed)
+    email: {
+        type: String,
+        default: null
+    },
     action: {
         type: String,
         required: true,
@@ -18,10 +23,22 @@ const securityAuditSchema = new mongoose.Schema({
             'account_locked',
             'token_refreshed',
             'token_revoked',
+            'token_refresh_failed',
+            'token_issued',
+            'token_exchange_failed',
+            'pkce_verification_failed',
+            'client_auth_failed',
+            'rate_limit_exceeded',
+            'client_validation_failed',
+            'userinfo_failed',
+            'consent_granted',
+            'registration_failed',
+            'security_breach',
             'profile_updated',
             'account_created',
             'account_deactivated',
             'account_deleted',
+            'email_verified',
         ]
     },
     status: {
@@ -48,14 +65,17 @@ const securityAuditSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Index for efficient queries
-securityAuditSchema.index({ userId: 1, createdAt: -1 });
+// Indexes for efficient queries
+securityAuditSchema.index({ ipAddress: 1, createdAt: -1 }); // "login จาก IP ไหน"
+securityAuditSchema.index({ email: 1, createdAt: -1 });     // pre-auth event lookup by email
+securityAuditSchema.index({ userId: 1, action: 1, createdAt: -1 }); // per-user action history
 securityAuditSchema.index({ action: 1, createdAt: -1 });
 
 // Static method to log security event
 securityAuditSchema.statics.logEvent = async function(data) {
     return await this.create({
-        userId: data.userId,
+        userId: data.userId || null,
+        email: data.email || null,
         action: data.action,
         status: data.status || 'success',
         ipAddress: data.ipAddress,

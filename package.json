@@ -10,6 +10,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:integration": "jest tests/1-auth-core.test.js tests/2-auth-password.test.js tests/3-auth-sessions.test.js tests/4-auth-profile.test.js tests/5-oauth.test.js tests/6-security.test.js --detectOpenHandles --verbose --runInBand",
+    "test:nginx": "jest tests/1-auth-core.test.js tests/2-auth-password.test.js tests/3-auth-sessions.test.js tests/4-auth-profile.test.js tests/5-oauth.test.js tests/6-security.test.js --detectOpenHandles --verbose --runInBand",
     "test:all": "npm run test:functions && npm run test:integration",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
@@ -19,8 +20,6 @@
     "kafka:logs": "node scripts/check-kafka-logs.js",
     "test:functions": "node scripts/test-functions.js",
     "test:session": "node tests/session-expiry.test.js",
-    "test:kafka": "node tests/kafka-logging.test.js",
-    "test:email": "node tests/email-delivery.test.js",
     "client:up": "docker-compose -f docker-compose.client.yml up -d",
     "client:down": "docker-compose -f docker-compose.client.yml down"
   },

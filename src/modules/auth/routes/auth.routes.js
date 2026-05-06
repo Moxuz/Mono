@@ -10,6 +10,7 @@ const {
     registerLimiter,
     forgotPasswordLimiter,
     tokenLimiter,
+    refreshTokenLimiter,
     generalLimiter,
 } = require('../../../shared/middleware/rateLimiter');
 const { validate, rules } = require('../../../shared/middleware/validate');
@@ -18,7 +19,7 @@ const { validate, rules } = require('../../../shared/middleware/validate');
 router.post('/register',       registerLimiter,       validate(rules.register),       authController.register);
 router.post('/login',          loginLimiter,           validate(rules.login),           authController.login);
 router.post('/logout',         generalLimiter, authenticate, authController.logout);
-router.post('/refresh-token',  tokenLimiter,              authController.refreshToken);
+router.post('/refresh-token',  refreshTokenLimiter,       authController.refreshToken);
 router.post('/validate-token',  generalLimiter,        authController.validateToken);
 router.get('/audit-logs',      authenticate,           authController.getAuditLogs);
 

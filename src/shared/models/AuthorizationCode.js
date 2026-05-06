@@ -25,12 +25,10 @@ const authorizationCodeSchema = new mongoose.Schema({
         type: String,
         default: 'openid profile email'
     },
-    used: {
-        type: Boolean,
-        default: false
-    },
+    // usedAt: null = unused; usedAt set = already consumed
     usedAt: {
-        type: Date
+        type: Date,
+        default: null
     },
     expiresAt: {
         type: Date,
@@ -53,18 +51,22 @@ const authorizationCodeSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Virtual: used — derived from usedAt so no separate boolean needed
+authorizationCodeSchema.virtual('used').get(function() {
+    return this.usedAt !== null;
+});
+
 // Mark code as used
 authorizationCodeSchema.methods.markAsUsed = async function() {
-    this.used = true;
     this.usedAt = new Date();
     await this.save();
 };
 
 // Check if code is valid
 authorizationCodeSchema.statics.isValid = async function(code) {
-    const entry = await this.findOne({ 
-        code, 
-        used: false,
+    const entry = await this.findOne({
+        code,
+        usedAt: null,
         expiresAt: { $gt: new Date() }
     });
     return !!entry;

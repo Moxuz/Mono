@@ -23,6 +23,13 @@ exports.register = async (req, res, next) => {
         } = req.body;
 
         if (!consentEssential) {
+            securityAuditService.logSecurityEvent({
+                userId: null,
+                action: 'registration_failed',
+                status: 'failure',
+                ipAddress: req.ip,
+                metadata: { reason: 'consent_not_granted', email: req.body?.email }
+            }).catch(() => {});
             return res.status(400).json({
                 success: false,
                 error:   'Essential consent required',
@@ -40,6 +47,7 @@ exports.register = async (req, res, next) => {
             username,
             email,
             password,
+            req,
             pdpaConsent: {
                 essentialAccepted:   true,
                 essentialAcceptedAt: now,
@@ -60,10 +68,20 @@ exports.register = async (req, res, next) => {
 
     } catch (error) {
         logger.error('Registration error:', error);
+        if (error.message === 'Username already taken') {
+            return res.status(409).json({ success: false, error: 'Username already taken' });
+        }
         if (error.message === 'User already exists' || error.code === 11000) {
-            return res.status(400).json({ success: false, error: 'User already exists' });
+            return res.status(409).json({ success: false, error: 'User already exists' });
         }
         if (error.code === 'WEAK_PASSWORD') {
+            securityAuditService.logSecurityEvent({
+                userId: null,
+                action: 'registration_failed',
+                status: 'failure',
+                ipAddress: req.ip,
+                metadata: { reason: 'weak_password', email: req.body?.email }
+            }).catch(() => {});
             return res.status(400).json({
                 success: false,
                 error: 'WEAK_PASSWORD',
@@ -111,18 +129,21 @@ exports.login = async (req, res, next) => {
                 message: 'Email or password is incorrect'
             });
         }
-        if (error.message === 'Account is inactive') {
-            return res.status(403).json({
+        if (error.message.includes('Account is inactive')) {
+            return res.status(401).json({
                 success: false,
                 error:   'Account inactive',
                 message: 'Your account has been deactivated'
             });
         }
         if (error.message.includes('Account is locked')) {
+            const retryAfter = error.retryAfter || 900;
+            res.set('Retry-After', retryAfter);
             return res.status(423).json({
                 success: false,
                 error:   'Account locked',
-                message: error.message
+                message: error.message,
+                retryAfter
             });
         }
 
@@ -271,17 +292,18 @@ exports.logout = async (req, res, next) => {
             // Blacklist current access token
             await TokenBlacklist.revokeToken(token, userId, tokenClientId, 'user_logout');
 
-            // Find active session and blacklist its refresh token too
+            // Find active session — blacklist refresh token hash + deactivate
+            const accessTokenHash = SessionModel.hashToken(token);
             const session = await SessionModel.findOne({
-                sessionToken: token,
+                accessTokenHash,
                 userId,
                 isActive: true
-            }).select('+refreshToken');
+            });
 
             if (session) {
-                if (session.refreshToken) {
-                    await TokenBlacklist.revokeToken(session.refreshToken, userId, tokenClientId, 'user_logout')
-                        .catch(err => logger.warn('Failed to blacklist refresh token on logout:', err.message));
+                if (session.refreshTokenHash) {
+                    await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, tokenClientId, 'user_logout')
+                        .catch(err => logger.warn('Failed to blacklist refresh token hash on logout:', err.message));
                 }
                 session.isActive = false;
                 session.revokedAt = new Date();
@@ -740,7 +762,7 @@ exports.setOAuthSession = async (req, res) => {
 
     try {
         const decoded = jwt.verify(token, config.JWT_SECRET);
-        const user = await User.findById(decoded.id);
+        const user = await User.findById(decoded.sub || decoded.id);
         if (!user || !user.isActive) return res.redirect('/login.html?error=invalid_token');
 
         req.session.user = {

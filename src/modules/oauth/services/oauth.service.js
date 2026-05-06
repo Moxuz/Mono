@@ -8,6 +8,7 @@ const AuthorizationCode = require('../../../shared/models/AuthorizationCode');
 const Session = require('../../../shared/models/Session');
 const config = require('../../../shared/config/config');
 const sessionService = require('../../../shared/services/session.service');
+const securityAuditService = require('../../../shared/services/securityAudit.service');
 const logger = require('../../../shared/utils/logger');
 
 class OAuthService {
@@ -19,7 +20,7 @@ class OAuthService {
     async generateAuthorizationCode(userId, clientId, redirectUri, scope, pkce = null) {
         try {
             const code = crypto.randomBytes(32).toString('hex');
-            const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+            const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes (RFC 6749 best practice)
 
             const authCodeData = {
                 code,
@@ -79,18 +80,30 @@ class OAuthService {
         try {
             // 1) Atomically find and mark code as used (prevents replay race condition)
             const authCode = await AuthorizationCode.findOneAndUpdate(
-                { code, used: false, expiresAt: { $gt: new Date() } },
-                { $set: { used: true, usedAt: new Date() } },
+                { code, usedAt: null, expiresAt: { $gt: new Date() } },
+                { $set: { usedAt: new Date() } },
                 { new: false }
             ).populate('userId');
 
             if (!authCode) {
+                await securityAuditService.logSecurityEvent({
+                    userId: null,
+                    action: 'token_exchange_failed',
+                    status: 'failure',
+                    metadata: { reason: 'invalid_code', clientId }
+                });
                 throw new Error('Invalid or expired authorization code');
             }
 
             // 2) PKCE verification
             if (authCode.code_challenge) {
                 if (!codeVerifier) {
+                    await securityAuditService.logSecurityEvent({
+                        userId: authCode.userId?._id,
+                        action: 'pkce_verification_failed',
+                        status: 'failure',
+                        metadata: { reason: 'pkce_verifier_missing', clientId }
+                    });
                     throw new Error('code_verifier is required');
                 }
                 const isValid = this.verifyPKCE(
@@ -100,6 +113,12 @@ class OAuthService {
                 );
                 if (!isValid) {
                     logger.warn('PKCE verification failed', { clientId });
+                    await securityAuditService.logSecurityEvent({
+                        userId: authCode.userId?._id,
+                        action: 'pkce_verification_failed',
+                        status: 'failure',
+                        metadata: { reason: 'pkce_failed', clientId }
+                    });
                     throw new Error('Invalid code_verifier');
                 }
             }
@@ -108,6 +127,12 @@ class OAuthService {
             const client = await this.validateClient(clientId, clientSecret, redirectUri);
             if (!client) {
                 logger.warn('exchangeCodeForTokens: client validation failed', { clientId });
+                await securityAuditService.logSecurityEvent({
+                    userId: authCode.userId?._id,
+                    action: 'client_auth_failed',
+                    status: 'failure',
+                    metadata: { reason: 'invalid_client', clientId }
+                });
                 throw new Error('Invalid client credentials');
             }
 
@@ -126,6 +151,13 @@ class OAuthService {
             const refresh_token = this.generateRefreshToken(user, clientId);
 
             await client.incrementUsage();
+
+            await securityAuditService.logSecurityEvent({
+                userId: user._id,
+                action: 'token_issued',
+                status: 'success',
+                metadata: { clientId, scope: authCode.scope }
+            });
 
             logger.info('Authorization code exchanged for tokens', { clientId, userId: user._id });
 

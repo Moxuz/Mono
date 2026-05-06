@@ -10,20 +10,16 @@ const sessionSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    sessionToken: {
+    // accessTokenHash: SHA256 hash of the JWT access token — never store the raw token
+    accessTokenHash: {
         type: String,
         required: true,
         unique: true
     },
-    refreshToken: {
-        type: String,
-        required: true,
-        select: false
-    },
+    // Only the hash of the refresh token is stored — never the raw token
     refreshTokenHash: {
         type: String,
-        required: true,
-        select: false
+        required: true
     },
     // Device/Browser info
     userAgent: {
@@ -46,10 +42,12 @@ const sessionSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    createdAt: {
+    // expiresAt drives the TTL index — set at login time
+    // remember=true → 30d, remember=false → 1d, default → 90d
+    expiresAt: {
         type: Date,
-        default: Date.now,
-        expires: 7776000 // 90 days TTL
+        required: true,
+        default: () => new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
     },
     // Refresh token family for rotation
     refreshTokenFamily: {
@@ -64,34 +62,35 @@ const sessionSchema = new mongoose.Schema({
         type: String,
         enum: ['user_logout', 'admin_revoke', 'security', 'token_compromised', 'password_change', 'expired']
     }
+}, {
+    timestamps: true  // adds createdAt, updatedAt
 });
 
 // ============================================
 // INDEXES
 // ============================================
+sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL
 sessionSchema.index({ userId: 1, isActive: -1 });
 sessionSchema.index({ refreshTokenFamily: 1 });
+// Compound index for token rotation query
+sessionSchema.index({ refreshTokenHash: 1, userId: 1, isActive: 1 });
 
 // ============================================
 // STATIC METHODS (Utility)
 // ============================================
 
 /**
- * Generate random session token (for fallback use only)
+ * Hash any token (access or refresh) with SHA256
  */
-sessionSchema.statics.generateSessionToken = function() {
-    return crypto.randomBytes(32).toString('hex');
-};
-
-/**
- * Hash refresh token
- */
-sessionSchema.statics.hashRefreshToken = function(token) {
+sessionSchema.statics.hashToken = function(token) {
     if (!token) {
         throw new Error('Token is required for hashing');
     }
     return crypto.createHash('sha256').update(token).digest('hex');
 };
+
+// Alias kept for internal callers
+sessionSchema.statics.hashRefreshToken = sessionSchema.statics.hashToken;
 
 // ============================================
 // INSTANCE METHODS
@@ -101,8 +100,7 @@ sessionSchema.statics.hashRefreshToken = function(token) {
  * Check if session is expired
  */
 sessionSchema.methods.isExpired = function() {
-    const expiryTime = 90 * 24 * 60 * 60 * 1000; // 90 days
-    return Date.now() - this.createdAt.getTime() > expiryTime;
+    return new Date() > this.expiresAt;
 };
 
 /**
@@ -151,23 +149,21 @@ sessionSchema.statics.createSession = async function(data) {
             throw new Error('refreshToken is required');
         }
 
-        // Hash refresh token
-        const refreshTokenHash = this.hashRefreshToken(data.refreshToken);
+        // Hash both tokens — only hashes are persisted, never raw tokens
+        const accessTokenHash = this.hashToken(data.sessionToken);
+        const refreshTokenHash = this.hashToken(data.refreshToken);
 
-        // Create session with provided JWT token as sessionToken
         const session = await this.create({
             userId: data.userId,
-            sessionToken: data.sessionToken,  // Use JWT token as sessionToken
-            refreshToken: data.refreshToken,
-            refreshTokenHash: refreshTokenHash,
+            accessTokenHash,
+            refreshTokenHash,
             userAgent: data.userAgent || '',
             ipAddress: data.ipAddress || 'unknown',
             deviceInfo: data.deviceInfo || { browser: 'Unknown', os: 'Unknown', device: 'Unknown' },
         });
 
         return {
-            sessionId: session._id.toString(),
-            sessionToken: session.sessionToken  // Return JWT token
+            sessionId: session._id.toString()
         };
     } catch (error) {
         logger.error('Create session error:', error);
@@ -185,9 +181,10 @@ sessionSchema.statics.validateSession = async function(sessionToken) {
             return null;
         }
 
-        const session = await this.findOne({ 
-            sessionToken, 
-            isActive: true 
+        const hash = this.hashToken(sessionToken);
+        const session = await this.findOne({
+            accessTokenHash: hash,
+            isActive: true
         });
 
         if (!session) {
@@ -219,7 +216,7 @@ sessionSchema.statics.findActiveSessions = async function(userId) {
             userId,
             isActive: true
         })
-        .select('-refreshToken -refreshTokenHash')
+        .select('-accessTokenHash -refreshTokenHash')
         .sort('-lastActiveAt')
         .lean();
     } catch (error) {
@@ -311,7 +308,8 @@ sessionSchema.statics.cleanupSessions = async function() {
  */
 sessionSchema.statics.validateAndRotateRefreshToken = async function(sessionToken, refreshToken) {
     try {
-        const session = await this.findOne({ sessionToken })
+        const accessTokenHash = this.hashToken(sessionToken);
+        const session = await this.findOne({ accessTokenHash })
             .select('+refreshTokenHash +refreshTokenFamily');
 
         if (!session || !session.isActive) {
@@ -321,8 +319,7 @@ sessionSchema.statics.validateAndRotateRefreshToken = async function(sessionToke
             };
         }
 
-        // Hash the provided token and compare
-        const providedHash = this.hashRefreshToken(refreshToken);
+        const providedHash = this.hashToken(refreshToken);
 
         if (providedHash !== session.refreshTokenHash) {
             // Token mismatch - possible token theft attempt
@@ -366,14 +363,14 @@ sessionSchema.statics.validateAndRotateRefreshToken = async function(sessionToke
  */
 sessionSchema.statics.updateRefreshToken = async function(sessionToken, newRefreshToken) {
     try {
-        const session = await this.findOne({ sessionToken });
+        const accessTokenHash = this.hashToken(sessionToken);
+        const session = await this.findOne({ accessTokenHash });
 
         if (!session) {
             throw new Error('Session not found');
         }
 
-        session.refreshToken = newRefreshToken;
-        session.refreshTokenHash = this.hashRefreshToken(newRefreshToken);
+        session.refreshTokenHash = this.hashToken(newRefreshToken);
         await session.save();
 
         return { success: true };

@@ -588,6 +588,16 @@ If you have any questions, feel free to contact our support team.
       });
     }
 
+    /**
+     * Send email verification link
+     */
+    async sendVerificationEmail({ to, username, verificationUrl }) {
+        const { getVerificationTemplate } = require('./email.templates');
+        const html = getVerificationTemplate({ username, verificationUrl });
+        const text = `Hi ${username},\n\nPlease verify your email by visiting:\n${verificationUrl}\n\nThis link expires in 24 hours.`;
+        return this.sendEmail({ to, subject: '✅ Verify Your Email Address', html, text });
+    }
+
 }
 
 

@@ -1,8 +1,9 @@
- const oauthService = require('../services/oauth.service');
+const oauthService = require('../services/oauth.service');
 const User = require('../../../shared/models/User');
 const Client = require('../../../shared/models/Client');
 const logger = require('../../../shared/utils/logger');
 const Consent = require('../../../shared/models/Consent');
+const securityAuditService = require('../../../shared/services/securityAudit.service');
 
 /**
  * Register new OAuth client
@@ -147,7 +148,17 @@ exports.showAuthorizeForm = async (req, res, next) => {
         });
 
         if (!client) {
-            return res.status(400).send('<h1>Invalid Client</h1>');
+            securityAuditService.logSecurityEvent({
+                userId: null,
+                action: 'client_validation_failed',
+                status: 'failure',
+                ipAddress: req.ip,
+                metadata: { reason: 'invalid_client', client_id }
+            }).catch(() => {});
+            return res.status(401).json({
+                error: 'invalid_client',
+                error_description: 'Invalid client or redirect URI'
+            });
         }
 
         // Validate and sanitize scope
@@ -334,6 +345,13 @@ exports.authorize = async (req, res, next) => {
         const sanitizedScope = validScopes.join(' ');
 
         await Consent.saveConsent(userId, client_id, sanitizedScope);
+        securityAuditService.logSecurityEvent({
+            userId,
+            action: 'consent_granted',
+            status: 'success',
+            ipAddress: req.ip,
+            metadata: { clientId: client_id, scope: sanitizedScope }
+        }).catch(() => {});
 
         // ─── ออก code ─────────────────────────────────────────────
         const pkce = code_challenge
@@ -437,7 +455,7 @@ exports.token = async (req, res, next) => {
             client_id: req.body.client_id,
             grant_type: req.body.grant_type
         });
-        res.status(400).json({
+        res.status(401).json({
             error: 'invalid_grant',
             error_description: error.message
         });
@@ -475,7 +493,18 @@ exports.userinfo = async (req, res, next) => {
     } catch (error) {
         logger.error('UserInfo endpoint error:', error);
 
-        // Error handling
+        const jwt = require('jsonwebtoken');
+        const token = req.headers.authorization?.split(' ')[1];
+        const decoded = token ? jwt.decode(token) : null;
+
+        securityAuditService.logSecurityEvent({
+            userId: decoded?.sub || decoded?.id || null,
+            action: 'userinfo_failed',
+            status: 'failure',
+            ipAddress: req.ip,
+            metadata: { reason: 'invalid_token', detail: error.message }
+        }).catch(() => {});
+
         if (error.message.includes('expired')) {
             return res.status(401).json({
                 error: 'invalid_token',

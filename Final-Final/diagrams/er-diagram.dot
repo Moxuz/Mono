@@ -1,0 +1,264 @@
+// TAS — ER Diagram (Chen Notation)
+// Layout mirrors 2er.drawio  •  rendered with neato (fixed entity positions)
+graph TAS_ER {
+    graph [layout=neato, bgcolor="#1e1e1e", overlap=false, sep="+20",
+           splines=true, outputorder=edgesfirst,
+           label="TAS — ER Diagram (Chen Notation)",
+           labelloc=t, fontsize=18, fontcolor="#FFFFFF", fontname="Arial Bold",
+           size="26,18"]
+    edge  [fontname="Arial", fontsize=11, color="#888888", fontcolor="#DAA520"]
+    node  [fontname="Arial", fontsize=11]
+
+    // ─── ENTITY NODES (fixed positions — scaled from drawio) ──────
+    USER [shape=rectangle, label="USER",
+          style="filled", fillcolor="#1F3670", color="#5B7FC2",
+          fontcolor="#FFFFFF", fontname="Arial Bold", fontsize=14, penwidth=2.5,
+          width=2, height=0.6, pos="11,7!"]
+
+    CLIENT [shape=rectangle, label="CLIENT",
+            style="filled", fillcolor="#1A4A3A", color="#3DBF8C",
+            fontcolor="#FFFFFF", fontname="Arial Bold", fontsize=14, penwidth=2.5,
+            width=2, height=0.6, pos="3,7!"]
+
+    SESSION [shape=rectangle, label="SESSION",
+             style="filled", fillcolor="#1F3670", color="#5B7FC2",
+             fontcolor="#FFFFFF", fontname="Arial Bold", fontsize=14, penwidth=2.5,
+             width=2, height=0.6, pos="19,7!"]
+
+    CONSENT [shape=rectangle, label="CONSENT",
+             style="filled", fillcolor="#1F3670", color="#5B7FC2",
+             fontcolor="#FFFFFF", fontname="Arial Bold", fontsize=14, penwidth=2.5,
+             width=2, height=0.6, pos="6,12!"]
+
+    SECURITY_AUDIT [shape=rectangle, label="SECURITY\nAUDIT",
+                    style="filled", fillcolor="#3D3810", color="#C8B820",
+                    fontcolor="#FFFFFF", fontname="Arial Bold", fontsize=14, penwidth=2.5,
+                    width=2.2, height=0.7, pos="17,12!"]
+
+    TOKEN_BLACKLIST [shape=rectangle, label="TOKEN\nBLACKLIST",
+                     style="filled", fillcolor="#4A1F10", color="#C86020",
+                     fontcolor="#FFFFFF", fontname="Arial Bold", fontsize=14, penwidth=2.5,
+                     width=2.2, height=0.7, pos="6,2!"]
+
+    AUTH_CODE [shape=rectangle, label="AUTHORIZATION\nCODE",
+               style="filled", fillcolor="#2D1F5E", color="#7B60E8",
+               fontcolor="#FFFFFF", fontname="Arial Bold", fontsize=14, penwidth=2.5,
+               width=2.4, height=0.7, pos="17,2!"]
+
+    // ─── RELATIONSHIP DIAMONDS (fixed positions) ──────────────────
+    node [shape=diamond, style="filled", fillcolor="#855A00", color="#DAA520",
+          fontcolor="#FFFFFF", fontname="Arial Bold", fontsize=11, penwidth=2,
+          width=1.5, height=0.8]
+
+    r_has       [label="has",       pos="15,7!"]
+    r_owns      [label="owns",      pos="7,7!"]
+    r_consents  [label="consents",  pos="9,9.5!"]
+    r_audits    [label="audits",    pos="14,9.5!"]
+    r_initiates [label="initiates", pos="14,4.5!"]
+    r_generates [label="generates", pos="9,4.5!"]
+    r_grants    [label="grants",    pos="4.5,9.5!"]
+    r_issues    [label="issues",    pos="10.5,4.5!"]
+    r_revokes   [label="revokes",   pos="4.5,4.5!"]
+
+    // ─── ATTRIBUTES — normal: dark ellipse ───────────────────────
+    node [shape=ellipse, style="filled", fillcolor="#23272E", color="#888888",
+          fontcolor="#DDDDDD", fontsize=9, penwidth=1, width=1.3, height=0.45]
+
+    // USER attributes
+    u_id   [label="_id",               color="#C8B820", fontcolor="#FFFFFF", fontname="Arial Bold"]
+    u_un   [label="username"]
+    u_em   [label="email"]
+    u_pw   [label="password (bcrypt)"]
+    u_ro   [label="role"]
+    u_ia   [label="isActive"]
+    u_ll   [label="lastLogin"]
+    u_fl   [label="failedLoginAttempts"]
+    u_lu   [label="lockUntil"]
+    u_prt  [label="passwordResetToken"]
+    u_pre  [label="passwordResetExpires"]
+    u_pref [label="preferences"]
+    u_pdpa [label="pdpaConsent"]
+
+    // SESSION attributes
+    s_id   [label="_id",              color="#C8B820", fontcolor="#FFFFFF", fontname="Arial Bold"]
+    s_uid  [label="userId (FK)",      fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    s_st   [label="sessionToken (JWT)"]
+    s_rth  [label="refreshTokenHash\n(SHA256)"]
+    s_rtf  [label="refreshTokenFamily"]
+    s_ua   [label="userAgent"]
+    s_ip   [label="ipAddress"]
+    s_di   [label="deviceInfo"]
+    s_ia   [label="isActive"]
+    s_la   [label="lastActiveAt"]
+    s_ca   [label="createdAt (TTL 90d)"]
+    s_ra   [label="revokedAt"]
+    s_rr   [label="revokeReason"]
+
+    // CLIENT attributes
+    c_id   [label="_id",             color="#C8B820", fontcolor="#FFFFFF", fontname="Arial Bold"]
+    c_cid  [label="client_id"]
+    c_cs   [label="client_secret\n(bcrypt hash)"]
+    c_cn   [label="client_name"]
+    c_de   [label="description"]
+    c_lu2  [label="logo_uri"]
+    c_ru   [label="redirect_uris"]
+    c_gt   [label="grant_types"]
+    c_rt   [label="response_types"]
+    c_sc   [label="scope"]
+    c_ow   [label="owner (FK)",      fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    c_at   [label="application_type"]
+    c_ce   [label="contact_email"]
+    c_ia2  [label="isActive"]
+    c_tr   [label="totalRequests"]
+    c_lu3  [label="lastUsed"]
+
+    // CONSENT attributes
+    co_id  [label="_id",             color="#C8B820", fontcolor="#FFFFFF", fontname="Arial Bold"]
+    co_uid [label="userId (FK)",     fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    co_cid [label="clientId (FK)",   fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    co_sc  [label="scope"]
+    co_ex  [label="expiresAt\n(TTL 30d/7d)"]
+
+    // AUTH_CODE attributes
+    ac_id  [label="_id",             color="#C8B820", fontcolor="#FFFFFF", fontname="Arial Bold"]
+    ac_co  [label="code"]
+    ac_cid [label="clientId (FK)",   fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    ac_uid [label="userId (FK)",     fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    ac_ru  [label="redirectUri"]
+    ac_sc  [label="scope"]
+    ac_ua  [label="usedAt (null=unused)"]
+    ac_ex  [label="expiresAt (TTL 2min)"]
+    ac_cc  [label="code_challenge"]
+    ac_cm  [label="code_challenge_method"]
+
+    // TOKEN_BLACKLIST attributes
+    tb_id  [label="_id",             color="#C8B820", fontcolor="#FFFFFF", fontname="Arial Bold"]
+    tb_tk  [label="token (SHA256 hash)"]
+    tb_tt  [label="tokenType"]
+    tb_uid [label="userId (FK)",     fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    tb_cid [label="clientId (FK)\n(nullable)", fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    tb_rs  [label="reason"]
+    tb_ex  [label="expiresAt (TTL)"]
+
+    // SECURITY_AUDIT attributes
+    sa_id  [label="_id",             color="#C8B820", fontcolor="#FFFFFF", fontname="Arial Bold"]
+    sa_uid [label="userId (FK)\n(nullable)", fillcolor="#2A1515", color="#DD4444", fontcolor="#FF9999"]
+    sa_ac  [label="action (24 types)"]
+    sa_st  [label="status"]
+    sa_ip  [label="ipAddress"]
+    sa_ua  [label="userAgent"]
+    sa_me  [label="metadata"]
+    sa_ex  [label="expiresAt (TTL 90d)"]
+
+    // ─── ATTRIBUTE — ENTITY EDGES ─────────────────────────────────
+    edge [color="#666666", fontcolor="#DDDDDD"]
+
+    USER -- u_id
+    USER -- u_un
+    USER -- u_em
+    USER -- u_pw
+    USER -- u_ro
+    USER -- u_ia
+    USER -- u_ll
+    USER -- u_fl
+    USER -- u_lu
+    USER -- u_prt
+    USER -- u_pre
+    USER -- u_pref
+    USER -- u_pdpa
+
+    SESSION -- s_id
+    SESSION -- s_uid
+    SESSION -- s_st
+    SESSION -- s_rth
+    SESSION -- s_rtf
+    SESSION -- s_ua
+    SESSION -- s_ip
+    SESSION -- s_di
+    SESSION -- s_ia
+    SESSION -- s_la
+    SESSION -- s_ca
+    SESSION -- s_ra
+    SESSION -- s_rr
+
+    CLIENT -- c_id
+    CLIENT -- c_cid
+    CLIENT -- c_cs
+    CLIENT -- c_cn
+    CLIENT -- c_de
+    CLIENT -- c_lu2
+    CLIENT -- c_ru
+    CLIENT -- c_gt
+    CLIENT -- c_rt
+    CLIENT -- c_sc
+    CLIENT -- c_ow
+    CLIENT -- c_at
+    CLIENT -- c_ce
+    CLIENT -- c_ia2
+    CLIENT -- c_tr
+    CLIENT -- c_lu3
+
+    CONSENT -- co_id
+    CONSENT -- co_uid
+    CONSENT -- co_cid
+    CONSENT -- co_sc
+    CONSENT -- co_ex
+
+    AUTH_CODE -- ac_id
+    AUTH_CODE -- ac_co
+    AUTH_CODE -- ac_cid
+    AUTH_CODE -- ac_uid
+    AUTH_CODE -- ac_ru
+    AUTH_CODE -- ac_sc
+    AUTH_CODE -- ac_ua
+    AUTH_CODE -- ac_ex
+    AUTH_CODE -- ac_cc
+    AUTH_CODE -- ac_cm
+
+    TOKEN_BLACKLIST -- tb_id
+    TOKEN_BLACKLIST -- tb_tk
+    TOKEN_BLACKLIST -- tb_tt
+    TOKEN_BLACKLIST -- tb_uid
+    TOKEN_BLACKLIST -- tb_cid
+    TOKEN_BLACKLIST -- tb_rs
+    TOKEN_BLACKLIST -- tb_ex
+
+    SECURITY_AUDIT -- sa_id
+    SECURITY_AUDIT -- sa_uid
+    SECURITY_AUDIT -- sa_ac
+    SECURITY_AUDIT -- sa_st
+    SECURITY_AUDIT -- sa_ip
+    SECURITY_AUDIT -- sa_ua
+    SECURITY_AUDIT -- sa_me
+    SECURITY_AUDIT -- sa_ex
+
+    // ─── RELATIONSHIP EDGES (gold, with cardinality) ──────────────
+    edge [color="#DAA520", fontcolor="#DAA520", fontname="Arial Bold", fontsize=12, penwidth=1.5]
+
+    USER    -- r_has       [label="1"]
+    r_has   -- SESSION     [label="N"]
+
+    USER    -- r_owns      [label="1"]
+    r_owns  -- CLIENT      [label="N"]
+
+    USER        -- r_consents  [label="1"]
+    r_consents  -- CONSENT     [label="N"]
+
+    USER      -- r_audits      [label="1"]
+    r_audits  -- SECURITY_AUDIT [label="N"]
+
+    USER          -- r_initiates [label="1"]
+    r_initiates   -- AUTH_CODE   [label="N"]
+
+    USER          -- r_generates     [label="1"]
+    r_generates   -- TOKEN_BLACKLIST  [label="N"]
+
+    CLIENT    -- r_grants  [label="1"]
+    r_grants  -- CONSENT   [label="N"]
+
+    CLIENT    -- r_issues   [label="1"]
+    r_issues  -- AUTH_CODE  [label="N"]
+
+    CLIENT    -- r_revokes        [label="1"]
+    r_revokes -- TOKEN_BLACKLIST  [label="N"]
+}

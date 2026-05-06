@@ -34,7 +34,8 @@ services:
       - CLIENT_ID=3cbc1409a2716608ebf01a7d962e69cf
       - CLIENT_SECRET=d97352ab0f1916409841e4655c489e31db76e5e4365bafc8eaf7cf0e3e9b922d
       - REDIRECT_URI=http://localhost:3001/callback
-      - OAUTH_PROVIDER=http://host.docker.internal:5000
+      - OAUTH_PROVIDER=http://auth-nginx
+      - OAUTH_PUBLIC_URL=http://localhost
       - SESSION_SECRET=super_secure_random_string_min_32_chars_here_change_this
     # Note: Auth server must be running separately
     # Remove depends_on if auth server is already running
@@ -42,6 +43,7 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - client-network
+      - auth-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/session"]
@@ -68,6 +70,9 @@ services:
 networks:
   client-network:
     driver: bridge
+  auth-network:
+    external: true
+    name: testmono_auth-network
 
 # Volumes (optional - for persistent data if needed)
 # volumes:

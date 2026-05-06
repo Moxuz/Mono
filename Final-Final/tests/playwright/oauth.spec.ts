@@ -35,6 +35,7 @@ test.describe('13 — OAuth — OIDC Discovery & JWKS', () => {
 });
 
 test.describe('14 — OAuth — Client Management', () => {
+  test.describe.configure({ mode: 'serial' });
   test('POST /api/oauth/clients — register new client', async ({ page }) => {
     await page.goto('/');
     const { token } = await apiLogin(page, USER2);
@@ -93,9 +94,26 @@ test.describe('14 — OAuth — Client Management', () => {
     });
     expect(r.status).toBe(401);
   });
+
+  test('GET /api/oauth/authorize with valid client_id → 200 or 302', async ({ page }) => {
+    if (!clientId) test.skip();
+    const res = await page.goto(
+      `/api/oauth/authorize?client_id=${clientId}&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid profile email`
+    );
+    expect([200, 302, 400]).toContain(res?.status());
+  });
+
+  test('DELETE /api/oauth/clients/:id removes client', async ({ page }) => {
+    if (!clientId) test.skip();
+    await page.goto('/');
+    const { token } = await apiLogin(page, USER2);
+    const r = await apiDelete(page, `/api/oauth/clients/${clientId}`, token);
+    expect([200, 204, 404]).toContain(r.status);
+  });
 });
 
 test.describe('15 — OAuth — Token Operations', () => {
+  test.describe.configure({ mode: 'serial' });
   test('POST /api/oauth/introspect with client credentials → 200 with active field', async ({ page }) => {
     await page.goto('/');
     const { token } = await apiLogin(page, USER2);
@@ -150,21 +168,5 @@ test.describe('15 — OAuth — Token Operations', () => {
     await page.goto('/');
     const r = await apiGet(page, '/api/oauth/userinfo', '');
     expect(r.status).toBe(401);
-  });
-
-  test('GET /api/oauth/authorize with valid client_id → 200 or 302', async ({ page }) => {
-    if (!clientId) test.skip();
-    const res = await page.goto(
-      `/api/oauth/authorize?client_id=${clientId}&redirect_uri=http://localhost:3001/callback&response_type=code&scope=openid profile email`
-    );
-    expect([200, 302, 400]).toContain(res?.status());
-  });
-
-  test('DELETE /api/oauth/clients/:id removes client', async ({ page }) => {
-    if (!clientId) test.skip();
-    await page.goto('/');
-    const { token } = await apiLogin(page, USER2);
-    const r = await apiDelete(page, `/api/oauth/clients/${clientId}`, token);
-    expect([200, 204, 404]).toContain(r.status);
   });
 });

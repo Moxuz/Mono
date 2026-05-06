@@ -324,20 +324,25 @@ async function exportLogs(req, res) {
             if (endDate) filter.timestamp.$lte = new Date(endDate);
         }
 
-        const logs = await SecurityAudit.find(filter).sort({ timestamp: -1 }).lean();
+        const logs = await SecurityAudit.find(filter).sort({ timestamp: -1 }).limit(1000).lean();
+
+        // Batch fetch user emails to avoid N+1 queries
+        const userIds = [...new Set(logs.map(l => l.userId?.toString()).filter(Boolean))];
+        const users = await User.find({ _id: { $in: userIds } }).select('email').lean();
+        const userMap = Object.fromEntries(users.map(u => [u._id.toString(), u.email]));
 
         // Convert to CSV format
         const headers = ['Timestamp', 'Action', 'Status', 'User ID', 'Email', 'IP Address', 'User Agent', 'Details'];
         const csvRows = [headers.join(',')];
 
         for (const log of logs) {
-            const user = log.userId ? await User.findById(log.userId).select('email') : null;
+            const emailVal = log.userId ? (userMap[log.userId.toString()] || '') : '';
             const row = [
                 log.timestamp?.toISOString() || '',
                 log.action || '',
                 log.status || '',
                 log.userId?.toString() || '',
-                user?.email || '',
+                emailVal,
                 log.ipAddress || '',
                 `"${(log.userAgent || '').replace(/"/g, '""')}"`,
                 `"${JSON.stringify(log.metadata || {}).replace(/"/g, '""')}"`

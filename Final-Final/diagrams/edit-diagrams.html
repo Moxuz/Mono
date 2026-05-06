@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TAS Sequence Diagram Editor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #1e1e2e; color: #cdd6f4; min-height: 100vh; }
+  header { background: #181825; padding: 16px 24px; border-bottom: 1px solid #313244; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; color: #cba6f7; }
+  header span { font-size: 12px; color: #6c7086; }
+  .tabs { display: flex; gap: 4px; padding: 12px 24px 0; background: #181825; border-bottom: 1px solid #313244; }
+  .tab { padding: 8px 18px; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 13px; font-weight: 500; background: #313244; color: #6c7086; border: 1px solid #45475a; border-bottom: none; transition: all .15s; }
+  .tab:hover { background: #45475a; color: #cdd6f4; }
+  .tab.active { background: #1e1e2e; color: #cba6f7; border-color: #cba6f7; }
+  .tab .badge { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
+  .badge.ok { background: #a6e3a1; }
+  .badge.fixed { background: #f9e2af; }
+  .panel { display: none; padding: 20px 24px; gap: 20px; }
+  .panel.active { display: flex; flex-direction: column; }
+  .info-bar { background: #313244; border-radius: 8px; padding: 10px 16px; font-size: 12px; color: #a6adc8; display: flex; gap: 20px; flex-wrap: wrap; }
+  .info-bar b { color: #cba6f7; }
+  .info-bar .tag { background: #45475a; border-radius: 4px; padding: 2px 8px; font-size: 11px; }
+  .info-bar .tag.fixed { background: #f9e2af33; color: #f9e2af; }
+  .info-bar .tag.ok { background: #a6e3a133; color: #a6e3a1; }
+  .editor-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  textarea {
+    flex: 1 1 420px;
+    min-height: 480px;
+    background: #181825;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color .2s;
+  }
+  textarea:focus { border-color: #cba6f7; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .btn { padding: 9px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; }
+  .btn-primary { background: #cba6f7; color: #1e1e2e; }
+  .btn-primary:hover { background: #b4befe; }
+  .btn-secondary { background: #45475a; color: #cdd6f4; }
+  .btn-secondary:hover { background: #585b70; }
+  .btn-success { background: #a6e3a1; color: #1e1e2e; }
+  .btn-success:hover { background: #94e2d5; }
+  .help { background: #11111b; border: 1px solid #313244; border-radius: 8px; padding: 14px 18px; font-size: 12px; line-height: 1.8; color: #a6adc8; flex: 0 0 280px; }
+  .help h3 { color: #89b4fa; font-size: 13px; margin-bottom: 10px; }
+  .help code { background: #313244; border-radius: 3px; padding: 1px 5px; color: #f38ba8; font-size: 11px; }
+  .help a { color: #89b4fa; text-decoration: none; }
+  .help a:hover { text-decoration: underline; }
+  .changes { margin-top: 6px; }
+  .change-item { background: #313244; border-left: 3px solid #f9e2af; border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; line-height: 1.6; }
+  .change-item .label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #f9e2af; letter-spacing: .5px; }
+  .change-item .old { color: #f38ba8; text-decoration: line-through; font-family: monospace; }
+  .change-item .new { color: #a6e3a1; font-family: monospace; }
+  footer { text-align: center; padding: 20px; color: #45475a; font-size: 11px; border-top: 1px solid #313244; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TAS Sequence Diagram Editor</h1>
+  <span>Edit PlantUML source → copy → paste into <a href="https://www.plantuml.com/plantuml/uml/" target="_blank" style="color:#89b4fa">plantuml.com</a> or <a href="https://editor.plantuml.com/" target="_blank" style="color:#89b4fa">editor.plantuml.com</a> to render</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('login')">sequence-login <span class="badge fixed"></span></div>
+  <div class="tab" onclick="showTab('register')">sequence-register <span class="badge ok"></span></div>
+  <div class="tab" onclick="showTab('refresh')">sequence-refresh <span class="badge ok"></span></div>
+  <div class="tab" onclick="showTab('oauth')">sequence-oauth <span class="badge fixed"></span></div>
+</div>
+
+<!-- LOGIN -->
+<div id="tab-login" class="panel active">
+  <div class="info-bar">
+    <span><b>File:</b> sequence-login.puml</span>
+    <span><b>Status:</b> <span class="tag fixed">Fixed — 3 changes</span></span>
+    <span><b>Endpoint:</b> POST /api/auth/login</span>
+    <span><b>Service:</b> auth.service.js → login()</span>
+  </div>
+  <div class="changes">
+    <div class="change-item">
+      <div class="label">Fix 1 — Rate limit key</div>
+      <div class="old">Check rate limit (IP)</div>
+      <div class="new">Check rate limit (email + IP)</div>
+    </div>
+    <div class="change-item">
+      <div class="label">Fix 2 — Request body</div>
+      <div class="old">POST /api/auth/login {email, password}</div>
+      <div class="new">POST /api/auth/login {email, password, remember?}</div>
+    </div>
+    <div class="change-item">
+      <div class="label">Fix 3 — Token duration</div>
+      <div class="old">Generate JWT access token (1h)</div>
+      <div class="new">Generate JWT access token (1h, or 30d if remember=true)</div>
+    </div>
+  </div>
+  <div class="editor-row">
+    <textarea id="src-login">@startuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign center
+skinparam SequenceBoxBackgroundColor #EEF5FF
+skinparam SequenceBoxBorderColor    #2F6FAE
+skinparam ParticipantBackgroundColor #FFFBCC
+skinparam ParticipantBorderColor    #B8860B
+skinparam ArrowColor #444444
+skinparam SequenceLifeLineBorderColor #888888
+
+title Local Login Sequence
+
+actor       "User"           as user
+participant "Browser/Client" as browser
+participant "Auth Server"    as server #EEF5FF
+participant "Rate Limiter"   as rate   #F0F0F0
+database    "MongoDB"        as mongo  #E8F5E9
+participant "Email Service"  as email  #FCE4EC
+
+user -> browser   : Enter email + password
+browser -> server : POST /api/auth/login\n{email, password, remember?}
+
+server -> rate    : Check rate limit (email + IP)
+alt Rate limit exceeded
+  rate --> server : 429 Too Many Requests
+  server --> browser : 429 {"error": "Too many attempts"}
+end
+
+server -> mongo   : findOne({ email })
+mongo --> server  : User document
+
+alt User not found
+  server -> mongo   : insertOne(securityAudit: login_failed)
+  server --> browser : 401 {"error": "Invalid credentials"}
+end
+
+alt Account is inactive
+  server -> mongo   : insertOne(securityAudit: login_failed)
+  server --> browser : 403 {"error": "Account inactive"}
+end
+
+alt Account locked (lockUntil > now)
+  server -> mongo   : insertOne(securityAudit: login_failed)
+  server --> browser : 423 {"error": "Account locked (N min)"}
+end
+
+server -> server  : bcrypt.compare(password, hash)
+
+alt Password mismatch
+  server -> mongo   : Increment failedLoginAttempts\n(lock if attempts >= 5)
+  server -> mongo   : insertOne(securityAudit: login_failed)
+  server --> browser : 401 {"error": "Invalid credentials"}
+end
+
+server -> mongo   : Reset failedAttempts = 0
+server -> mongo   : Update lastLogin timestamp
+
+server ->> email  : sendLoginAlert(email) [async]
+note right of email : Non-blocking
+
+server -> mongo   : insertOne(securityAudit: login_success)
+
+server -> server  : Generate JWT access token (1h, or 30d if remember=true)\nGenerate refresh token (30d)
+
+server -> mongo   : insertOne(Session {\ntoken, refreshTokenHash,\ndeviceInfo, ipAddress})
+
+server --> browser : 200 {\n  token,\n  refreshToken,\n  sessionId,\n  user: {id, email, role}\n}
+browser -> user   : Redirect to /dashboard
+
+@enduml</textarea>
+    <div class="help">
+      <h3>How to render</h3>
+      <ol style="padding-left:16px; font-size:12px; line-height:2;">
+        <li>Copy the source (button below)</li>
+        <li>Open <a href="https://editor.plantuml.com/" target="_blank">editor.plantuml.com</a></li>
+        <li>Paste and click <b>Refresh</b></li>
+        <li>Download as PNG</li>
+      </ol>
+      <hr style="border-color:#313244; margin:12px 0;">
+      <h3>Quick tips</h3>
+      <p><code>-></code> solid arrow &nbsp;|&nbsp; <code>--></code> dashed</p>
+      <p><code>->></code> async arrow (no arrowhead)</p>
+      <p><code>alt / else / end</code> condition block</p>
+      <p><code>note right of X</code> note annotation</p>
+      <p><code>\n</code> line break inside label</p>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="copySource('login')">Copy Source</button>
+    <button class="btn btn-success" onclick="openPlantuml('login')">Open in plantuml.com</button>
+    <button class="btn btn-secondary" onclick="resetSource('login')">Reset to Saved</button>
+  </div>
+</div>
+
+<!-- REGISTER -->
+<div id="tab-register" class="panel">
+  <div class="info-bar">
+    <span><b>File:</b> sequence-register.puml</span>
+    <span><b>Status:</b> <span class="tag ok">Correct — no changes needed</span></span>
+    <span><b>Endpoint:</b> POST /api/auth/register</span>
+    <span><b>Service:</b> auth.service.js → register()</span>
+  </div>
+  <div class="editor-row">
+    <textarea id="src-register">@startuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign center
+skinparam SequenceBoxBackgroundColor #EEF5FF
+skinparam SequenceBoxBorderColor    #2F6FAE
+skinparam ParticipantBackgroundColor #FFFBCC
+skinparam ParticipantBorderColor    #B8860B
+skinparam ArrowColor #444444
+skinparam SequenceLifeLineBorderColor #888888
+
+title User Registration Sequence
+
+actor       "User"           as user
+participant "Browser/Client" as browser
+participant "Auth Server"    as server #EEF5FF
+participant "Rate Limiter"   as rate   #F0F0F0
+database    "MongoDB"        as mongo  #E8F5E9
+participant "Email Service"  as email  #FCE4EC
+
+user -> browser   : Fill form\n(username, email, password,\nPDPA consent checkboxes)
+browser -> server : POST /api/auth/register {\n  username, email, password,\n  consentEssential, consentAnalytics?\n}
+
+server -> rate    : Check rate limit (IP)
+alt Rate limit exceeded
+  rate --> server : 429 Too Many Requests
+  server --> browser : 429 {"error": "Too many attempts"}
+end
+
+alt consentEssential !== true
+  server --> browser : 400 {"error": "Essential consent required"}
+end
+
+server -> server  : Capture PDPA consent {\n  essentialAccepted: true,\n  essentialAcceptedAt: now,\n  analyticsAccepted: boolean,\n  policyVersion: '1.0.0',\n  consentIp\n}
+
+server -> server  : validatePassword(password)
+alt Weak password
+  server --> browser : 400 {"error": "WEAK_PASSWORD", details: [...]}
+end
+
+server -> mongo   : findOne({ email })
+alt Email already registered
+  server --> browser : 400 {"error": "User already exists"}
+end
+
+server -> mongo   : user.save()\n(bcrypt hash runs in pre-save hook)
+
+server ->> email  : sendWelcomeEmail({ to, username }) [async]
+note right of email : Non-blocking
+
+server -> mongo   : insertOne(SecurityAudit: account_created)
+
+server -> server  : createToken(user)\nJWT access token (1h)\n— no refresh token, no session
+
+server --> browser : 201 {\n  token,\n  user: {id, username, email, role}\n}
+browser -> user   : Redirect to /dashboard
+
+@enduml</textarea>
+    <div class="help">
+      <h3>How to render</h3>
+      <ol style="padding-left:16px; font-size:12px; line-height:2;">
+        <li>Copy the source (button below)</li>
+        <li>Open <a href="https://editor.plantuml.com/" target="_blank">editor.plantuml.com</a></li>
+        <li>Paste and click <b>Refresh</b></li>
+        <li>Download as PNG</li>
+      </ol>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="copySource('register')">Copy Source</button>
+    <button class="btn btn-success" onclick="openPlantuml('register')">Open in plantuml.com</button>
+    <button class="btn btn-secondary" onclick="resetSource('register')">Reset to Saved</button>
+  </div>
+</div>
+
+<!-- REFRESH -->
+<div id="tab-refresh" class="panel">
+  <div class="info-bar">
+    <span><b>File:</b> sequence-refresh.puml</span>
+    <span><b>Status:</b> <span class="tag ok">Correct — no changes needed</span></span>
+    <span><b>Endpoint:</b> POST /api/auth/refresh-token</span>
+    <span><b>Service:</b> auth.service.js → refreshToken()</span>
+  </div>
+  <div class="editor-row">
+    <textarea id="src-refresh">@startuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign center
+skinparam SequenceBoxBackgroundColor #EEF5FF
+skinparam SequenceBoxBorderColor    #2F6FAE
+skinparam ParticipantBackgroundColor #FFFBCC
+skinparam ParticipantBorderColor    #B8860B
+skinparam ArrowColor #444444
+skinparam SequenceLifeLineBorderColor #888888
+
+title Token Refresh & Rotation Sequence
+
+participant "Browser/Client" as browser
+participant "Auth Server"    as server #EEF5FF
+participant "Rate Limiter"   as rate   #F0F0F0
+database    "MongoDB"        as mongo  #E8F5E9
+
+browser -> server : POST /api/auth/refresh-token\n{refreshToken, sessionId?}
+
+server -> rate    : Check rate limit (IP)
+alt Rate limit exceeded
+  rate --> server : 429 Too Many Requests
+  server --> browser : 429 {"error": "Too many attempts"}
+end
+
+server -> server  : jwt.verify(refreshToken, JWT_SECRET)
+alt Invalid or expired token
+  server --> browser : 401 {"error": "Invalid refresh token"}
+end
+
+server -> server  : Check decoded.type === 'refresh_token'
+alt Wrong token type
+  server --> browser : 401 {"error": "Invalid refresh token"}
+end
+
+server -> mongo   : TokenBlacklist.isBlacklisted(refreshToken)
+
+alt Token already blacklisted — reuse / theft detected
+  server -> mongo   : Blacklist ALL user tokens\n(reason: security_breach)
+  server --> browser : 401 {"error": "Invalid refresh token"}
+end
+
+server -> mongo   : User.findById(decoded.id)
+alt User not found or isActive = false
+  server --> browser : 401 {"error": "Invalid refresh token"}
+end
+
+alt sessionId provided
+  server -> mongo   : findOne(Session {_id: sessionId, userId, isActive: true})
+  alt Session not found or revoked
+    server --> browser : 401 {"error": "Invalid refresh token"}
+  end
+  server -> mongo   : Update session.lastActiveAt = now
+end
+
+server -> mongo   : TokenBlacklist.revokeToken(\n  refreshToken,\n  tokenType: 'refresh_token',\n  reason: 'user_logout')
+
+server -> server  : Generate new access token (1h)\nGenerate new refresh token (30d)
+
+server -> mongo   : Session.findOneAndUpdate(\n  {refreshTokenHash: oldHash, isActive: true},\n  {sessionToken, refreshTokenHash, lastActiveAt})
+
+server -> mongo   : insertOne(SecurityAudit: token_refreshed)
+
+server --> browser : 200 {\n  token,\n  refreshToken,\n  expiresIn: '1h'\n}
+
+@enduml</textarea>
+    <div class="help">
+      <h3>How to render</h3>
+      <ol style="padding-left:16px; font-size:12px; line-height:2;">
+        <li>Copy the source (button below)</li>
+        <li>Open <a href="https://editor.plantuml.com/" target="_blank">editor.plantuml.com</a></li>
+        <li>Paste and click <b>Refresh</b></li>
+        <li>Download as PNG</li>
+      </ol>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="copySource('refresh')">Copy Source</button>
+    <button class="btn btn-success" onclick="openPlantuml('refresh')">Open in plantuml.com</button>
+    <button class="btn btn-secondary" onclick="resetSource('refresh')">Reset to Saved</button>
+  </div>
+</div>
+
+<!-- OAUTH -->
+<div id="tab-oauth" class="panel">
+  <div class="info-bar">
+    <span><b>File:</b> sequence-oauth.puml</span>
+    <span><b>Status:</b> <span class="tag fixed">Fixed — 1 change</span></span>
+    <span><b>Endpoint:</b> GET+POST /api/oauth/authorize, POST /api/oauth/token</span>
+    <span><b>Service:</b> oauth.controller.js → authorize()</span>
+  </div>
+  <div class="changes">
+    <div class="change-item">
+      <div class="label">Fix 1 — Consent POST action value</div>
+      <div class="old">action: "consent"</div>
+      <div class="new">action: "allow"&nbsp;&nbsp;(valid values: "allow" | "deny")</div>
+    </div>
+  </div>
+  <div class="editor-row">
+    <textarea id="src-oauth">@startuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor #FFFBCC
+skinparam ParticipantBorderColor    #B8860B
+skinparam ArrowColor #444444
+
+title OAuth 2.0 PKCE Authorization Code Flow
+
+actor       "User"         as user
+participant "Client App\n(port 3001)" as client #EEF5FF
+participant "Auth Server\n(port 80)"  as server #E8F5E9
+database    "MongoDB"      as mongo  #FFF3E0
+
+== Step 1: Initiate Login ==
+user -> client  : GET /login
+client -> client : Generate code_verifier (32 random bytes)\ncode_challenge = BASE64URL(SHA256(verifier))
+client -> client : Store code_verifier in HttpOnly cookie\nGenerate random state
+client --> user  : 302 Redirect to Auth Server\n/api/oauth/authorize?\n  client_id=...&response_type=code\n  &scope=openid profile email\n  &state=...&code_challenge=...\n  &code_challenge_method=S256
+
+== Step 2: Auth Server Validates Request ==
+user -> server  : GET /api/oauth/authorize?...
+server -> mongo : Find Client by client_id
+mongo --> server : Client record
+server -> server : Validate redirect_uri matches\nValidate requested scopes
+
+alt User NOT logged in
+  server --> user : Redirect to /login.html?returnTo=...
+  user -> server  : POST /api/auth/login {email, password}
+  server --> user : 200 + session cookie set
+  user -> server  : GET /api/oauth/authorize (resumed)
+end
+
+server -> mongo : Find Consent (userId + clientId)
+
+alt Consent NOT previously granted
+  server --> user : 302 Redirect to /consent.html\n(client name, requested scopes)
+  user -> server  : POST /api/oauth/authorize\n{action: "allow", client_id, scope, state,\n code_challenge, code_challenge_method}
+  server -> mongo : insertOne(Consent {userId, clientId, scope, 30d TTL})
+else Consent already exists
+  note right of server : Skip consent form
+end
+
+== Step 3: Generate Authorization Code ==
+server -> mongo : insertOne(AuthorizationCode {\n  code: 64-char hex, clientId, userId,\n  redirectUri, scope, code_challenge,\n  expiresAt: 5 min})
+server --> user : 302 Redirect to\n  redirect_uri?code=...&state=...
+
+== Step 4: Exchange Code for Tokens ==
+user -> client  : GET /callback?code=...&state=...
+client -> client : Verify state matches cookie\nRead code_verifier from cookie
+client -> server : POST /api/oauth/token {\n  grant_type: authorization_code,\n  code, client_id, client_secret,\n  redirect_uri, code_verifier}
+
+server -> mongo : Find AuthorizationCode by code
+mongo --> server : Code record
+server -> server : Check code not used & not expired\nMark code as used (prevent replay)
+server -> server : Verify PKCE:\n  SHA256(code_verifier) == code_challenge
+server -> server : bcrypt.compare(client_secret, hash)
+
+server -> server : Generate tokens:\n  access_token (JWT, 1h, scope)\n  id_token (JWT, OpenID claims)\n  refresh_token (JWT, 30d)
+server -> mongo : Update Client stats (totalRequests, lastUsed)
+
+server --> client : 200 {\n  access_token,\n  id_token,\n  refresh_token,\n  token_type: "Bearer",\n  expires_in: 3600\n}
+
+== Step 5: Fetch User Info ==
+client -> server : GET /api/oauth/userinfo\nAuthorization: Bearer <access_token>
+server -> server : Verify JWT signature & expiry
+server --> client : 200 {\n  sub, email, name,\n  email_verified\n}
+client -> client : Store accessToken in session
+client --> user  : Redirect to /dashboard
+
+@enduml</textarea>
+    <div class="help">
+      <h3>How to render</h3>
+      <ol style="padding-left:16px; font-size:12px; line-height:2;">
+        <li>Copy the source (button below)</li>
+        <li>Open <a href="https://editor.plantuml.com/" target="_blank">editor.plantuml.com</a></li>
+        <li>Paste and click <b>Refresh</b></li>
+        <li>Download as PNG</li>
+      </ol>
+      <hr style="border-color:#313244; margin:12px 0;">
+      <h3>OAuth action values</h3>
+      <p><code>"allow"</code> — user grants consent</p>
+      <p><code>"deny"</code> — user denies consent</p>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="copySource('oauth')">Copy Source</button>
+    <button class="btn btn-success" onclick="openPlantuml('oauth')">Open in plantuml.com</button>
+    <button class="btn btn-secondary" onclick="resetSource('oauth')">Reset to Saved</button>
+  </div>
+</div>
+
+<footer>TAS Authentication Server — Sequence Diagram Editor &nbsp;|&nbsp; Edit source above → Copy → Paste into editor.plantuml.com → Download PNG</footer>
+
+<script>
+  const saved = {};
+  document.querySelectorAll('textarea').forEach(t => { saved[t.id] = t.value; });
+
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['login','register','refresh','oauth'][i] === name));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  }
+
+  function copySource(name) {
+    const el = document.getElementById('src-' + name);
+    navigator.clipboard.writeText(el.value).then(() => {
+      const btn = event.target;
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.style.background = '#a6e3a1';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1800);
+    });
+  }
+
+  function resetSource(name) {
+    document.getElementById('src-' + name).value = saved['src-' + name];
+  }
+
+  // Encode PlantUML to deflate+base64 for plantuml.com URL
+  function openPlantuml(name) {
+    const src = document.getElementById('src-' + name).value;
+    // Use the simple text/uml endpoint
+    const encoded = encodeURIComponent(src);
+    window.open('https://www.plantuml.com/plantuml/uml/?text=' + encoded, '_blank');
+  }
+</script>
+</body>
+</html>

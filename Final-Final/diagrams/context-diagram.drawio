@@ -1,0 +1,148 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Context Diagram - Level 0">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="100" value="Data Flow Diagram &#x2014; Level 0 (Context Diagram)"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;"
+          vertex="1" parent="1">
+          <mxGeometry x="280" y="10" width="580" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- =============================================
+             PROCESS (Gane & Sarson: rectangle with
+             horizontal bar — process # top, name bottom)
+             ============================================= -->
+        <!-- Process header (number) -->
+        <mxCell id="2a" value="0.0"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=11;fontStyle=1;verticalAlign=middle;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="420" y="360" width="220" height="25" as="geometry"/>
+        </mxCell>
+        <!-- Process body (name) -->
+        <mxCell id="2b" value="TAS Authentication Server"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="420" y="385" width="220" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- =============================================
+             EXTERNAL ENTITIES (Gane & Sarson: plain rectangles)
+             ============================================= -->
+
+        <!-- OAuth Client Application (top-left) -->
+        <mxCell id="3" value="OAuth Client&#xa;Application"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=11;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="75" width="150" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Admin (top-center) -->
+        <mxCell id="4" value="Admin"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=11;"
+          vertex="1" parent="1">
+          <mxGeometry x="475" y="75" width="130" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Google OAuth Provider (top-right) -->
+        <mxCell id="5" value="Google OAuth&#xa;Provider"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=11;"
+          vertex="1" parent="1">
+          <mxGeometry x="710" y="75" width="140" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- GitHub OAuth Provider (far top-right) -->
+        <mxCell id="6" value="GitHub OAuth&#xa;Provider"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=11;"
+          vertex="1" parent="1">
+          <mxGeometry x="940" y="75" width="140" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- User (End User) (bottom-left) -->
+        <mxCell id="7" value="User&#xa;(End User)"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=11;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="380" width="150" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Email Service SMTP (right) -->
+        <mxCell id="8" value="Email Service&#xa;(SMTP)"
+          style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=11;"
+          vertex="1" parent="1">
+          <mxGeometry x="780" y="375" width="140" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- =============================================
+             DATA FLOWS (labeled arrows)
+             ============================================= -->
+
+        <!-- OAuth Client -> TAS -->
+        <mxCell id="10" value="Authorization request&#xa;Token exchange request&#xa;Token refresh request"
+          style="html=1;fontSize=10;align=left;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;"
+          edge="1" source="3" target="2a" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- TAS -> OAuth Client -->
+        <mxCell id="11" value="Authorization code&#xa;Access token / ID token&#xa;User info (userinfo)"
+          style="html=1;fontSize=10;align=right;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.65;entryDx=0;entryDy=0;"
+          edge="1" source="2b" target="3" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- User -> TAS -->
+        <mxCell id="12" value="Registration data&#xa;Login credentials&#xa;Profile updates&#xa;Password change&#xa;OAuth consent"
+          style="html=1;fontSize=10;align=left;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.65;entryDx=0;entryDy=0;"
+          edge="1" source="7" target="2b" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- TAS -> User -->
+        <mxCell id="13" value="JWT tokens&#xa;Session info&#xa;Profile data&#xa;Audit log&#xa;Exported data"
+          style="html=1;fontSize=10;align=right;exitX=0;exitY=0.65;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;"
+          edge="1" source="2b" target="7" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Admin -> TAS -->
+        <mxCell id="14" value="Filter/query requests&#xa;Export requests"
+          style="html=1;fontSize=10;align=left;exitX=0.4;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;"
+          edge="1" source="4" target="2a" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- TAS -> Admin -->
+        <mxCell id="15" value="Analytics reports&#xa;Audit logs&#xa;Monitoring data&#xa;User list"
+          style="html=1;fontSize=10;align=right;exitX=0.6;exitY=0;exitDx=0;exitDy=0;entryX=0.65;entryY=1;entryDx=0;entryDy=0;"
+          edge="1" source="2a" target="4" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Google OAuth -> TAS -->
+        <mxCell id="16" value="Google user profile&#xa;Google ID"
+          style="html=1;fontSize=10;align=center;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;"
+          edge="1" source="5" target="2a" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- GitHub OAuth -> TAS -->
+        <mxCell id="17" value="GitHub user profile&#xa;GitHub ID"
+          style="html=1;fontSize=10;align=center;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0;entryDx=0;entryDy=0;"
+          edge="1" source="6" target="2a" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- TAS -> Email Service -->
+        <mxCell id="18" value="Welcome email&#xa;Password reset email&#xa;Password changed email&#xa;Login alert notification"
+          style="html=1;fontSize=10;align=left;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;"
+          edge="1" source="2b" target="8" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
