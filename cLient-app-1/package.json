@@ -1,0 +1,23 @@
+{
+  "name": "client-app-1-ecommerce",
+  "version": "1.0.0",
+  "description": "E-commerce app using OAuth SSO",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "connect-mongo": "^3.2.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "express-session": "^1.19.0",
+    "memorystore": "^1.6.7",
+    "nodemailer": "^8.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}

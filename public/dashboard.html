@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Console — AuthSys</title>
+     <script src="/js/theme-init.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link id="lighttheme-css" rel="stylesheet" href="/css/lighttheme.css" disabled>
+    <script>if(localStorage.getItem("theme")==="light"){document.getElementById("lighttheme-css").disabled=false;}</script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+</head>
+<body class="font-body selection:bg-primary selection:text-on-primary">
+    <!-- Top Navigation -->
+    <header class="topbar fixed top-0 left-64 right-0 h-14 bg-surface-dim border-b border-outline-variant z-30 flex items-center justify-between px-6">
+        <div class="system-status">
+            <span class="status-pulse"></span>
+            <span class="text-11 font-mono text-primary uppercase tracking-wide-xl" data-i18n="topbar.status">System Normal</span>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
+                <span id="userEmailTop" class="text-xs font-mono text-on-surface-variant">Loading...</span>
+                <button class="text-10 bg-primary text-on-primary font-bold px-3 py-1-5 rounded uppercase tracking-widest hover-bg-primary-dim transition-colors" id="logoutBtnTop" data-i18n="topbar.logout">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Side Navigation -->
+    <aside class="sidebar fixed left-0 top-0 h-full w-64 border-r border-outline-variant bg-black flex flex-col py-8 px-4 z-40">
+        <div class="mb-10 px-2">
+            <h2 class="sidebar-brand text-lg font-black tracking-tighter text-stone-200">AuthSys</h2>
+            <p class="text-10 font-mono text-on-surface-variant uppercase tracking-widest mt-1">v1.0.0-stable</p>
+        </div>
+        
+        <nav class="flex-1 space-y-1">
+            <a href="/dashboard.html" class="sidebar-link active flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">insights</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.console">Console</span>
+            </a>
+            <a href="/user-activity.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">receipt_long</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.activity">Activity</span>
+            </a>
+            <a href="/api-keys.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">key</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.apikeys">API Keys</span>
+            </a>
+            <a href="/profile.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">person</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.profile">Profile</span>
+            </a>
+            <a href="/settings.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
+                <span class="material-symbols-outlined">settings</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.settings">Settings</span>
+            </a>
+        </nav>
+        
+        <div class="pt-8 mt-auto border-t border-outline-variant">
+            <div class="flex items-center gap-3 px-2">
+                <div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center overflow-hidden">
+                    <span class="material-symbols-outlined text-primary">person</span>
+                </div>
+                <div class="overflow-hidden">
+                    <p id="userNameSide" class="text-xs font-bold truncate">Loading...</p>
+                    <p id="userRoleSide" class="text-10 text-on-surface-variant uppercase tracking-widest">User</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="pl-64 pt-14 min-h-screen bg-black">
+        <div class="dashboard-container p-8 max-w-1600 mx-auto">
+            <!-- Page Header -->
+            <div class="dashboard-header mb-10">
+                <h2 class="dashboard-title text-3xl font-bold tracking-tighter text-on-surface" data-i18n="dashboard.title">Console Dashboard</h2>
+                <p class="dashboard-subtitle text-on-surface-variant mt-2 text-sm italic" data-i18n="dashboard.subtitle">Real-time identity metrics and security overview for your account.</p>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="metrics-grid">
+                <!-- Login Activity Chart -->
+                <div class="metric-card metric-large">
+                    <div class="metric-label">
+                        <span data-i18n="dashboard.loginActivity">Login Activity</span>
+                        <span class="material-symbols-outlined">bar_chart</span>
+                    </div>
+                    <div class="metric-value-container">
+                        <span class="metric-value" id="loginTotal">0</span>
+                        <span class="metric-trend" id="loginTrend">loading...</span>
+                    </div>
+                    <div class="metric-subtitle" data-i18n="dashboard.last7days">Last 7 days</div>
+                    
+                    <!-- Chart Container -->
+                    <div class="login-chart" id="loginChart">
+                        <div style="text-align: center; padding: 2rem; color: var(--outline);">
+                            Loading chart...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current User -->
+                <div class="metric-card">
+                    <div class="metric-label">
+                        <span data-i18n="dashboard.currentUser">Current User</span>
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <div class="metric-user-info">
+                        <p id="dashboardUserEmail" class="metric-user-email">Loading...</p>
+                        <p id="dashboardUserId" class="metric-user-id">ID: ...</p>
+                    </div>
+                    <div class="metric-user-footer">
+                        <span id="dashboardUserRole" class="status-tag">USER</span>
+                        <span class="metric-verified">VERIFIED</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Section -->
+            <div class="activity-section">
+                <div class="activity-header">
+                    <h3 class="activity-title" data-i18n="dashboard.recentEvents">Recent Identity Events</h3>
+                    <button class="activity-export-btn" id="exportLogsBtn" data-i18n="dashboard.exportLogs">Export Logs</button>
+                </div>
+                <div class="activity-table-wrapper">
+                    <table class="activity-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="dashboard.eventType">Event Type</th>
+                                <th data-i18n="dashboard.sourceIp">Source IP</th>
+                                <th data-i18n="dashboard.timestamp">Timestamp</th>
+                                <th data-i18n="dashboard.status">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentEventsBody">
+                            <!-- Loading state -->
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 2rem; color: var(--on-surface-variant);">
+                                    Loading events...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/ipHelper.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

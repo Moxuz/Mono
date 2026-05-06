@@ -1,0 +1,50 @@
+
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ PLAYWRIGHT TEST SUMMARY  [2026-05-06 20:25:10]                                                        │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Test Suite                                                       Total   Passed   Failed  Skipped │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 02 — Authentication — Register                                       4        4        0        0  │
+│ 03 — Authentication — Login                                          4        4        0        0  │
+│ 04 — Authentication — Profile & Token                                6        6        0        0  │
+│ 05 — Authentication — Password Management                            4        4        0        0  │
+│ 06 — Authentication — Preferences & Consent                          3        3        0        0  │
+│ 07 — Authentication — Audit & Security                               3        3        0        0  │
+│ 08 — Authentication — OAuth Social                                   3        3        0        0  │
+│ 09 — Authentication — Logout                                         1        1        0        0  │
+│ 01 — Page Navigation                                                 6        6        0        0  │
+│ 02 — Security Headers                                                4        4        0        0  │
+│ 03 — Login Flow                                                      3        3        0        0  │
+│ 05 — API Calls via Browser Context                                   5        5        0        0  │
+│ 04 — Register Flow                                                   2        2        0        0  │
+│ 06 — OAuth 2.0 via Browser                                           2        2        0        0  │
+│ 24 — Client App — Page Rendering                                     4        4        0        0  │
+│ 08 — Dashboard Access Control                                        1        1        0        0  │
+│ 07 — Session Management                                              2        2        0        0  │
+│ 25 — Client App — Unauthenticated Access Control                     5        5        0        0  │
+│ 26 — Client App — Authenticated Session (via social-callback)        5        5        0        0  │
+│ 27 — Client App — Logout & OAuth Callback Edge Cases                 7        7        0        0  │
+│ 16 — Dashboard — User                                                7        7        0        0  │
+│ 17 — Dashboard — Admin Analytics (requires admin role)               7        7        0        0  │
+│ 18 — Dashboard — Admin Monitoring (requires admin role)              6        6        0        0  │
+│ 19 — Dashboard — Admin Logs (requires admin role)                    8        8        0        0  │
+│ 13 — OAuth — OIDC Discovery & JWKS                                   2        2        0        0  │
+│ 28 — Auth-App Pages — Public (no token required)                    11       11        0        0  │
+│ 14 — OAuth — Client Management                                       7        7        0        0  │
+│ 15 — OAuth — Token Operations                                        4        4        0        0  │
+│ 29 — Auth-App Pages — User (requires token in localStorage)         17       17        0        0  │
+│ 30 — Auth-App Pages — Admin (requires admin token)                  14       14        0        0  │
+│ 01 — Page Rendering                                                 13       13        0        0  │
+│ 20 — Security Headers                                               15       15        0        0  │
+│ 21 — Input Validation                                                5        5        0        0  │
+│ 23 — Access Control                                                  2        2        0        0  │
+│ 22 — Rate Limiting                                                   2        2        0        0  │
+│ 12 — Sessions                                                        9        9        0        0  │
+│ 10 — User — Profile & Settings                                       5        5        0        0  │
+│ 11 — User — PDPA Rights                                              3        3        0        0  │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ TOTAL                                                              211      211        0        0  │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Pass rate: 100.0%   Duration: 105.07s   Status: PASSED                                                │
+└───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+

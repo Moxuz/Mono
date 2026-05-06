@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation — AuthSys</title>
+    <script src="/js/theme-init.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/privacy-policy.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+</head>
+<body>
+    <!-- Header -->
+    <div class="pp-header">
+        <div class="container">
+            <div class="pp-header-content">
+                <span class="material-symbols-outlined pp-header-icon">menu_book</span>
+                <div>
+                    <h1>Documentation</h1>
+                    <p>AuthSys API Reference & Integration Guide</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container pp-container">
+        <!-- Back Button -->
+        <a href="javascript:history.back()" class="pp-back">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Back
+        </a>
+
+        <!-- Version Card -->
+        <div class="pp-version-card">
+            <div class="pp-version-left">
+                <span class="pp-badge pp-badge-primary">API v1.0</span>
+                <span class="pp-version-date">
+                    Base URL: <strong>http://localhost:5000/api</strong>
+                </span>
+            </div>
+            <span class="pp-badge pp-badge-success">OAuth 2.0</span>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="pp-toc">
+            <h3>
+                <span class="material-symbols-outlined">format_list_numbered</span>
+                Table of Contents
+            </h3>
+            <ol>
+                <li><a href="#section-1">Getting Started</a></li>
+                <li><a href="#section-2">Authentication</a></li>
+                <li><a href="#section-3">API Keys</a></li>
+                <li><a href="#section-4">OAuth 2.0 Flow</a></li>
+                <li><a href="#section-5">Endpoints Reference</a></li>
+                <li><a href="#section-6">Error Codes</a></li>
+                <li><a href="#section-7">Rate Limiting</a></li>
+                <li><a href="#section-8">Security</a></li>
+            </ol>
+        </div>
+
+        <!-- Section 1 -->
+        <div class="pp-section" id="section-1">
+            <h2>
+                <span class="material-symbols-outlined">rocket_launch</span>
+                Getting Started
+            </h2>
+            <p>
+                AuthSys provides a full identity and access management API.
+                All requests must be made over HTTPS and include a valid authentication token.
+            </p>
+            <div class="pp-alert pp-alert-info">
+                <span class="material-symbols-outlined">info</span>
+                <div>
+                    All API responses are JSON. Include <code>Content-Type: application/json</code>
+                    in your request headers.
+                </div>
+            </div>
+
+            <div class="pp-purpose-card pp-purpose-required">
+                <div class="pp-purpose-header">
+                    <span class="material-symbols-outlined">checklist</span>
+                    <div>
+                        <h4>Quick Start</h4>
+                        <span class="pp-badge pp-badge-primary">3 Steps</span>
+                    </div>
+                </div>
+                <ul>
+                    <li>Register an account at <code>/api/auth/register</code></li>
+                    <li>Login to receive a JWT token at <code>/api/auth/login</code></li>
+                    <li>Pass the token as <code>Authorization: Bearer &lt;token&gt;</code> on every request</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Section 2 -->
+        <div class="pp-section" id="section-2">
+            <h2>
+                <span class="material-symbols-outlined">lock</span>
+                Authentication
+            </h2>
+            <p>AuthSys uses JWT (JSON Web Tokens) for authentication.</p>
+
+            <div class="pp-table-wrapper">
+                <table class="pp-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/auth/register</code></td>
+                            <td>Create a new account</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/auth/login</code></td>
+                            <td>Login and receive JWT + refresh token</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/auth/logout</code></td>
+                            <td>Invalidate current token</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/auth/refresh-token</code></td>
+                            <td>Exchange refresh token for new JWT</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
+                            <td><code>/api/auth/profile</code></td>
+                            <td>Get authenticated user profile</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pp-alert pp-alert-success">
+                <span class="material-symbols-outlined">schedule</span>
+                <div>
+                    <strong>Token expiry:</strong> 1 hour (default) · 30 days (Remember me)
+                    <br>Refresh tokens expire in <strong>30 days</strong>.
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3 -->
+        <div class="pp-section" id="section-3">
+            <h2>
+                <span class="material-symbols-outlined">key</span>
+                API Keys
+            </h2>
+            <p>
+                API keys allow programmatic access to the AuthSys API without
+                interactive login. Manage your keys from the
+                <a href="/api-keys.html">API Keys dashboard</a>.
+            </p>
+
+            <div class="pp-table-wrapper">
+                <table class="pp-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
+                            <td><code>/api/keys</code></td>
+                            <td>List all your API keys</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/keys</code></td>
+                            <td>Create a new API key</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">DELETE</span></td>
+                            <td><code>/api/keys/:id</code></td>
+                            <td>Revoke an API key</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pp-alert pp-alert-error">
+                <span class="material-symbols-outlined">warning</span>
+                <div>
+                    API keys are shown <strong>only once</strong> at creation.
+                    Store them securely — they cannot be retrieved again.
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4 -->
+        <div class="pp-section" id="section-4">
+            <h2>
+                <span class="material-symbols-outlined">device_hub</span>
+                OAuth 2.0 Flow
+            </h2>
+            <p>AuthSys supports OAuth 2.0 Authorization Code flow with PKCE for third-party app integration.</p>
+
+            <div class="pp-table-wrapper">
+                <table class="pp-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
+                            <td><code>/api/oauth/authorize</code></td>
+                            <td>Start authorization — redirect user here</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/oauth/token</code></td>
+                            <td>Exchange authorization code for tokens</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
+                            <td><code>/api/oauth/userinfo</code></td>
+                            <td>Get user info with access token</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/oauth/token/revoke</code></td>
+                            <td>Revoke an access or refresh token</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/oauth/token/introspect</code></td>
+                            <td>Inspect a token's validity and claims</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pp-purpose-card pp-purpose-optional">
+                <div class="pp-purpose-header">
+                    <span class="material-symbols-outlined">login</span>
+                    <div>
+                        <h4>Social Login</h4>
+                        <span class="pp-badge pp-badge-warning">Passport.js</span>
+                    </div>
+                </div>
+                <ul>
+                    <li>Google: <code>GET /api/auth/google</code></li>
+                    <li>GitHub: <code>GET /api/auth/github</code></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Section 5 -->
+        <div class="pp-section" id="section-5">
+            <h2>
+                <span class="material-symbols-outlined">api</span>
+                Endpoints Reference
+            </h2>
+
+            <div class="pp-table-wrapper">
+                <table class="pp-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Auth Required</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/auth/forgot-password</code></td>
+                            <td>No</td>
+                            <td>Request password reset email</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">POST</span></td>
+                            <td><code>/api/auth/reset-password/:token</code></td>
+                            <td>No</td>
+                            <td>Reset password with token</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
+                            <td><code>/api/auth/verify-email</code></td>
+                            <td>No</td>
+                            <td>Verify email address</td>
+                        </tr>
+                
+                   
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
+                            <td><code>/api/auth/sessions</code></td>
+                            <td>Yes</td>
+                            <td>List active sessions</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">DELETE</span></td>
+                            <td><code>/api/auth/sessions/:id</code></td>
+                            <td>Yes</td>
+                            <td>Revoke a specific session</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
+                            <td><code>/health</code></td>
+                            <td>No</td>
+                            <td>Server health check</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 6 -->
+        <div class="pp-section" id="section-6">
+            <h2>
+                <span class="material-symbols-outlined">error</span>
+                Error Codes
+            </h2>
+
+            <div class="pp-table-wrapper">
+                <table class="pp-table">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Code</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-success">200</span></td>
+                            <td>OK</td>
+                            <td>Request succeeded</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">400</span></td>
+                            <td>Bad Request</td>
+                            <td>Invalid parameters or missing fields</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">401</span></td>
+                            <td>Unauthorized</td>
+                            <td>Missing or invalid token</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">403</span></td>
+                            <td>Forbidden</td>
+                            <td>Insufficient permissions</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">404</span></td>
+                            <td>Not Found</td>
+                            <td>Resource does not exist</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">423</span></td>
+                            <td>Locked</td>
+                            <td>Account locked due to too many failed attempts</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">429</span></td>
+                            <td>Too Many Requests</td>
+                            <td>Rate limit exceeded</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">500</span></td>
+                            <td>Server Error</td>
+                            <td>Unexpected server-side error</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Section 7 -->
+        <div class="pp-section" id="section-7">
+            <h2>
+                <span class="material-symbols-outlined">speed</span>
+                Rate Limiting
+            </h2>
+            <p>Rate limits are applied per IP address on sensitive endpoints.</p>
+
+            <div class="pp-table-wrapper">
+                <table class="pp-table">
+                    <thead>
+                        <tr>
+                            <th>Endpoint Group</th>
+                            <th>Limit</th>
+                            <th>Window</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Login / Register</td>
+                            <td>10 requests</td>
+                            <td>15 minutes</td>
+                        </tr>
+                        <tr>
+                            <td>Password Reset</td>
+                            <td>5 requests</td>
+                            <td>1 hour</td>
+                        </tr>
+                        <tr>
+                            <td>OAuth Token</td>
+                            <td>20 requests</td>
+                            <td>15 minutes</td>
+                        </tr>
+                        <tr>
+                            <td>General API</td>
+                            <td>100 requests</td>
+                            <td>15 minutes</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pp-alert pp-alert-info">
+                <span class="material-symbols-outlined">info</span>
+                <div>
+                    When rate limited, the response will include a
+                    <code>Retry-After</code> header indicating when to retry.
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 8 -->
+        <div class="pp-section" id="section-8">
+            <h2>
+                <span class="material-symbols-outlined">security</span>
+                Security
+            </h2>
+            <p>AuthSys implements the following security measures:</p>
+            <ul>
+                <li>🔒 All tokens signed with HS256 (JWT)</li>
+                <li>🔑 Passwords hashed with bcrypt (10 rounds)</li>
+                <li>🛡️ PKCE required for OAuth 2.0</li>
+                <li>⏱️ Short-lived authorization codes (10 minutes)</li>
+                <li>🚫 Token blacklist on logout</li>
+         
+                <li>📧 Login alert emails on new device sign-in</li>
+                <li>🔄 Session tracking and revocation</li>
+            </ul>
+        </div>
+
+        <!-- Footer -->
+        <div class="pp-footer">
+            <div class="pp-footer-version">
+                <span class="pp-badge pp-badge-secondary">API v1.0</span>
+                <span>Last updated: March 2026</span>
+            </div>
+            <p class="pp-footer-note">
+                This documentation covers the current stable API.<br>
+                Breaking changes will be versioned.
+            </p>
+            <div class="pp-footer-actions">
+                <a href="javascript:history.back()" class="btn btn-ghost">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                    Go Back
+                </a>
+                <a href="/register.html" class="btn btn-primary">
+                    Get Started
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/cookie-banner.js"></script>
+</body>
+</html>

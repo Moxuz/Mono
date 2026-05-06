@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authorize Application — AuthSys</title>
+    <script src="/js/theme-init.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+        
+        .consent-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--surface-dim) 0%, var(--surface-lowest) 100%);
+            padding: 2rem;
+        }
+        
+        .consent-box {
+            background-color: var(--surface-container-lowest);
+            border: 1px solid var(--outline-variant);
+            border-radius: var(--radius-lg);
+            padding: 2.5rem;
+            max-width: 28rem;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+        
+        .app-info {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--outline-variant);
+        }
+        
+        .app-icon {
+            width: 5rem;
+            height: 5rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dim) 100%);
+            border-radius: var(--radius-xl);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 8px 24px rgba(173, 198, 255, 0.3);
+        }
+        
+        .app-icon .material-symbols-outlined {
+            font-size: 48px;
+            color: var(--on-primary);
+        }
+        
+        .app-name {
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            color: var(--on-surface);
+            margin-bottom: 0.5rem;
+        }
+        
+        .app-description {
+            color: var(--on-surface-variant);
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+        
+        .permissions {
+            background-color: var(--surface-container-low);
+            border: 1px solid var(--outline-variant);
+            border-radius: var(--radius-default);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        
+        .permissions h3 {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--on-surface-variant);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .permissions h3 .material-symbols-outlined {
+            color: var(--primary);
+            font-size: 20px;
+        }
+        
+        .permission-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--outline-variant/30);
+        }
+        
+        .permission-item:last-child {
+            border-bottom: none;
+        }
+        
+        .permission-icon {
+            width: 2rem;
+            height: 2rem;
+            background-color: var(--primary/10);
+            border-radius: var(--radius-default);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .permission-icon .material-symbols-outlined {
+            color: var(--primary);
+            font-size: 20px;
+        }
+        
+        .permission-text {
+            flex: 1;
+        }
+        
+        .permission-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--on-surface);
+            margin-bottom: 0.25rem;
+        }
+        
+        .permission-description {
+            font-size: 0.75rem;
+            color: var(--on-surface-variant);
+            line-height: 1.5;
+        }
+        
+        .pkce-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            background-color: var(--primary/10);
+            color: var(--primary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-full);
+            margin-top: 1rem;
+        }
+        
+        .pkce-badge .material-symbols-outlined {
+            font-size: 16px;
+        }
+        
+        .consent-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+        
+        .btn-allow {
+            background-color: var(--primary);
+            color: var(--on-primary);
+            border: none;
+            padding: 0.875rem 1.5rem;
+            border-radius: var(--radius-default);
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all var(--transition-base);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-allow:hover {
+            background-color: var(--primary-dim);
+            transform: translateY(-1px);
+        }
+        
+        .btn-deny {
+            background-color: transparent;
+            color: var(--on-surface-variant);
+            border: 1px solid var(--outline-variant);
+            padding: 0.875rem 1.5rem;
+            border-radius: var(--radius-default);
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all var(--transition-base);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-deny:hover {
+            background-color: var(--surface-bright);
+            color: var(--on-surface);
+        }
+        
+        .consent-footer {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--outline-variant);
+            text-align: center;
+        }
+        
+        .consent-footer p {
+            font-size: 0.75rem;
+            color: var(--on-surface-variant);
+            line-height: 1.6;
+            margin-bottom: 0.5rem;
+        }
+        
+        .consent-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .consent-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="consent-container">
+        <div class="consent-box">
+            <!-- App Info -->
+            <div class="app-info">
+                <div class="app-icon">
+                    <span class="material-symbols-outlined filled">shopping_cart</span>
+                </div>
+                <h1 class="app-name" id="clientName">ShopHub Client</h1>
+                <p class="app-description">
+                    is requesting access to your AuthSys account
+                </p>
+                <div class="pkce-badge">
+                    <span class="material-symbols-outlined filled">security</span>
+                    <span>PKCE Secured</span>
+                </div>
+            </div>
+
+            <!-- Permissions -->
+            <div class="permissions">
+                <h3>
+                    <span class="material-symbols-outlined">folder_open</span>
+                    This application will be able to
+                </h3>
+                
+                <div class="permission-item">
+                    <div class="permission-icon">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <div class="permission-text">
+                        <div class="permission-title">View your profile</div>
+                        <div class="permission-description">Access your name, email, and profile information</div>
+                    </div>
+                </div>
+                
+                <div class="permission-item">
+                    <div class="permission-icon">
+                        <span class="material-symbols-outlined">email</span>
+                    </div>
+                    <div class="permission-text">
+                        <div class="permission-title">View your email address</div>
+                        <div class="permission-description">Access your primary email address</div>
+                    </div>
+                </div>
+                
+                <div class="permission-item">
+                    <div class="permission-icon">
+                        <span class="material-symbols-outlined">badge</span>
+                    </div>
+                    <div class="permission-text">
+                        <div class="permission-title">View your role</div>
+                        <div class="permission-description">Access your account role and permissions</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <form id="consentForm">
+                <input type="hidden" name="client_id" id="clientId" value="">
+                <input type="hidden" name="redirect_uri" id="redirectUri" value="">
+                <input type="hidden" name="scope" id="scope" value="">
+                <input type="hidden" name="state" id="state" value="">
+                <input type="hidden" name="code_challenge" id="codeChallenge" value="">
+                <input type="hidden" name="code_challenge_method" id="codeChallengeMethod" value="S256">
+
+                <div class="consent-actions">
+                    <button type="button" id="btnAllow" class="btn-allow">
+                        <span class="material-symbols-outlined filled">check_circle</span>
+                        Allow Access
+                    </button>
+
+                    <button type="button" id="btnDeny" class="btn-deny">
+                        <span class="material-symbols-outlined">cancel</span>
+                        Deny
+                    </button>
+                </div>
+            </form>
+
+            <!-- Footer -->
+            <div class="consent-footer">
+                <p>
+                    By allowing, you agree to our<br>
+                    <a href="/privacy-policy.html" target="_blank">Privacy Policy and Terms of Service</a>
+                  
+                </p>
+                <p style="font-size: 0.625rem; color: var(--outline);">
+                    You can revoke access at any time from your account settings
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const clientId        = urlParams.get('client_id');
+        const redirectUri     = urlParams.get('redirect_uri');
+        const scope           = urlParams.get('scope');
+        const state           = urlParams.get('state');
+        const codeChallenge   = urlParams.get('code_challenge');
+        const challengeMethod = urlParams.get('code_challenge_method') || 'S256';
+        const clientName      = urlParams.get('client_name');
+
+        // Populate hidden fields
+        if (clientId)        document.getElementById('clientId').value = clientId;
+        if (redirectUri)     document.getElementById('redirectUri').value = redirectUri;
+        if (scope)           document.getElementById('scope').value = scope;
+        if (state)           document.getElementById('state').value = state;
+        if (codeChallenge)   document.getElementById('codeChallenge').value = codeChallenge;
+        if (challengeMethod) document.getElementById('codeChallengeMethod').value = challengeMethod;
+        if (clientName)      document.getElementById('clientName').textContent = clientName;
+
+        async function submitConsent(action) {
+            const body = {
+                client_id:             clientId,
+                redirect_uri:          redirectUri,
+                scope:                 scope,
+                state:                 state,
+                code_challenge:        codeChallenge,
+                code_challenge_method: challengeMethod,
+                action
+            };
+
+            if (action === 'deny') {
+                const sep = redirectUri.includes('?') ? '&' : '?';
+                window.location.href = `${redirectUri}${sep}error=access_denied${state ? `&state=${encodeURIComponent(state)}` : ''}`;
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/oauth/authorize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('Authorization failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Consent error:', err);
+                alert('Something went wrong. Please try again.');
+            }
+        }
+
+        document.getElementById('btnAllow').addEventListener('click', () => submitConsent('allow'));
+        document.getElementById('btnDeny').addEventListener('click',  () => submitConsent('deny'));
+    </script>
+</body>
+</html>

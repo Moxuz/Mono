@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopHub - E-commerce Platform</title>
+    <style>
+        /* index has specific styles */
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .container {
+            background: white; border-radius: 20px;
+            padding: 60px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center; max-width: 500px;
+        }
+        h1         { font-size: 3rem; margin-bottom: 1rem; }
+        .tagline   { color: #64748b; font-size: 1.25rem; margin-bottom: 2rem; }
+        .features  {
+            text-align: left; margin: 2rem 0;
+            padding: 1.5rem; background: #f8fafc; border-radius: 12px;
+        }
+        .features li { margin: 0.75rem 0; color: #475569; }
+        
+        /* Buttons */
+        .btn {
+            display: inline-block; padding: 15px 40px;
+            background: #3b82f6; color: white; text-decoration: none;
+            border-radius: 50px; font-size: 1.1rem; font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s; margin: 10px;
+            border: none; cursor: pointer;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(59,130,246,0.3); }
+        .btn-secondary { background: #64748b; }
+        
+        /* Social Login Buttons */
+        .social-login {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .btn-social {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 300px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+        }
+        
+        .btn-social:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-google {
+            background: #ffffff;
+            color: #333333;
+            border: 1px solid #dddddd;
+        }
+        
+        .btn-github {
+            background: #24292e;
+            color: #ffffff;
+        }
+        
+        .btn-social svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: #64748b;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #dddddd;
+        }
+        
+        .divider span {
+            padding: 0 10px;
+            font-size: 0.9rem;
+        }
+        
+        .status {
+            margin-top: 2rem; padding: 1rem;
+            background: #e7f3ff; border-radius: 8px; color: #0066cc;
+        }
+    </style>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 ShopHub</h1>
+        <p class="tagline">Your Premium E-commerce Platform</p>
+
+        <div class="features">
+            <h3>✨ Features:</h3>
+            <ul>
+                <li>🔐 Secure OAuth 2.0 Login</li>
+                <li>🛍️ Browse Products</li>
+                <li>👤 User Profile</li>
+            </ul>
+        </div>
+
+        <!-- Traditional Login Button -->
+        <a href="/login" class="btn" id="loginBtn" onclick="showConsentModal(event)">🚀 Login with AuthSys</a>
+
+        <!-- Divider -->
+        <div class="divider"><span>OR</span></div>
+
+        <!-- Social Login Buttons -->
+        <div class="social-login">
+            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 10px;">
+                Sign in with Social Media
+            </p>
+            
+            <!-- Google Login -->
+            <a href="http://localhost:5000/api/auth/google?redirect=http://localhost:3001/social-callback" class="btn-social btn-google">
+                <svg viewBox="0 0 18 18" aria-hidden="true">
+                    <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+                    <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+                    <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/>
+                    <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z"/>
+                </svg>
+                Continue with Google
+            </a>
+
+            <!-- GitHub Login -->
+            <a href="http://localhost:5000/api/auth/github?redirect=http://localhost:3001/social-callback" class="btn-social btn-github">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                Continue with GitHub
+            </a>
+        </div>
+
+        <div class="status" id="status">
+            <p>📍 Status: Checking...</p>
+        </div>
+    </div>
+
+    <!-- Cookie Banner -->
+    <div id="cookieBanner" class="cookie-banner" role="dialog" aria-label="Cookie consent">
+        <div class="cookie-banner-content">
+            <div class="cookie-banner-text">
+                <span class="cookie-icon">🍪</span>
+                <div>
+                    <strong>We use cookies</strong>
+                    <p>
+                        Essential cookies keep you signed in.
+                        Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank">Privacy Policy</a>.
+                    </p>
+                </div>
+            </div>
+            <div class="cookie-banner-actions">
+                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Essential Only</button>
+                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept All</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        fetch('/api/session')
+            .then(r => r.json())
+            .then(data => {
+                const status = document.getElementById('status');
+                if (data.authenticated) {
+                    status.innerHTML = `
+                        <p>✅ Logged in as: <strong>${data.user.username}</strong></p>
+                        <p style="margin-top:8px;">
+                            <a href="/dashboard" style="color:#0066cc;">Go to Dashboard →</a>
+                        </p>
+                    `;
+                } else {
+                    status.innerHTML = `<p>📍 Status: Not logged in</p>`;
+                }
+            })
+            .catch(() => {});
+    </script>
+    <script src="/js/cookie-banner.js"></script>
+
+    <!-- Consent Modal -->
+    <div id="consentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9998; align-items:center; justify-content:center;">
+        <div class="card" style="max-width:480px; width:90%; margin:0;">
+            <h2 style="margin-bottom:1rem;">Before you continue</h2>
+            <p style="color:#475569; margin-bottom:1rem; line-height:1.6;">
+                You are about to sign in to <strong>ShopHub</strong> using <strong>AuthSys</strong>,
+                our identity provider. By continuing, you agree that:
+            </p>
+            <ul style="color:#475569; margin:0 0 1.5rem 1.2rem; line-height:2;">
+                <li>AuthSys will verify your identity</li>
+                <li>Your profile (name, email, role) will be shared with ShopHub</li>
+                <li>ShopHub will store your session securely</li>
+            </ul>
+            <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:1.5rem;">
+                Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank" style="color:#3b82f6;">Privacy Policy</a> for more details.
+            </p>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="closeConsentModal()">Cancel</button>
+                <button class="btn" onclick="acceptConsent()">Accept &amp; Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showConsentModal(e) {
+            e.preventDefault();
+            const modal = document.getElementById('consentModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeConsentModal() {
+            document.getElementById('consentModal').style.display = 'none';
+        }
+
+        function acceptConsent() {
+            window.location.href = '/login';
+        }
+
+        document.getElementById('consentModal').addEventListener('click', function(e) {
+            if (e.target === this) closeConsentModal();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+
++----------------------------------------------------------------------+
+|  ZAP SECURITY SCAN SUMMARY  [2026-05-07 03:25:15]                     |
++----------------------------------------------------------------------+
+| Risk Level       Count  Alerts                   |
++----------------------------------------------------------------------+
+| High                 0                           !|
+| Medium               5  CSP: Wildcard Directive, !|
+| Low                  1  Private IP Disclosure     |
+| Informational        7  Authentication Request I  |
++----------------------------------------------------------------------+
+| Total alerts: 13   Host: nginx   Generated: Wed, 6 May 2026 19:46:43 |
++----------------------------------------------------------------------+
+
+  ALERT DETAILS:
+  -----------------------------------------------------------------
+  [Medium       ] CSP: Wildcard Directive (instances: 4)
+  [Medium       ] CSP: script-src unsafe-eval (instances: 4)
+  [Medium       ] CSP: script-src unsafe-inline (instances: 4)
+  [Medium       ] CSP: style-src unsafe-inline (instances: 4)
+  [Medium       ] Sub Resource Integrity Attribute Missing (instances: 5)
+  [Low          ] Private IP Disclosure (instances: 1)
+  [Informational] Authentication Request Identified (instances: 1)
+  [Informational] Information Disclosure - Sensitive Information in URL (instances: 5)
+  [Informational] Information Disclosure - Suspicious Comments (instances: 14)
+  [Informational] Modern Web Application (instances: 2)
+  [Informational] Non-Storable Content (instances: 2)
+  [Informational] Storable and Cacheable Content (instances: 2)
+  [Informational] Storable but Non-Cacheable Content (instances: 5)
+
