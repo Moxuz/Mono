@@ -1,0 +1,219 @@
+AUTH SYS CHANGELOG
+วันที่: 2026-08-17
+
+สรุปการเปลี่ยนแปลงของระบบ AuthSys และ OAuth clients
+
+====================
+เพิ่ม (ADDED)
+====================
+
+1. OAuth / OpenID Connect
+- เพิ่มการจัดการ scope แบบมาตรฐาน: openid, profile, email, offline_access
+- เพิ่ม PKCE S256 ใน OAuth flow ของ client
+- เพิ่ม CSRF token สำหรับหน้า consent
+- เพิ่มหน้า Authorized Applications และการ revoke consent
+- เพิ่มการตรวจ redirect URI แบบ exact match
+- เพิ่ม OAuth client management สำหรับสร้าง/ดู/แก้ไข/revoke OAuth apps
+- เพิ่ม client-2: Workspace Client 2 สำหรับทดสอบ multi-client OAuth
+- ลงทะเบียน OAuth app ของ client-2 ใน AuthSys
+- Redirect URI ของ client-2:
+  http://localhost:3002/callback
+
+2. Client 2 mockup
+- เพิ่มโฟลเดอร์ client-2/
+- เพิ่มหน้า landing page แบบ Workspace
+- เพิ่มหน้า protected dashboard
+- เพิ่ม OAuth login และ callback ด้วย PKCE
+- เพิ่ม logout และ health endpoint
+- ใช้ HttpOnly session cookie
+- ไม่ส่ง access token ให้ browser
+- เพิ่ม Docker Compose service ชื่อ client-app-2
+- เพิ่ม README และ .env.example สำหรับ client-2
+
+3. Admin console
+- เพิ่ม/ปรับหน้า Admin แบบ simple หน้าเดียว
+- เพิ่มเมนู OAuth applications
+- เพิ่มเมนู Audit logs
+- เพิ่มเมนู System monitoring
+- เพิ่มเมนู Analytics
+- เพิ่มการตรวจ role จาก /api/auth/profile ก่อนแสดงหน้า Admin
+- เพิ่ม health status บนหน้า Admin
+
+4. Cookie consent
+- เปลี่ยนปุ่มเป็น Accept all
+- เปลี่ยนปุ่มเป็น Reject non-essential
+- ปรับข้อความให้แยก essential cookies กับ optional analytics
+- เพิ่มการ sync cookie consent ผ่าน server-side session
+
+5. Infrastructure / deployment
+- ลด AuthSys เหลือ auth-app-1 replica เดียว
+- ปรับ Nginx upstream ให้ชี้ auth-app-1 ตัวเดียว
+- เพิ่ม compose override สำหรับ VPS/HTTPS
+- Rebuild และ deploy AuthSys กับ client-1 บน VPS
+- Recreate Nginx หลัง recreate container เพื่อป้องกัน stale upstream IP
+
+====================
+ลบ (REMOVED)
+====================
+
+- ลบ auth-app-2 และ auth-app-3 containers
+- ลบ client-side SilentAuth implementation
+- ลบไฟล์ cLient-app-1/public/js/silent-auth.js
+- ลบ email verification service ที่ไม่ใช้แล้ว
+- ลบ 2FA service ที่ไม่ใช้แล้ว
+- ลบ role ออกจาก OAuth access token, ID token, UserInfo และ discovery claims
+- ลบ role display จากข้อมูล OAuth client ที่ไม่ควรได้รับ role ภายในระบบ
+
+====================
+แก้ไข (CHANGED / FIXED)
+====================
+
+1. Client 1 authentication
+- เปลี่ยนเป็น session-cookie-only
+- ไม่ส่ง accessToken ผ่าน /api/session
+- ไม่ให้ frontend อ่านหรือ refresh access token โดยตรง
+- เก็บ OAuth tokens ไว้ใน server-side session เท่านั้น
+- protected pages: dashboard, products, profile
+- ป้องกัน static HTML ไม่ให้ bypass auth route
+- แก้ cart mockup ให้ทำงานด้วย localStorage
+
+2. OAuth role separation
+- role ภายใน AuthSys ยังใช้ตรวจ admin access ได้
+- role จะไม่ถูกส่งออกไปใน OAuth token หรือ UserInfo
+- OAuth app owner แยกจาก end-user ที่ login เข้า app
+- ผู้ใช้ AuthSys คนใดก็ได้สามารถ authorize OAuth app ที่ active ได้
+
+3. Role-based access control
+- Admin เท่านั้นที่เข้าถึง analytics
+- Admin เท่านั้นที่เข้าถึง monitoring และ system health
+- Admin เท่านั้นที่เข้าถึง audit/security logs
+- Admin เท่านั้นที่ดู system-wide statistics
+- เปลี่ยน /api/dashboard/logs/stats ให้เป็น admin-only
+- เปลี่ยน /api/dashboard/ ให้เป็น admin-only
+- user routes ยังคงดูได้เฉพาะข้อมูลของ user ที่ login อยู่
+- OAuth client management ยังคงจำกัดตาม owner ของ app
+
+4. Consent / security
+- จำกัด consent เป็น Allow หรือ Deny ไม่มี partial consent
+- เพิ่ม revoke consent
+- เพิ่ม cookie consent CSRF protection
+- ตรวจ exact redirect URI ทุกครั้งก่อนออก authorization code
+- ป้องกัน bearer token ใน query string
+- ปิด legacy social callback ที่รับ token ผ่าน URL
+
+5. Admin UI
+- แทนที่หน้า Admin เดิมที่ซับซ้อนและมีข้อมูลตัวอย่าง
+- ใช้หน้า Admin แบบ simple สำหรับ personal project
+- API guard ยังคงทำงานฝั่ง server ด้วย authorizeRole('admin')
+
+====================
+ผลการทดสอบ
+====================
+
+- Function tests: 39 passed, 0 failed
+- Security hardening tests: 56 passed, 0 failed
+- Client-1 OAuth mock flow: login, consent, callback, products ผ่าน
+- Client-2 OAuth flow: login ด้วย user1, callback และ dashboard ผ่าน
+- Client-2 ไม่เปิดเผย access token ใน browser
+- AuthSys live health: HTTP 200
+- Client-1 live root: HTTP 200
+- Client-2 local health: HTTP 200
+- Protected dashboard ที่ยังไม่ login: redirect HTTP 302 ไป /login
+- Admin stats ที่ไม่มี token: HTTP 401
+- Admin page แบบใหม่ถูก deploy ขึ้น live แล้ว
+
+====================
+หมายเหตุ
+====================
+
+- Client secrets ไม่ถูกบันทึกในไฟล์นี้
+- client-2/.env ถูกตั้งให้ Git ignore
+- client-2 ต้องมี OAuth app credentials ก่อนใช้งาน login
+- Docker image ในเครื่อง local ยัง build ไม่ได้เมื่อ Docker Desktop daemon ไม่ทำงาน
+- Login test บางรอบติด rate limit ตาม policy ของระบบ ซึ่งเป็น behavior ที่คาดไว้
+- Admin HTML shell อาจถูกโหลดได้ แต่ข้อมูล Admin ต้องผ่าน role check และ API guard
+
+6. Password reset / social login
+- เพิ่ม `POST /api/auth/set-password` สำหรับบัญชี Google/GitHub ที่ยังไม่มี local password
+- Profile เลือกใช้ Set password หรือ Change password ตาม `hasPassword`
+- แก้ Profile ไม่อ่าน current password เมื่อเป็น Social-only account
+- Forgot password จะไม่สร้าง reset token ให้บัญชีที่ไม่มี local password
+- ป้องกัน reset token เก่าของ Social-only account
+- เพิ่มคำแนะนำให้ Social-only account login ผ่าน provider ก่อนตั้ง password
+- Local password reset ยังคง hash token, หมดอายุ 1 ชั่วโมง และ revoke sessions หลัง reset
+
+ผลการทดสอบเพิ่มเติม
+- Password flow syntax checks ผ่าน
+- Function tests: 39 passed, 0 failed
+- Security hardening tests: 56 passed, 0 failed
+- Live `/health`: HTTP 200
+
+8. User Profile fixes
+- เพิ่ม `displayName` และ `bio` ใน User model และบันทึกผ่าน `PUT /api/users/profile`
+- Profile โหลด display name, bio, member since และ last login จาก server
+- เปลี่ยน Active Sessions จากค่า hardcode เป็นจำนวนจริงจาก `/api/sessions/count`
+- เพิ่มปุ่ม Manage Sessions ใน Profile และเชื่อมไปหน้า User Activity
+- เพิ่ม anchor `#sessions` สำหรับส่วนจัดการ session
+
+ผลการทดสอบ Profile เพิ่มเติม
+- Profile/User Activity pages live: HTTP 200
+- `/api/users/profile` ไม่มี token: HTTP 401
+- `/api/sessions/count` ไม่มี token: HTTP 401
+- Auth app และ nginx healthy หลัง deploy
+- หลัง restart ไม่พบ error/exception ใน Auth app logs
+
+9. Warning cleanup
+- แก้ Helmet `noSniff` ให้ใช้ชนิดค่าที่ถูกต้อง
+- กำหนด KafkaJS legacy partitioner ให้คงพฤติกรรมเดิมและไม่แสดง migration warning
+- Redis `vm.overcommit_memory` warning เป็นการตั้งค่าระดับ VPS ที่ยังต้องดำเนินการแยกต่างหาก
+- ลบ MongoDB driver options รุ่นเก่าที่ทำให้เกิด deprecation warning
+
+10. Constraint alignment
+- เพิ่ม strict boolean validation สำหรับ essential consent, analytics consent และ remember-me
+- ทำ email length/format ให้ตรงกันระหว่าง frontend, API validation และ User model
+- เพิ่ม max length ให้ username, email, password, profile และ OAuth application name
+- เพิ่ม client-side password checks สำหรับ sequential/repeated characters และแสดงรายละเอียดจาก server
+- เพิ่ม backend validation สำหรับ OAuth redirect URI: HTTPS, exact URL shape, no fragments/credentials, จำกัด 1-10 รายการ
+- เพิ่ม validation เดียวกันเมื่อแก้ไข OAuth client และเพิ่ม model-level length constraints
+- เพิ่ม backend validation สำหรับ theme, language และ notification preferences
+- sync policy version จาก `1.0.0` เป็น `1.1.0`
+
+ผลการทดสอบ Constraint เพิ่มเติม
+- Module loading tests: 27 passed, 0 failed
+- Live consent ที่เป็น string: HTTP 400
+- Live remember ที่เป็น string: HTTP 400
+- Live user pages หลัง deploy: HTTP 200
+- Protected OAuth client endpoint ไม่มี token: HTTP 401
+- Live unauthenticated `/api/auth/set-password`: HTTP 401
+- Live Forgot Password guidance: present
+- Live auth app เชื่อม Kafka, MongoDB และ Redis สำเร็จ
+
+7. Admin console / monitoring
+- เพิ่ม dependency health ใน Admin สำหรับ MongoDB, Redis และ Kafka
+- แก้ success rate ของ Admin ให้คำนวณจาก successful / (successful + failed)
+- เพิ่มหน้า User database แบบ admin-only ที่ `/admin/users` และ `/admin-users.html`
+- แก้ Security Logs stats endpoint จาก `/api/dashboard/stats` เป็น `/api/dashboard/logs/stats`
+- แก้ Export CSV ให้ส่ง Bearer token ได้จริง
+- เพิ่ม admin page guard ให้หน้า logs, monitoring และ analytics
+- แก้ sessionStorage token fallback จาก `tempToken` เป็น `token`
+- Escape ข้อมูล log/activity ก่อน render เพื่อลด XSS risk
+- เอาการอ่านค่า 2FA ที่ไม่มีใน backend ออกจาก Monitoring UI
+
+ผลการทดสอบ Admin เพิ่มเติม
+- Admin pages live: HTTP 200
+- `/api/dashboard/monitoring/health` ไม่มี token: HTTP 401
+- `/api/dashboard/logs/stats` ไม่มี token: HTTP 401 (route มีอยู่จริง ไม่ใช่ 404)
+- `/api/users` ไม่มี token: HTTP 401
+- Live `/health`: HTTP 200
+
+=== Developer hardening follow-up: 2026-08-20 ===
+
+- Web register/login now return only safe session/user data; bearer credentials remain on the explicit API compatibility login route or OAuth token endpoint.
+- First-party browser pages use the Secure, HttpOnly session cookie and no longer refresh/store access or refresh tokens in localStorage/sessionStorage.
+- Remember me now maps to a documented 30-day web session; default web session remains 1 hour.
+- Anonymous cookie choices are queued locally and synchronized after the user becomes authenticated.
+- OAuth requested scopes must be registered by the client; offline_access is explicit and is not implicit.
+- Cookie-authenticated API mutations require a same-origin signal or CSRF token.
+- OAuth public error descriptions were made stable and internal error details remain server-side.
+- Client-1 no longer requests unregistered offline_access.
+- Production operations must remove the stale public Kafka UI port 8080 before wider access.

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Auth Monolith - Complete Stack with Kafka + Nginx Load Balancer
+# Auth Monolith - Complete Stack with Kafka + Nginx reverse proxy
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # Usage:
@@ -7,40 +7,41 @@
 #   Stop:      docker-compose down
 #   Rebuild:   docker-compose up -d --build
 #   Logs:      docker-compose logs -f
-#   Scale app: docker-compose up -d --scale auth-app-1=1 (handled by named services)
 #
 # Traffic entry point: http://localhost (port 80 via Nginx)
 # Direct app access:   NOT exposed (internal only — accessed through nginx)
 # ─────────────────────────────────────────────────────────────────────────────
 
-version: '3.8'
-
 # ── Shared app environment ─────────────────────────────────────────────────────
-# Using YAML anchors to DRY the three identical app service definitions
+# Using YAML anchors to keep the app service definition compact
 x-app-env: &app-env
-  NODE_ENV: development
+  NODE_ENV: ${NODE_ENV:-development}
   PORT: 5000
-  MONGODB_URI: mongodb://admin:adminpassword@mongodb:27017/authdb?authSource=admin
+  MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD}@mongodb:27017/authdb?authSource=admin
   REDIS_HOST: redis
   REDIS_PORT: 6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-}
   # Callback URLs now point to the Nginx load balancer (port 80, no explicit port)
-  GOOGLE_CALLBACK_URL: http://localhost/api/auth/google/callback
-  GITHUB_CALLBACK_URL: http://localhost/api/auth/github/callback
-  BASE_URL: http://localhost
-  AUTH_SERVER_URL: http://localhost
+  GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost/api/auth/google/callback}
+  GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-http://localhost/api/auth/github/callback}
+  BASE_URL: ${BASE_URL:-http://localhost}
+  AUTH_SERVER_URL: ${AUTH_SERVER_URL:-http://localhost}
+  TRUST_PROXY: "1"
+  USE_REDIS_SESSIONS: ${USE_REDIS_SESSIONS:-true}
+  REDIS_REQUIRED: ${REDIS_REQUIRED:-true}
   # Kafka
-  USE_KAFKA_LOGGING: "true"
+  USE_KAFKA_LOGGING: ${USE_KAFKA_LOGGING:-false}
   KAFKA_BROKER: kafka:29092
   KAFKA_CLIENT_ID: auth-app
+  KAFKA_CONNECT_TIMEOUT_MS: ${KAFKA_CONNECT_TIMEOUT_MS:-3000}
+  KAFKA_RETRIES: ${KAFKA_RETRIES:-3}
   # Rate limit whitelist — includes Nginx container IPs so health probes are not throttled
   RATE_LIMIT_WHITELIST: "127.0.0.1,::ffff:127.0.0.1,::1,172.19.0.1,::ffff:172.19.0.1,172.22.0.1,::ffff:172.22.0.1,172.25.0.1,::ffff:172.25.0.1,172.26.0.1,::ffff:172.26.0.1,172.27.0.1,::ffff:172.27.0.1"
 
 x-app-depends: &app-depends
   mongodb:
-    condition: service_started
-  redis:
     condition: service_healthy
-  kafka:
+  redis:
     condition: service_healthy
 
 x-app-base: &app-base
@@ -73,10 +74,6 @@ services:
     depends_on:
       auth-app-1:
         condition: service_healthy
-      auth-app-2:
-        condition: service_healthy
-      auth-app-3:
-        condition: service_healthy
     networks:
       - auth-network
     restart: unless-stopped
@@ -90,65 +87,72 @@ services:
       INSTANCE_ID: "1"
       KAFKA_CLIENT_ID: auth-app-1
 
-  # ─── App Instance 2 ────────────────────────────────────────────────────────
-  auth-app-2:
-    <<: *app-base
-    container_name: auth-app-2
-    environment:
-      <<: *app-env
-      INSTANCE_ID: "2"
-      KAFKA_CLIENT_ID: auth-app-2
-
-  # ─── App Instance 3 ────────────────────────────────────────────────────────
-  auth-app-3:
-    <<: *app-base
-    container_name: auth-app-3
-    environment:
-      <<: *app-env
-      INSTANCE_ID: "3"
-      KAFKA_CLIENT_ID: auth-app-3
-
   # ─── Redis ─────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: auth-redis
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+        else
+          exec redis-server --appendonly yes
+        fi
     networks:
       - auth-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        - CMD-SHELL
+        - >-
+          if [ -n "$$REDIS_PASSWORD" ]; then
+            redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping;
+          else
+            redis-cli ping;
+          fi
       interval: 10s
       timeout: 5s
       retries: 5
 
   # ─── MongoDB ───────────────────────────────────────────────────────────────
   mongodb:
-    image: mongo:latest
+    image: mongo:8.2
     container_name: auth-mongodb
-    ports:
-      - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=adminpassword
-      - MONGO_INITDB_DATABASE=authdb
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: authdb
     volumes:
       - mongo-data:/data/db
     networks:
       - auth-network
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --host 127.0.0.1
+          --username "$$MONGO_INITDB_ROOT_USERNAME"
+          --password "$$MONGO_INITDB_ROOT_PASSWORD"
+          --authenticationDatabase admin
+          --eval "db.adminCommand({ ping: 1 }).ok"
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   # ─── Zookeeper (Required by Kafka) ─────────────────────────────────────────
   zookeeper:
+    profiles: ["kafka"]
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: kafka-zookeeper
     hostname: zookeeper
-    ports:
-      - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -166,21 +170,20 @@ services:
 
   # ─── Kafka Broker ──────────────────────────────────────────────────────────
   kafka:
+    profiles: ["kafka"]
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka-broker
     hostname: kafka
     depends_on:
       zookeeper:
         condition: service_healthy
-    ports:
-      - "9092:9092"
-      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
+      KAFKA_HEAP_OPTS: "-Xms256M -Xmx512M"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -188,7 +191,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_LOG_RETENTION_HOURS: 168
-      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_BYTES: 268435456
       KAFKA_NUM_PARTITIONS: 3
     volumes:
       - kafka-data:/var/lib/kafka/data
@@ -196,32 +199,18 @@ services:
       - auth-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
       interval: 30s
       timeout: 10s
       retries: 5
 
-  # ─── Kafka UI (Web Interface) ──────────────────────────────────────────────
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
-    depends_on:
-      - kafka
-    ports:
-      - "8080:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: auth-app-cluster
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-      DYNAMIC_CONFIG_ENABLED: "true"
-    networks:
-      - auth-network
-    restart: unless-stopped
-    volumes:
-      - kafka-ui-config:/etc/kafkaui
 
 networks:
   auth-network:
+    name: ${AUTH_NETWORK_NAME:-auth-network}
+    driver: bridge
+  client-network:
+    name: ${CLIENT_NETWORK_NAME:-client-network}
     driver: bridge
 
 volumes:
@@ -230,4 +219,3 @@ volumes:
   zookeeper-data:
   zookeeper-logs:
   kafka-data:
-  kafka-ui-config:

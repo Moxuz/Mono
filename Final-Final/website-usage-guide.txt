@@ -1,0 +1,841 @@
+================================================================================
+  TAS — AuthSys Website Usage Guide
+  Trusted Authentication System
+================================================================================
+
+  Development website:  http://localhost:5000
+  VPS test website:     https://testmono-user.duckdns.org
+  Source:   src/server.js
+  Version:  1.1.0
+  Language: English / Thai
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+  Before You Begin
+  Guide Conventions
+
+  1.  Getting Started
+      1.1  Installing the System
+      1.2  Starting the Server
+      1.3  Creating Your First Account
+
+  2.  Authentication
+      2.1  Signing In
+      2.2  Signing In with Google
+      2.3  Signing In with GitHub
+      2.4  If You Forget Your Password
+      2.5  Managing Your Sessions
+
+  3.  Using the Dashboard
+      3.1  Console Overview
+      3.2  Viewing Your Profile
+      3.3  Changing Settings
+      3.4  Managing API Credentials
+      3.5  Viewing Your Activity Log
+
+  4.  Developer Integration
+      4.1  Registering an Application
+      4.2  OAuth 2.0 + PKCE Flow
+      4.3  Token Refresh
+      4.4  Social Login Endpoints
+      4.5  Full API Reference
+
+  5.  Troubleshooting
+      5.1  Login Problems
+      5.2  Registration Problems
+      5.3  Password Reset Problems
+      5.4  HTTP Error Codes
+
+
+================================================================================
+BEFORE YOU BEGIN
+================================================================================
+
+  You need:
+    [ ] A modern web browser (Chrome, Firefox, Edge)
+    [ ] The AuthSys server running locally or at the HTTPS VPS URL above
+    [ ] An email address that can receive mail (for password reset)
+
+  If the server is not running, see Section 1.1 and 1.2 first.
+
+================================================================================
+GUIDE CONVENTIONS
+================================================================================
+
+  CODE BLOCK     = API endpoint or JSON example
+  --> You see:   = what appears on screen after an action
+  IMPORTANT      = critical warning
+  TIP            = helpful shortcut
+
+
+================================================================================
+1. GETTING STARTED
+================================================================================
+
+1.1  Installing the System
+------------------------------------------------------------------------------
+
+  1. Open a terminal in the project folder.
+
+  2. Copy the environment template:
+       cp .env.example .env
+
+  3. Open .env in a text editor and set these values:
+       JWT_SECRET      = any string at least 32 characters
+       SESSION_SECRET  = any string at least 32 characters
+       SMTP_USER       = your email (for password reset emails)
+       SMTP_PASS       = your email app password
+
+     --> You see: a plain text file with KEY=VALUE pairs.
+
+  4. Install dependencies:
+       npm install
+
+     --> You see: progress bars and a "added X packages" message.
+         [insert image: screenshots/terminal-npm-install.png — Terminal showing npm install progress]
+
+1.2  Starting the Server
+------------------------------------------------------------------------------
+
+  Option A — Docker (recommended):
+
+    1. Run:
+         docker-compose up -d
+
+    2. Wait 30 seconds for all services to start.
+
+    3. Open http://localhost in your browser.
+
+        --> You see: the AuthSys landing page with title "AUTHSYS"
+            and tagline "The Logic of Identity."
+            [insert image: screenshots/landing-page.png — AuthSys landing page with title and tagline]
+
+     4. To stop:
+         docker-compose down
+
+  Option B — Manual (development):
+
+    1. Make sure MongoDB and Redis are running on your machine.
+
+    2. Run:
+         npm run dev
+
+    3. Open http://localhost:5000.
+
+        --> You see: the AuthSys landing page.
+            [insert image: screenshots/landing-page.png — AuthSys landing page]
+
+     4. To stop: press Ctrl+C.
+
+1.3  Creating Your First Account
+------------------------------------------------------------------------------
+
+  1. Go to http://localhost:5000/register.html (or the deployed AuthSys origin)
+
+     --> You see: a centered card titled "Account" with the subtitle
+         "Create a new operator identity."
+         [insert image: screenshots/register-form.png — Registration form with Account card]
+
+  2. In the "Username" field, type your desired username.
+
+     --> The field placeholder is "operator_name".
+
+  3. In the "Email Address" field, type your email.
+
+     --> The field placeholder is "you@authsys.io".
+
+  4. In the "Master Password" field, type a password.
+
+     Requirements:
+       - At least 8 characters
+       - Must contain at least one number
+
+     --> You see: a strength bar below the field showing:
+          "Enter password..." → "TOO_SHORT — min 8 characters" → "FAIR — add numbers or symbols" → "GOOD — add more variety to strengthen" → "STRONG — excellent password"
+          The bar changes color as you type.
+          [insert image: screenshots/strength-bar.png — Password strength bar at STRONG level]
+
+  5. In the "Confirm Password" field, type the same password again.
+
+  6. Check the box "I agree to the Terms of Service and Privacy Policy."
+
+  7. Click "CREATE ACCOUNT".
+
+     --> You see: the button shows "INITIALIZING..." with a spinner briefly, then you are
+         redirected to the login page at http://localhost:5000/login.html.
+
+  TIP: The first account is a regular user. There is no special
+       admin account. All users have the same web interface.
+
+
+================================================================================
+2. AUTHENTICATION
+================================================================================
+
+2.1  Signing In
+------------------------------------------------------------------------------
+
+  1. Go to http://localhost:5000/login.html (or the deployed AuthSys origin)
+
+     --> You see: a card titled "AuthSys" with subtitle
+         "Identity Orchestration & Access Management."
+          Below that, two buttons: "Continue with Google"
+          and "Continue with GitHub."
+          Then a divider line, then the login form.
+          [insert image: screenshots/login-page.png — Login form with social login buttons]
+
+  2. In the "Email Address" field, type the email you registered with.
+
+     --> Placeholder text: "you@authsys.io"
+
+  3. In the "Password" field, type your password.
+
+     --> The text is hidden (••••••••).
+         Click the eye icon to show the text.
+
+  4. (Optional) Check "Remember me".
+
+     --> Checked: your session persists after closing the browser.
+         Unchecked: session clears when you close the tab.
+
+     IMPORTANT: The web app uses a Secure, HttpOnly session cookie.
+     "Remember me" sets the browser session lifetime to 30 days;
+     the default session lifetime is 1 hour. Access/refresh tokens are
+     not stored in localStorage or sessionStorage by first-party pages.
+
+   5. Click "SIGN IN".
+
+      --> The button changes to show "AUTHENTICATING..." with a spinner.
+      --> On success: you are taken to the Console Dashboard.
+          A green alert briefly shows "AUTH_SUCCESS > REDIRECT_INIT".
+          [insert image: screenshots/login-success.png — Dashboard after successful login with green alert]
+      --> On failure: a red alert shows the error message.
+         Common errors:
+           "Invalid credentials"  = wrong email or password
+           "Account locked"       = too many failed attempts
+
+  TIP: If you are redirected back here with ?reset=success in the URL,
+       it means your password was changed successfully.
+
+2.2  Signing In with Google
+------------------------------------------------------------------------------
+
+  1. On the login page, click "Continue with Google".
+
+     --> You are taken to Google's sign-in page.
+
+  2. Sign in to your Google account and grant permission.
+
+     --> You are redirected back to http://localhost:5000/dashboard.
+
+  3. If prompted, "Continue with Google" again to link accounts.
+
+     --> The dashboard loads showing your profile information.
+
+2.3  Signing In with GitHub
+------------------------------------------------------------------------------
+
+  1. On the login page, click "Continue with GitHub".
+
+     --> You are taken to GitHub's sign-in page.
+
+  2. Sign in to your GitHub account and authorize the application.
+
+     --> You are redirected back to http://localhost:5000/dashboard.
+
+2.4  If You Forget Your Password
+------------------------------------------------------------------------------
+
+  Step 1 — Request a reset link:
+
+    1. On the login page, click "Recovery?"
+
+       --> You are taken to http://localhost:5000/forgot-password.html.
+
+    2. You see: a card titled "🔒 Forgot Password" with subtitle
+       "Enter your email to receive a password reset link."
+
+    3. Type the email address you registered with.
+
+    4. Click "Send Reset Link".
+
+     --> The button shows "Sending..." briefly.
+        [insert image: screenshots/forgot-password.png — Forgot password form with email field]
+        --> On success, the card changes to show:
+           "📧 Check Your Email"
+           "We've sent a password reset link to [your email]"
+           A tip list: check spam, verify email, wait a few minutes.
+
+       --> The email comes from the SMTP address configured in .env.
+
+    5. Check your email inbox (and spam folder).
+
+  Step 2 — Reset the password:
+
+    1. Open the reset link from the email.
+       The URL looks like:
+         http://localhost:5000/reset-password.html?token=abc123...
+
+       --> You see: a card titled "🔐 Reset Password" with subtitle
+           "Enter your new password."
+           [insert image: screenshots/reset-password.png — Reset password form]
+
+    2. Type a new password (minimum 8 characters).
+
+    3. Type the same password in "Confirm Password."
+
+     4. Click "Reset Password".
+
+        --> The button shows "Resetting..." with a spinner.
+        --> On success: you see a green alert:
+            "Password reset successful! Redirecting to login..."
+        --> After 2 seconds, redirected to the login page with
+            ?reset=success in the URL.
+            You see a green alert: "Password reset successfully.
+            Please sign in with your new password."
+
+     5. Sign in with your new password.
+
+  IMPORTANT: The reset link expires after a limited time.
+             If it expires, start again from Step 1.
+
+2.5  Managing Your Sessions
+------------------------------------------------------------------------------
+
+  View your active sessions:
+
+    1. Log in and go to http://localhost:5000/user-activity.
+
+       --> You see: a page titled "Activity Monitor" with
+           "Real-time session tracking and security event stream for your identity."
+           [insert image: screenshots/active-sessions.png — Active sessions cards and audit log]
+
+    2. In the "Active Sessions" section, you see cards — one for
+       each device you are logged in on.
+
+       --> Each card shows: device icon, device name, IP address,
+           "Last active" time, "Created" time.
+           The current session has a highlighted left border.
+
+  Terminate a session:
+
+    1. Click the terminate button on a session card.
+
+       --> The card disappears. That device is logged out immediately.
+
+  Terminate all other sessions:
+
+    1. Click "TERMINATE_ALL_OTHERS".
+
+       --> Your current session stays active. All other devices
+           are logged out.
+
+    2. If no other sessions exist, the button is hidden.
+
+
+================================================================================
+3. USING THE DASHBOARD
+================================================================================
+
+3.1  Console Overview
+------------------------------------------------------------------------------
+
+  1. After logging in, you are on the Console Dashboard:
+
+      --> URL: http://localhost:5000/dashboard
+      --> Title: "Console Dashboard"
+      --> Subtitle: "Real-time identity metrics and security overview for your account."
+          [insert image: screenshots/dashboard-overview.png — Console Dashboard with chart and events table]
+
+     The page has three parts:
+
+     A. Login Activity Chart
+        - A bar chart showing logins over the last 7 days.
+        - Below the chart: total count + trend indicator.
+        - Loading state: "Loading chart..."
+
+     B. Current User Card
+        - Your email, user ID, and account status. Any admin badge is an internal server-side authorization detail, not an OAuth scope or token claim.
+        - Status: "VERIFIED".
+
+     C. Recent Identity Events Table
+        - Columns: Event Type, Source IP, Timestamp, Status.
+        - Loading state: "Loading events..."
+        - Each event has a status badge (green for success).
+
+     The sidebar on the left has links to:
+       Console  (dashboard)
+       Activity (user-activity)
+       API Keys (api-keys)
+       Profile  (profile)
+       Settings (settings)
+
+  TIP: Click "Export Logs" to download the event list as JSON.
+
+3.2  Viewing Your Profile
+------------------------------------------------------------------------------
+
+  1. In the sidebar, click "Profile".
+
+      --> URL: http://localhost:5000/profile.html
+      --> Title: "Profile"
+      --> Subtitle: "Manage your account information and preferences."
+      [insert image: screenshots/profile-page.png — Profile page with information and stats cards]
+
+  2. The card "Profile Information" shows:
+
+     - Username (greyed out, cannot be changed)
+     - Email (greyed out, cannot be changed)
+     - Display Name (editable text field)
+     - Bio (editable text area, max 160 characters)
+
+  3. Type or update your Display Name and Bio.
+
+     --> The Bio shows a character counter: "Max 160 characters"
+
+  4. Click "Save Changes".
+
+     --> A green alert confirms the update.
+
+  5. The "Account Stats" card shows:
+       Member Since   (creation date)
+       Last Login     (last sign-in timestamp)
+       Active Sessions (count)
+
+  6. Quick Actions:
+     - Click "Change Password" to update your password.
+     - Click "Delete Account" to permanently remove your account.
+       (Delete requires re-authentication.)
+
+3.3  Changing Settings
+------------------------------------------------------------------------------
+
+  1. In the sidebar, click "Settings".
+
+      --> URL: http://localhost:5000/settings.html
+      --> Title: "Settings"
+      --> Subtitle: "Manage your account preferences and security settings."
+      [insert image: screenshots/settings-page.png — Settings page with theme and toggles]
+
+   2. Preferences section:
+
+     Theme:      Dark Mode (default) / Light Mode / System Default
+     Language:   English / ไทย
+
+     --> Changing theme applies immediately.
+     --> Language changes require clicking "Save Changes."
+
+  3. Notifications section:
+
+     Email Notifications: toggle on/off
+     Login Alerts:        toggle on/off (email when new device logs in)
+
+  4. Click "Save Changes" at the bottom of the page.
+
+     --> A green alert confirms the update.
+
+3.4  Managing API Credentials
+------------------------------------------------------------------------------
+
+  This section is for developers who want to connect external
+  applications to the authentication server (OAuth 2.0).
+
+  1. In the sidebar, click "API Keys".
+
+      --> URL: http://localhost:5000/api-keys.html
+      --> Title: "API Credentials"
+      --> Subtitle: "Manage authentication keys for your applications and services."
+          [insert image: screenshots/api-keys-page.png — API Credentials page with stats and key list]
+
+     The top bar shows statistics:
+       Total Keys       (number of applications you registered)
+       Last Used        (most recent API activity)
+       Requests (24h)   (API calls in the last 24 hours)
+
+  2. Click "Create New Key".
+
+     --> A modal dialog appears titled "Create New API Key."
+
+  3. Fill in:
+       Key Name      — e.g. "My Mobile App"
+       Environment   — Development / Staging / Production
+       Scopes        — use only openid, profile, email; add offline_access only when the client needs refresh tokens
+
+  4. Click "Create Key".
+
+     --> A second modal appears with:
+         "API Key Created"
+         "Save these credentials now. The secret will only be shown
+         once and cannot be recovered."
+
+      The modal shows:
+        Client ID:      a 32-character hex string (e.g. a1b2c3d4...)
+        Client Secret:  a 64-character hex string (e.g. sk_live_...)
+        [insert image: screenshots/api-key-modal.png — API key created modal with client ID and secret]
+
+      --> Copy BOTH values immediately.
+
+   5. Click "I've saved my credentials".
+
+     --> The modal closes. Your new app appears in the list below.
+
+  IMPORTANT: Close the modal only AFTER copying the secret.
+             If you lose it, you must delete the key and create a new one.
+
+  To delete a client:
+    Click the delete icon next to a client in the list.
+    --> The client is deactivated immediately.
+
+3.5  Viewing Your Activity Log
+------------------------------------------------------------------------------
+
+  1. In the sidebar, click "Activity".
+
+      --> URL: http://localhost:5000/user-activity
+      --> Title: "Activity Monitor"
+      --> Subtitle: "Real-time session tracking and security event stream for your identity."
+          [insert image: screenshots/activity-log.png — Activity log with sessions and audit table]
+
+     The page has two sections:
+
+     A. Active Sessions
+        Cards showing each logged-in device (same as Section 2.5).
+
+     B. Security Audit Log
+        A table with columns: Timestamp, Status, Source IP,
+        Event Message, Trace.
+
+        --> Events stream in live with a "STREAM" badge.
+        --> Each row shows what happened (login, logout, profile update, etc.)
+            and whether it succeeded.
+
+  2. Click "Refresh Stream" to reload the latest events.
+
+  3. Click "Export JSON" to download the full audit log as a JSON file.
+
+  4. The live tag "STREAM" (next to the title) indicates real-time updates
+     via WebSocket.
+
+
+================================================================================
+4. DEVELOPER INTEGRATION
+================================================================================
+
+4.1  Registering an Application
+------------------------------------------------------------------------------
+
+  Before you can use OAuth, you must register your application through
+  the API Keys page (see Section 3.4).
+
+  After registration, you have:
+    client_id:      public identifier (shown in the list)
+    client_secret:  confidential secret (shown only once)
+
+  Store the client_secret securely. It cannot be retrieved.
+
+4.2  OAuth 2.0 + PKCE Flow
+------------------------------------------------------------------------------
+
+  The authorization code flow with PKCE is used for third-party apps.
+
+  Step 1 — Generate PKCE values (on your client side):
+
+    code_verifier  = random 32 bytes, base64url-encoded
+    code_challenge = SHA256(code_verifier), base64url-encoded
+
+  Step 2 — Redirect the user to the authorization page:
+
+    GET /api/oauth/authorize
+      ?client_id=<your_client_id>
+      &redirect_uri=<your_registered_callback_url>
+      &response_type=code
+      &scope=openid+profile+email
+      &state=<random_anti_csrf_string>
+      &code_challenge=<SHA256_of_code_verifier>
+      &code_challenge_method=S256
+
+    --> The user sees the consent screen at /consent.html:
+        Title: "Authorize Application — AuthSys"
+        Shows: your app name, requested permissions (openid, profile, email)
+        Badge: "PKCE Secured"
+        Buttons: "Allow Access" / "Deny"
+        [insert image: screenshots/consent-screen.png — OAuth consent screen with Allow/Deny]
+
+  Step 3 — User clicks "Allow Access":
+
+    --> The browser redirects to your callback URL with:
+        ?code=<authorization_code>&state=<original_state>
+
+    --> The authorization code expires in 2 minutes and can be used once.
+
+  Step 4 — Exchange the code for tokens (server-to-server call):
+
+    POST /api/oauth/token
+    Content-Type: application/json
+
+    {
+      "code": "<authorization_code>",
+      "client_id": "<your_client_id>",
+      "client_secret": "<your_client_secret>",
+      "redirect_uri": "<your_callback_url>",
+      "grant_type": "authorization_code",
+      "code_verifier": "<original_code_verifier>"
+    }
+
+    Response:
+    {
+      "access_token":   "<JWT, expires 1 hour>",
+      "refresh_token":  "<JWT, expires 30 days>",
+      "id_token":       "<OIDC JWT, expires 1 hour>",
+      "token_type":     "Bearer",
+      "expires_in":     3600,
+      "scope":          "openid profile email"
+    }
+
+  Step 5 — Use the access token:
+
+    GET /api/oauth/userinfo
+    Authorization: Bearer <access_token>
+
+    Response (fields depend on the granted scopes):
+    {
+      "sub":      "<user_id>",
+      "email":    "<user_email>",
+      "username": "<username>",
+      "name":     "<username>"
+    }
+    The userinfo response does not expose an admin role claim.
+
+4.3  Token Refresh
+------------------------------------------------------------------------------
+
+  Refresh tokens are issued only when the client is registered with
+  offline_access and the authorization request includes that scope.
+  Keep them on the client server; never put them in browser storage or URLs.
+
+    POST /api/oauth/token
+    Content-Type: application/json
+
+    {
+      "grant_type": "refresh_token",
+      "refresh_token": "<your_refresh_token>",
+      "client_id": "<your_client_id>",
+      "client_secret": "<your_client_secret>"
+    }
+
+    Response:
+    {
+      "access_token": "<new RS256 access token, 1 hour>",
+      "refresh_token": "<new rotated refresh token, 30 days>",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "scope": "openid profile email offline_access"
+    }
+
+  IMPORTANT: Refresh tokens rotate. Discard the old refresh token after a
+             successful response. Reuse of an old token is rejected.
+             Revoking the user's consent or deactivating the user invalidates
+             the grant and both existing access/refresh tokens.
+
+  Revoke a token:
+
+    POST /api/oauth/revoke
+    Authorization: Basic base64(<client_id>:<client_secret>)
+    {
+      "token": "<token_to_revoke>"
+    }
+
+    Response: { "message": "Token revoked successfully" }
+
+  Inspect a token:
+
+    POST /api/oauth/introspect
+    Authorization: Basic base64(<client_id>:<client_secret>)
+    {
+      "token": "<token_to_check>"
+    }
+
+    Response: { "active": true/false, "sub": "...", "scope": "...", ... }
+
+4.4  Social Login Endpoints
+------------------------------------------------------------------------------
+
+  These endpoints redirect the user's browser to the social provider.
+
+  Google:
+    GET /api/auth/google
+    (Optional: ?redirect=<url> to return to a specific page)
+
+    --> User is redirected to Google, then back to /dashboard.
+
+  GitHub:
+    GET /api/auth/github
+    (Optional: ?redirect=<url>)
+
+    --> User is redirected to GitHub, then back to /dashboard.
+
+  Check which providers are enabled:
+
+    GET /api/auth/oauth/status
+
+    Response:
+    {
+      "success": true,
+      "data": { "google": true, "github": false }
+    }
+
+4.5  Full API Reference
+------------------------------------------------------------------------------
+
+  Swagger interactive documentation:
+    http://localhost:5000/api-docs
+
+  Authentication endpoints:
+
+    POST   /api/auth/register           Create account
+    POST   /api/auth/login              Sign in and establish the HttpOnly web session
+    POST   /api/auth/login/token        Explicit API compatibility login for non-browser tooling
+    POST   /api/auth/logout             End the current browser session or revoke a bearer session
+    POST   /api/auth/refresh-token      Compatibility refresh for explicit non-browser clients (not first-party browser login)
+    POST   /api/auth/validate-token     Check token validity
+    GET    /api/auth/profile            Get user profile
+    POST   /api/auth/forgot-password    Request password reset email
+    POST   /api/auth/reset-password/:token  Reset password with token
+    POST   /api/auth/change-password    Change password (authenticated)
+    DELETE /api/auth/delete-account     Permanently delete account
+
+  Session endpoints (all require authentication):
+
+    GET    /api/auth/sessions                       List active sessions
+    POST   /api/auth/sessions/revoke                Revoke one session
+    POST   /api/auth/sessions/revoke-all-others     Logout other devices
+    DELETE /api/auth/sessions/others/all            Same (alternative)
+    DELETE /api/auth/sessions/:sessionId            Revoke by ID
+    POST   /api/auth/emergency-lockdown             Revoke all, lock account
+
+  OAuth endpoints:
+
+    GET    /api/oauth/authorize           Start authorization (user redirect)
+    POST   /api/oauth/authorize           Submit consent (Allow / Deny)
+    POST   /api/oauth/token               Exchange code / refresh token
+    GET    /api/oauth/userinfo            Fetch user profile (token required)
+    POST   /api/oauth/introspect          Check token validity & claims
+    POST   /api/oauth/revoke              Revoke token
+    GET    /api/oauth/clients             List your registered clients
+    POST   /api/oauth/clients             Register a new client
+    GET    /api/oauth/clients/:id         Get client details
+    PUT    /api/oauth/clients/:id         Update client settings
+    DELETE /api/oauth/clients/:id         Deactivate client
+    DELETE /api/oauth/consents/:clientId  Revoke user consent (PDPA right)
+
+  Preference & audit endpoints:
+
+    GET    /api/auth/preferences          Get user preferences
+    PUT    /api/auth/preferences          Update user preferences
+    GET    /api/auth/security-audit       Get security audit log
+    POST   /api/auth/update-cookie-consent  Update cookie consent
+
+  Other:
+
+    GET    /health                        Server health check
+    GET    /api/auth/oauth/status         Check social login availability
+    GET    /.well-known/...               OIDC discovery endpoints
+
+
+================================================================================
+5. TROUBLESHOOTING
+================================================================================
+
+5.1  Login Problems
+------------------------------------------------------------------------------
+
+  "Invalid credentials"
+    → You entered the wrong email or password.
+    → Click "Recovery?" to reset your password.
+
+  "Account locked"
+    → You failed to log in 5 times within 15 minutes.
+    → Wait 15 minutes and try again.
+    → You cannot request a password reset while locked — wait first.
+
+  Google / GitHub button does nothing
+    → The provider may not be configured on the server.
+    → Ask the server admin to check GOOGLE_CLIENT_ID / GITHUB_CLIENT_ID
+      in the .env file.
+    → To verify: visit GET /api/auth/oauth/status in your browser.
+
+  "google_failed" / "github_failed" in the URL
+    → The social login was denied or the service was unavailable.
+    → Try again or use email/password login instead.
+
+  Redirected back to login with no error
+    → Your HttpOnly session may have expired. Sign in again.
+    → Clear the AuthSys cookies for this domain and retry the OAuth flow in one tab.
+
+  Stuck at "AUTHENTICATING..." spinner
+    → The server may be down.
+    → Check if http://localhost:5000/health returns {"status":"OK"}.
+    → Refresh the page and try again.
+
+5.2  Registration Problems
+------------------------------------------------------------------------------
+
+  "Email already registered"
+    → This email is already in use. Use a different email or
+      click "Recovery?" on the login page if you forgot your password.
+
+  "Password too weak"
+    → Your password must be at least 8 characters and contain a number.
+
+  Button stays disabled after submission
+    → The server may be down or the request timed out.
+    → Refresh the page and try again.
+
+5.3  Password Reset Problems
+------------------------------------------------------------------------------
+
+  Reset email not arriving
+    1. Check your spam/junk folder.
+    2. Wait a few minutes — email delivery can be slow.
+    3. Make sure SMTP is configured in the server's .env file.
+    4. Try again from the forgot-password page.
+
+  Reset link expired or invalid
+    → The link is only valid for a limited time.
+     → Go back to http://localhost:5000/forgot-password.html and request
+      a new link.
+
+  "Email not found"
+    → The address you entered is not registered.
+    → Check the spelling or create a new account at
+      http://localhost:5000/register.
+
+5.4  HTTP Error Codes
+------------------------------------------------------------------------------
+
+  If you see one of these in the browser console or API response:
+
+    400  Bad Request       → Check that all required fields are filled.
+    401  Unauthorized      → Your token is missing or expired. Sign in again.
+    403  Forbidden         → You don't have permission for this action.
+    404  Not Found         → The page or endpoint does not exist.
+    423  Locked            → Account is locked (5 failed attempts).
+                             Wait 15 minutes.
+    429  Too Many Requests → You hit the rate limit. Wait before retrying.
+                             The response includes a Retry-After header.
+    500  Server Error      → The server encountered an error. Try again later.
+
+  Rate limits by endpoint:
+
+     Login                  5 requests / 15 minutes
+     Register               5 requests / 1 hour
+     Password Reset         5 requests / 1 hour
+     OAuth Token           10 requests / 15 minutes
+     General API          100 requests / 15 minutes
+
+
+================================================================================
+END OF GUIDE
+================================================================================

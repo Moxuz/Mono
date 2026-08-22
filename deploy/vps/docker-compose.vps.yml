@@ -1,0 +1,31 @@
+services:
+  nginx:
+    build:
+      context: ./deploy/https
+    environment:
+      AUTH_HOST: ${AUTH_HOST:?Set AUTH_HOST}
+      CLIENT_HOST: ${CLIENT_HOST:?Set CLIENT_HOST}
+      CERT_NAME: ${CERT_NAME:?Set CERT_NAME}
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes: !override
+      - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+    networks:
+      - auth-network
+      - client-network
+
+  auth-app-1:
+    environment:
+      NODE_ENV: production
+      USE_REDIS_SESSIONS: "true"
+      REDIS_REQUIRED: "true"
+      BASE_URL: https://${AUTH_HOST:?Set AUTH_HOST}
+      AUTH_SERVER_URL: https://${AUTH_HOST:?Set AUTH_HOST}
+      GOOGLE_CALLBACK_URL: https://${AUTH_HOST:?Set AUTH_HOST}/api/auth/google/callback
+      GITHUB_CALLBACK_URL: https://${AUTH_HOST:?Set AUTH_HOST}/api/auth/github/callback
+
+networks:
+  client-network:
+    external: true
+    name: ${CLIENT_NETWORK_NAME:-client-network}

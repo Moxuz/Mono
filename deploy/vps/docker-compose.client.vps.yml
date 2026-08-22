@@ -1,0 +1,16 @@
+services:
+  client-app-1:
+    environment:
+      NODE_ENV: production
+      REDIRECT_URI: https://${CLIENT_HOST:?Set CLIENT_HOST}/callback
+      OAUTH_PROVIDER: http://nginx:8080
+      OAUTH_PUBLIC_URL: https://${AUTH_HOST:?Set AUTH_HOST}
+      COOKIE_SECURE: "true"
+  client-app-2:
+    environment:
+      NODE_ENV: production
+      # Client 2 must be registered with its real public HTTPS callback.
+      REDIRECT_URI: ${CLIENT2_REDIRECT_URI:-}
+      OAUTH_PROVIDER: http://nginx:8080
+      OAUTH_PUBLIC_URL: https://${AUTH_HOST:?Set AUTH_HOST}
+      COOKIE_SECURE: "true"

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Workspace Dashboard</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="shell page">
+        <nav class="nav">
+            <a class="brand" href="/dashboard.html"><span class="brand-mark">W</span> Workspace</a>
+            <a class="button" href="/logout">Sign out</a>
+        </nav>
+        <main>
+            <div class="dashboard-header">
+                <div>
+                    <div class="eyebrow">Protected dashboard</div>
+                    <h2>Good to see you.</h2>
+                    <p>This page is available after the AuthSys OAuth callback.</p>
+                </div>
+                <span class="status">Authenticated</span>
+            </div>
+            <section class="stats">
+                <div class="stat"><strong>08</strong><small>Active projects</small></div>
+                <div class="stat"><strong>24</strong><small>Team members</small></div>
+                <div class="stat"><strong>99.9%</strong><small>Workspace uptime</small></div>
+            </section>
+            <section class="card">
+                <div class="eyebrow">Signed-in identity</div>
+                <div class="user-row">
+                    <div class="avatar" id="avatar">?</div>
+                    <div><strong id="userName">Loading…</strong><span id="userEmail">Checking session…</span></div>
+                </div>
+                <p>This mock client uses an HttpOnly session cookie. No access token is exposed to the browser.</p>
+            </section>
+        </main>
+    </div>
+    <div id="cookieBanner" class="cookie-banner" role="dialog" aria-label="Cookie consent" aria-live="polite">
+        <div>
+            <strong>We use cookies</strong>
+            <p>Essential cookies keep sign-in working. Optional analytics cookies are used only if you accept them.</p>
+            <a href="/privacy-policy" target="_blank" rel="noreferrer">Privacy notice</a>
+        </div>
+        <div class="cookie-actions">
+            <button class="button" type="button" data-consent="reject">Reject non-essential</button>
+            <button class="button primary" type="button" data-consent="accept">Accept all</button>
+        </div>
+    </div>
+    <script src="/app.js"></script>
+    <script src="/cookie-banner.js"></script>
+</body>
+</html>

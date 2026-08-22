@@ -1,0 +1,33 @@
+services:
+  nginx:
+    build:
+      context: ./deploy/https
+    environment:
+      AUTH_HOST: ${AUTH_HOST:?Set AUTH_HOST}
+      CLIENT_HOST: ${CLIENT_HOST:?Set CLIENT_HOST}
+      CERT_NAME: ${CERT_NAME:?Set CERT_NAME}
+    ports: !override
+      - "${HTTP_BIND_IP:-0.0.0.0}:80:80"
+      - "${HTTPS_BIND_IP:-0.0.0.0}:443:443"
+    volumes: !override
+      - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+    networks:
+      - auth-network
+      - client-network
+
+  auth-app-1:
+    environment:
+      NODE_ENV: production
+      BASE_URL: https://${AUTH_HOST:?Set AUTH_HOST}
+      AUTH_SERVER_URL: https://${AUTH_HOST:?Set AUTH_HOST}
+      GOOGLE_CALLBACK_URL: https://${AUTH_HOST:?Set AUTH_HOST}/api/auth/google/callback
+      GITHUB_CALLBACK_URL: https://${AUTH_HOST:?Set AUTH_HOST}/api/auth/github/callback
+
+  client-app-1:
+    environment:
+      OAUTH_PROVIDER: http://nginx:8080
+
+networks:
+  client-network:
+    name: ${CLIENT_NETWORK_NAME:-client-network}
+    driver: bridge

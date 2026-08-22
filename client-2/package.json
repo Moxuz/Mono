@@ -1,7 +1,7 @@
 {
-  "name": "client-app-1-ecommerce",
+  "name": "client-app-2-workspace",
   "version": "1.0.0",
-  "description": "E-commerce app using OAuth SSO",
+  "description": "Small OAuth mock client for testing multiple AuthSys applications",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

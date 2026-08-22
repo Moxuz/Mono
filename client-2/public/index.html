@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Workspace Client 2</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="shell">
+        <nav class="nav">
+            <a class="brand" href="/"><span class="brand-mark">W</span> Workspace</a>
+            <a class="nav-link" href="/privacy-policy" target="_blank" rel="noreferrer">Privacy</a>
+        </nav>
+        <main class="hero">
+            <section>
+                <div class="eyebrow">Client application 02</div>
+                <h1>A second app, one trusted login.</h1>
+                <p class="lead">A small workspace mockup for testing multi-client OAuth SSO with AuthSys. Sign in once, then continue to this protected app.</p>
+                <div class="actions">
+                    <a class="button primary" href="/login">Continue with AuthSys</a>
+                    <a class="button" href="/api/health">Health check</a>
+                </div>
+                <p id="error" aria-live="polite"></p>
+            </section>
+            <section class="preview" aria-label="Workspace preview">
+                <div class="window-bar"><span></span><span></span><span></span></div>
+                <div class="eyebrow">Live workspace</div>
+                <h2>Everything in one view.</h2>
+                <p>Projects, activity, and team access powered by the same identity.</p>
+                <div class="mini-grid">
+                    <div class="mini-card"><strong>08</strong><small>Active projects</small></div>
+                    <div class="mini-card"><strong>24</strong><small>Team members</small></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <div id="cookieBanner" class="cookie-banner" role="dialog" aria-label="Cookie consent" aria-live="polite">
+        <div>
+            <strong>We use cookies</strong>
+            <p>Essential cookies keep sign-in working. Optional analytics cookies are used only if you accept them.</p>
+            <a href="/privacy-policy" target="_blank" rel="noreferrer">Privacy notice</a>
+        </div>
+        <div class="cookie-actions">
+            <button class="button" type="button" data-consent="reject">Reject non-essential</button>
+            <button class="button primary" type="button" data-consent="accept">Accept all</button>
+        </div>
+    </div>
+    <script src="/app.js"></script>
+    <script src="/cookie-banner.js"></script>
+</body>
+</html>

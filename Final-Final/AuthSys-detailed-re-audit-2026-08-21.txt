@@ -1,0 +1,588 @@
+AuthSys — Detailed Re-audit
+วันที่ตรวจ: 2026-08-21
+ขอบเขต: source code, routes/middleware, frontend, client-1/client-2, Docker/Compose, MongoDB, Redis, Kafka, privacy/documentation และ test commands
+สถานะการแก้ไข: baseline findings ถูกแก้และ deploy แล้ว; ผลยืนยันล่าสุดอยู่ในหัวข้อ 17 (2026-08-21)
+ข้อควรระวัง: ไม่มี secret, private key, client secret, database password หรือ production .env อยู่ในเอกสารนี้
+
+======================================================================
+1. Executive summary (baseline audit; final status in section 17)
+======================================================================
+
+ภาพรวม architecture ใหม่เหมาะกับ private project และ OAuth protocol path หลักวางถูกต้องแล้ว:
+
+PASS
+- First-party web ใช้ HttpOnly server session เป็นกลไก login หลัก
+- OAuth ใช้ Authorization Code + PKCE S256, state, nonce และ exact redirect URI
+- Client-1 และ Client-2 เก็บ token ฝั่ง server; browser ได้เพียง HttpOnly session cookie
+- OAuth scopes จำกัดเป็น openid, profile, email และ offline_access
+- role เป็น internal authorization concept ไม่ใช่ OAuth scope
+- Email verification, 2FA และ silent-auth ไม่อยู่ใน active web flow
+- Cookie UI ลดเหลือ Accept all และ Reject non-essential
+- ไม่ส่ง access token หรือ refresh token ผ่าน redirect URL
+
+ต้องแก้ก่อน production-ready
+1. Production MongoDB connection failure ถูกจับ error แล้ว server อาจเปิดต่อ
+2. OAuth userinfo ยังไม่ตรวจ User.isActive หลัง account ถูก deactivate/delete
+3. Revoke consent ลบ Consent record แต่ยังไม่ยกเลิก access/refresh token เดิม
+4. OAuth authorize ใช้ raw session user โดยไม่ re-check active user
+5. Change password ยังไม่ invalidate session/token อื่นเหมือน reset password
+
+Technical debt / documentation
+- Frontend หลายไฟล์ยังอ่าน token จาก localStorage/sessionStorage แม้ auth-refresh.js จะดักไว้
+- มี legacy /api/auth/oauth-session และ compatibility token endpoints
+- Privacy policy และ website guide ยังกล่าวถึง token cookie, browser token storage, HS256, role และ Read/Write/Delete/Admin scopes
+- CSRF store ยังเป็น process-local Map และ generic middleware อ้าง session field เก่า
+- Integration test และ live Docker test ยังไม่ได้รันรอบนี้เพราะ runtime ไม่พร้อม
+
+======================================================================
+2. Source of truth และเอกสารที่ใช้เทียบ
+======================================================================
+
+- Final-Final/TAS8-final (1).docx
+  timestamp 2026-04-25 23:22:46
+  เป็น research document และ historical test record
+- Final-Final/TAS8-doc-updates.txt
+  timestamp 2026-05-07 03:45:48
+  เป็น correction ของตัวเลข Jest, Playwright และ ZAP
+- Final-Final/website-usage-guide.txt
+  timestamp 2026-08-20 12:40:50
+  เป็นคู่มือใหม่กว่า TAS8 แต่ยังมี legacy descriptions หลายจุด
+- source code, configuration และ automated test ล่าสุด
+  เป็น source of truth สำหรับ behavior จริง
+- Docker/Compose และ deployment documentation
+  ใช้ยืนยัน boundary, network และ portability เท่านั้น; ต้องยืนยัน runtime ด้วย command output ของ environment จริง
+
+กติกา:
+- Behavior จริงยึด source และ test ล่าสุด
+- ผล deploy/live ต้องยึด timestamp และ command output ของ environment นั้น
+- TAS8 ไม่ควรถูกใช้เป็น production runbook โดยตรง
+- เอกสารทุกฉบับที่แก้ควรเพิ่ม version/date และไม่ลบ historical result โดยไม่มี correction note
+
+======================================================================
+3. Flow audit: server startup และ data services
+======================================================================
+
+3.1 MongoDB
+
+src/server.js เรียก connectDB() แล้ว catch error และ log ต่อโดยไม่หยุด process
+src/shared/utils/database.js ตั้งใจ throw ใน production แต่ error ถูกกลืนที่ startServer()
+
+ผลกระทบ:
+- process อาจเปิด port และตอบ health ได้ทั้งที่ MongoDB ใช้งานไม่ได้
+- register/login/consent/admin และ audit persistence จะล้มภายหลัง
+- monitoring อาจมองว่า service online ทั้งที่ readiness ไม่พร้อม
+
+Priority: P1
+แนวทาง:
+- production ต้อง fail fast เมื่อ MongoDB ต่อไม่ได้ หรือ
+- แยก liveness กับ readiness และไม่ส่ง traffic จน dependency พร้อม
+
+3.2 Redis
+
+Redis ใช้สองบทบาท:
+- rate limiting
+- optional session store เมื่อ USE_REDIS_SESSIONS=true
+
+Compose production ตั้ง REDIS_REQUIRED=true แต่ app มี fallback ไป MemoryStore ถ้า session Redis ยังไม่พร้อม
+
+ข้อดี:
+- local development และ route smoke test ไม่จำเป็นต้องมี Docker
+- Redis failure ไม่ทำให้ process hang ทันที
+
+ความเสี่ยง:
+- ถ้า production รับ traffic ก่อน Redis ready session อาจเป็น process-local
+- หลาย replica จะเห็น session ไม่เหมือนกัน
+- ต้อง monitor และทำ readiness gate ให้ชัด
+
+Priority: P2 hardening; ถ้า deploy หลาย replica ให้ยกระดับเป็น P1 operational requirement
+
+3.3 Kafka
+
+Kafka เป็น optional logging path:
+- USE_KAFKA_LOGGING=false เป็น default
+- ถ้า connect ไม่ได้ จะ fallback ไป file logging
+- logging failure ไม่ควรทำให้ auth flow ล้ม
+
+สำหรับ private project:
+- ไม่จำเป็นต้องเปิด Kafka เพื่อใช้ OAuth
+- Kafka/Zookeeper ต้องอยู่ internal network
+- Kafka UI ไม่ควร public
+- ไม่ควรเปิด database, Redis, Kafka หรือ Zookeeper ports ต่อ internet
+
+สถานะ: design เหมาะสม
+
+======================================================================
+4. Flow audit: register, local login และ web session
+======================================================================
+
+4.1 Register
+
+- ตรวจ username, email, password และ essential consent
+- สร้าง user, audit event และ web session
+- response ที่ browser ได้เป็น safe response: authenticated, remembered, user
+- ไม่ส่ง access/refresh token ให้ first-party browser
+- service layer ยังสร้าง local JWT และ Session record เพื่อ API compatibility และ legacy refresh path
+- password reset เป็นคนละ flow กับ email verification
+
+สถานะ: PASS สำหรับ web session-first design
+
+ข้อสังเกต:
+- local registration บังคับ consent
+- social new-user path auto-mark essential consent
+- ควรเลือก policy ให้สอดคล้องกันและเขียนเหตุผลไว้
+
+4.2 Local login
+
+- ตรวจ account active, lockout และ password
+- Remember me: session ประมาณ 30 วัน
+- default session: ประมาณ 1 ชั่วโมง
+- cookie: HttpOnly, Secure ใน production, SameSite=Lax
+- browser ไม่ควรเก็บ bearer token ใน localStorage/sessionStorage
+- /api/auth/login/token และ /api/auth/refresh-token ยังเป็น compatibility path ไม่ใช่ browser session flow
+
+สถานะ: PASS สำหรับ browser
+สถานะเอกสาร: ต้องอธิบาย compatibility path แยกจาก web login
+
+4.3 Authenticate middleware
+
+- ไม่มี Authorization header: อ่าน req.session.user และ re-fetch active User
+- มี invalid bearer: ไม่ downgrade ไปใช้ cookie session
+- bearer path ตรวจ blacklist, signature, token type และ active Session
+- authorize role ทำ server-side
+
+สถานะ: PASS
+
+4.4 Logout
+
+- cookie logout ทำลาย web session
+- bearer compatibility logout blacklist token และ deactivate local Session
+- logout ของ client-1/client-2 ทำลาย local client session
+- local client logout ไม่ได้หมายความว่า revoke AuthSys consent/token อัตโนมัติ
+
+สถานะ: behavior ถูกต้อง แต่ควรเขียนในคู่มือให้ไม่สับสนระหว่าง local logout กับ OAuth revoke
+
+======================================================================
+5. Flow audit: Google/GitHub social login
+======================================================================
+
+- ใช้ provider account ID เป็นตัวจับคู่หลัก
+- ตรวจ verified email
+- link ด้วย email ต้องไม่ชนกับ account อื่น
+- ใช้ state, nonce และ PKCE S256
+- safe returnTo/redirect allowlist ป้องกัน open redirect
+- callback สร้าง web session สำหรับ internal login
+- OAuth client flow ใช้ one-time authorization code
+- ห้ามใส่ access/refresh token ใน redirect URL
+
+สถานะ: PASS ด้าน protocol/security shape
+
+Social-only account:
+- ไม่มี local password ได้
+- forgot-password คืน generic response และไม่ส่ง local reset link
+- user ต้อง login ผ่าน provider แล้วใช้ Profile -> Set Password หากต้องการ local password
+
+สถานะ: PASS และไม่เปิดเผยว่า email เป็น social account
+
+Consent policy gap:
+- Google/GitHub new-user path ตั้ง pdpaConsent.essentialAccepted=true อัตโนมัติ
+- local register ใช้ checkbox/validation
+- ควรเลือกอย่างใดอย่างหนึ่ง:
+  A. แสดง acceptance gate ก่อนสร้าง social account
+  B. ระบุชัดว่าการ provider sign-in เป็นการยอมรับ essential processing/Terms สำหรับ private deployment
+
+Priority: P2 policy decision
+
+======================================================================
+6. Flow audit: OAuth client registration
+======================================================================
+
+- รับเฉพาะ application_type=web
+- response_type=code
+- grant types: authorization_code และ refresh_token
+- redirect URI ต้อง exact match
+- client secret ใช้ยืนยัน client ไม่ใช่ password ของ user
+- client secret ถูก hash และไม่แสดงซ้ำหลังสร้าง
+- client-1/client-2 ต้องใช้ credential ของตัวเอง ห้ามสลับ secret
+
+สถานะ: PASS
+
+Scope policy:
+- openid
+- profile
+- email
+- offline_access
+
+กติกา:
+- openid ต้องมี
+- offline_access เป็น opt-in
+- custom scope, role scope และ Read/Write/Delete/Admin ไม่ใช่ scope ที่อนุญาต
+- role เป็น server-side authorization concept
+
+ข้อสังเกต:
+- API credential UI ยังมี legacy token variables และ identity scope แบบตายตัว
+- ถ้าจะให้ client ขอ refresh token ต้องลงทะเบียน offline_access อย่างชัดเจน
+- mock client-1/client-2 ปัจจุบันขอ identity scope จึงไม่ควรคาดหวัง refresh token
+
+======================================================================
+7. Flow audit: authorize และ consent
+======================================================================
+
+7.1 Request validation
+
+- รับเฉพาะ response_type=code
+- ต้องมี state, nonce, code_challenge และ code_challenge_method=S256
+- ตรวจ client_id และ exact redirect_uri
+- reject direct email/password authorization body
+- consent มี Allow และ Deny
+- ไม่มี partial consent เพราะ permission set แคบและลด state complexity
+- code ผูกกับ client, redirect URI และ code_verifier
+- code ใช้ครั้งเดียวและมีอายุสั้น
+
+สถานะ: PASS
+
+7.2 Session/account validation gap
+
+GET authorize และ POST authorize ใช้ req.session.user โดยตรง
+/api/oauth/csrf ตรวจเพียงว่ามี req.session.user.id
+
+ยังไม่ได้ re-fetch User และตรวจ isActive ก่อน:
+- แสดง consent
+- auto-issue code เมื่อมี consent เดิม
+- บันทึก consent
+
+ผลกระทบ:
+- stale/deactivated session อาจถูกใช้ต่อจน session หมดหรือถูกล้าง
+- ควรใช้ active-session validation แบบเดียวกับ protected API
+
+Priority: P1/P2 security hardening
+
+7.3 Cookie consent vs OAuth consent
+
+Cookie:
+- Accept all
+- Reject non-essential
+- essential cookie จำเป็นต่อ session
+- analytics เป็น optional
+
+OAuth:
+- Allow/Deny permission ที่ app ขอ
+- authorized apps list และ revoke แยกใน Settings
+
+สถานะ: PASS ด้าน separation
+
+UX/legal wording:
+- consent footer ที่บอกว่า Allow แล้ว agree Terms/Privacy อาจปน service terms กับ data permission
+- ควรอธิบาย requested data, purpose และลิงก์ Terms/Privacy แยกกัน
+
+======================================================================
+8. Flow audit: OAuth tokens, OIDC, userinfo, refresh, revoke
+======================================================================
+
+8.1 Token design
+
+- OAuth access token: RS256
+- OIDC ID token: RS256
+- public key: JWKS/discovery
+- refresh token: HS256
+- refresh ต้องมี offline_access
+- refresh rotation และ blacklist
+- authorization code ประมาณ 2 นาที
+- access token ประมาณ 1 ชั่วโมง
+- role ไม่ใช่ OAuth claim ที่ user grant ให้ client
+
+หมายเหตุ:
+- local first-party compatibility JWT ยังใช้ HS256 ภายใน
+- ห้ามนำ local compatibility token ไปอธิบายแทน OAuth access/id token
+
+สถานะ: PASS ตาม policy ใหม่
+
+8.2 UserInfo
+
+- รับเฉพาะ OAuth access token
+- verify RS256 และ blacklist
+- คืน sub/email/name ตาม scope
+- ไม่คืน role
+
+ช่องว่าง:
+- verifyAccessToken/getUserInfo ยังไม่ได้ตรวจ User.isActive
+- account ที่ถูก deactivate/delete อาจใช้ OAuth access token เรียก userinfo ได้จน token หมดอายุ
+- local Session blacklist ไม่ครอบคลุม OAuth token ที่ออกแยกกัน
+
+Priority: P1
+
+8.3 Revoke token vs revoke consent
+
+RFC-style /api/oauth/revoke:
+- blacklist token ตาม token flow
+
+DELETE /api/oauth/consents/:clientId:
+- เรียก Consent.revokeConsent
+- ลบ Consent record อย่างเดียว
+
+ปัญหา:
+- access token เดิมยัง verify ได้
+- refresh token เดิมอาจ refresh ได้ หากไม่ถูก blacklist
+- refresh flow ไม่ตรวจ Consent record ปัจจุบัน
+- UI สื่อว่า “Revoke application access” แต่ behavior อาจมีผลเฉพาะการขอ token ครั้งใหม่
+
+Priority: P1/P2 policy/security gap
+
+แนวทางที่ควรเลือก:
+- ผูก token/grant/jti กับ consent แล้ว revoke access/refresh เมื่อถอน consent
+หรือ
+- เปลี่ยน contract/UI ให้บอกชัดว่า revoke จะป้องกันการออก token ครั้งถัดไปเท่านั้น
+
+======================================================================
+9. Password change/reset และ account deletion
+======================================================================
+
+- reset token เป็น random token และเก็บเฉพาะ hash
+- reset token มี expiry
+- password reset สำเร็จแล้ว blacklistAllUserTokens()
+- social-only account ไม่ได้รับ local reset link
+- changePassword เปลี่ยน password และส่ง notification แต่ยังไม่เรียก blacklistAllUserTokens()
+
+Priority: P2 hardening
+ข้อเสนอ: invalidate session/token อื่นหลัง change password เช่นเดียวกับ reset password
+
+Account deletion/deactivation:
+- soft delete/anonymize
+- local Session/token hash ถูก revoke
+- OAuth token ไม่อยู่ใน local Session model
+- OAuth userinfo ยังไม่ตรวจ isActive
+
+Priority: รวมกับ OAuth lifecycle P1
+
+======================================================================
+10. Admin, role และ PDPA
+======================================================================
+
+- role check อยู่ server-side
+- user ไม่ควรเลือก role จาก UI
+- OAuth client ไม่ควรเลือก role หรือ Read/Write/Delete/Admin scope
+- admin surface มี user state, deactivation, audit/security events, export, deletion และ OAuth consent list/revoke
+- consent revoke แยกจาก logout และ cookie consent
+- data export/deletion/audit log ต้องตรงกับ endpoint จริง
+- ห้ามอ้าง email verification เป็น requirement เมื่อ active runtime ไม่ได้เปิด feature นี้
+
+ควรตรวจเพิ่ม:
+- admin action ทุกอัน re-fetch target user และ permission
+- admin page ไม่พึ่ง role จาก localStorage หรือ browser bearer token
+- deactivation ต้องครอบคลุม web session, local JWT compatibility และ OAuth grants
+
+======================================================================
+11. Frontend audit
+======================================================================
+
+สิ่งที่ถูกต้อง:
+- auth-refresh.js ลบ token, refreshToken และ sessionId ที่ค้างจาก legacy build
+- wrapper บังคับ credentials: same-origin
+- wrapper ไม่ปล่อย Authorization bearer จาก first-party pages
+- active login/register/dashboard flow ไม่ได้ set auth token ลง localStorage/sessionStorage
+
+Technical debt:
+- admin-page-guard.js
+- admin-simple.js
+- admin-users.js
+- analytics.js
+- api-keys.js
+- dashboard.js
+- profile.js
+- sessionService.js
+- settings.js
+- user-activity.js
+
+ไฟล์เหล่านี้ยังอ่าน token จาก localStorage/sessionStorage หรือสร้าง Authorization header
+runtime ปัจจุบันถูก wrapper ดักไว้ จึงอาจ “ดูเหมือนใช้งานได้” แต่ลำดับ script/page ใหม่มีโอกาส regression
+
+ยังมี:
+- login.js bridgeOAuthSession()
+- /api/auth/oauth-session
+- legacy first-party token compatibility endpoints
+
+Priority: P2 cleanup
+แนวทาง:
+- ใช้ fetch credentials: include และ web session อย่างเดียวใน first-party pages
+- ลบ legacy token reads/bridge หลัง regression coverage ครบ
+- แก้ privacy-policy และ documentation ให้ตรงกับ browser behavior
+
+======================================================================
+12. Client-1 และ Client-2
+======================================================================
+
+- token อยู่ใน server-side Express session
+- browser ได้ HttpOnly session cookie
+- callback ตรวจ state, code_verifier, nonce, ID-token signature/JWKS, issuer, audience, exp และ iat
+- ไม่มี token ใน URL
+- ไม่มี silent refresh
+- client-1 /api/refresh ตอบ offline_access_disabled
+- client-2 ไม่มี refresh route
+- ทั้งสองขอ openid profile email จึงไม่ควรคาดหวัง refresh token
+- local logout ทำลาย client session แต่ไม่ revoke AuthSys consent อัตโนมัติ
+
+Acceptance tests:
+- เปิด client-1 และ client-2 พร้อมกัน
+- user เดียวกัน login ได้ทั้งสอง client
+- secret ของ client-1 ใช้กับ client-2 ไม่ได้
+- wrong redirect URI ถูก reject
+- state/nonce/code_verifier mismatch ถูก reject
+- logout แล้ว protected dashboard เข้าไม่ได้
+
+สถานะ: design PASS; live runtime ยัง pending
+
+======================================================================
+13. Docker, Nginx และ portability
+======================================================================
+
+ตรวจแล้ว:
+- Docker CLI ติดตั้ง
+- docker compose config base ผ่าน
+- docker compose config Kafka overlay ผ่าน
+- docker compose config client ผ่าน
+- ใช้ disposable audit environment values เท่านั้น ไม่ใช่ production secrets
+
+ยังทำไม่ได้:
+- docker info ต่อ dockerDesktopLinuxEngine ไม่ได้
+- Docker Desktop Linux engine ไม่ทำงาน
+- จึงยังไม่มี live evidence ของ image build, healthcheck, network, persistence และ restart
+
+Deployment design:
+- public boundary ควรเป็น Nginx port 80/443
+- app, MongoDB, Redis, Kafka, Zookeeper และ Kafka UI อยู่ internal/private
+- Kafka optional
+- ห้ามใช้ docker compose down -v เป็น routine บน production
+- persist Mongo volumes และ OIDC keys
+- Docker deployment ควรย้าย VPS ได้ ไม่ผูก Alibaba-specific API
+- Dockerfile ควรพิจารณา non-root USER เพิ่ม
+
+สถานะ: compose design/syntax PASS; runtime PENDING
+
+======================================================================
+14. Test evidence
+======================================================================
+
+ผ่าน:
+- functions: 44
+- module loading: 27
+- security hardening: 56
+- blue-team: 35
+- red-team: 33
+- รวม engineering suite: 195/195
+- JavaScript syntax scan: ผ่าน
+- git diff --check: ผ่าน
+- Compose config base/Kafka/client: ผ่าน
+
+ยังรันไม่ได้:
+- npm run test:integration ต่อ localhost:5000 ไม่ได้
+- ได้ connection AggregateError จำนวนมาก
+- cleanup ของ test บางชุด dereference user ที่ยังไม่ได้สร้าง
+- localhost:5000 health endpoint ถูกปฏิเสธการเชื่อมต่อ
+- Docker engine unavailable
+
+ยัง pending:
+- Google/GitHub final callback
+- live consent persistence/revoke
+- Redis session failover
+- Mongo restart/persistence
+- backup/restore
+- load/long-run
+- full browser click coverage
+
+ข้อสรุป:
+195/195 ยืนยัน static/security regression ได้ แต่ยังไม่ยืนยัน deployed runtime ครบ
+
+======================================================================
+15. Historical priority backlog (captured before final patch)
+======================================================================
+
+P1 — ก่อนเปิดใช้จริง
+1. src/server.js: production Mongo failure ต้อง fail fast หรือ readiness ไม่พร้อม
+2. OAuth userinfo/introspection/account deactivation: ตรวจ User.isActive และ revoke OAuth grants/tokens
+3. Consent revoke: ทำให้ token/grant lifecycle ตรงกับข้อความ “revoke application access”
+
+P2 — รอบถัดไป
+4. authorize GET/POST และ /api/oauth/csrf ใช้ active-session validation
+5. changePassword invalidate sessions/tokens อื่น
+6. ย้าย CSRF token store ไป Redis/shared store และแก้ session field ให้ตรง
+7. ตัด legacy token reads, bridge และ /api/auth/oauth-session
+8. แก้ privacy-policy, documentation และ website guide ให้ตรง RS256/JWKS/session-first/scope ใหม่
+9. ทำ integration setup ให้ fail-fast เมื่อ dependency ไม่พร้อม
+10. เพิ่ม non-root container และ readiness/health monitoring
+
+======================================================================
+16. Acceptance checklist (baseline; final evidence is in section 17)
+======================================================================
+
+- Mongo down ตอน production start: process ไม่รับ traffic หรือ readiness non-ready
+- user deactivated: web session, local compatibility token, OAuth access/refresh ใช้ต่อไม่ได้
+- revoke consent: existing access/refresh ใช้ไม่ได้ และ authorize ครั้งใหม่แสดง consent
+- password change: session อื่นถูก invalidate
+- stale session cookie: authorize ไม่ออก code ให้ inactive user
+- social registration policy ตรงกับ local registration
+- active browser pages ไม่มี auth token storage
+- wrong client secret/redirect/state/nonce/PKCE ถูก reject
+- container restart แล้ว Mongo data และ OIDC key คงอยู่
+- live flow ผ่าน: register -> login -> create client -> consent -> callback -> userinfo -> logout -> revoke -> login ใหม่
+- docs/privacy ผ่าน source-of-truth review
+
+สรุปสุดท้าย:
+Baseline conclusion: the project had unresolved startup and OAuth lifecycle findings at audit time. The current release decision is recorded in section 17 after the VPS deployment and live test run.
+
+
+======================================================================
+17. Final correction and VPS verification — 2026-08-21
+======================================================================
+
+This section is authoritative for the current release. Sections 1–16 preserve the
+historical baseline audit and its original findings for traceability.
+
+Resolved in source and deployed:
+- Production startup now fails fast/readiness-gates when MongoDB is unavailable;
+  Redis-backed sessions are required in the VPS production overlay.
+- OAuth session/account checks re-fetch the active User before consent, code,
+  UserInfo, introspection, and token lifecycle decisions.
+- Consent records are tombstoned on revoke, receive a grantId, and are checked
+  by access/refresh tokens. Client deletion and user deactivation revoke grants.
+- Repeating Allow for the same still-active scopes preserves the existing grant;
+  a duplicate authorization request no longer invalidates already-issued tokens.
+- OAuth access tokens use RS256/JWKS; refresh tokens require offline_access and
+  rotate. Token blacklist and grant status are checked on use.
+- Consent CSRF token is accepted consistently by the global middleware and the
+  OAuth controller. The consent page can submit csrf_token in its JSON body.
+- Malformed object-shaped login email input now reaches validation and returns
+  400 instead of causing a 500 in the rate-limit key generator.
+- First-party frontend behavior is session-cookie-first; browser auth tokens are
+  not stored or refreshed in localStorage/sessionStorage.
+- Docker images use Node 20-alpine, run as non-root, and production installs omit dev dependencies;
+  the optional client-2 env file no longer prevents the base Compose config from
+  being rendered. Production client-2 still requires a real HTTPS callback.
+
+Automated evidence:
+- npm test: 195/195 static, module, security, blue-team, and red-team checks.
+- JavaScript syntax scan: 119 files, all passed.
+- VPS non-browser integration suites: 5 suites, 93/93 tests passed.
+- Public HTTPS OAuth suite: 25/25 tests passed, including PKCE, code replay,
+  wrong verifier, refresh rotation, UserInfo, introspection, revoke, and scopes.
+- Public smoke: AuthSys /health 200; OIDC discovery 200 with HTTPS issuer;
+  client-1 /api/session 200 unauthenticated.
+- VPS services: auth-app, MongoDB, Redis, Kafka, Zookeeper, and client-1 healthy;
+  Redis healthcheck/app session connection; MongoDB ping 1; app logs show Redis, MongoDB, and Kafka connected.
+- Fixed source hashes were compared between local and VPS after deployment.
+
+Operational boundaries:
+- Local Docker Desktop Linux engine remains unavailable on this workstation; the
+  live test path uses the portable Docker Compose deployment on the VPS instead.
+- Do not run docker compose down -v during routine deploys; named data volumes
+  and OIDC keys must survive rebuilds.
+- The cloud security group is outside this repository. Keep only 80/443 public,
+  restrict SSH to an administration source, and remove broad All Traffic/SSH
+  rules before exposing the private service beyond personal testing.
+- Root, client-1, and client-2 full dependency audits are clean (0 vulnerabilities); AuthSys and client-1 production image audits also report 0 vulnerabilities.
+  The ephemeral dev test install may still print deprecation warnings from test tooling;
+  these are outside the production image.
+
+Current release decision:
+- Private-project VPS deployment is operational and the tested OAuth/auth flows
+  are passing. Remaining work is operational hardening (security-group cleanup,
+  backups/restore drill, and optional client-2 production registration), not a
+  blocking code failure in the tested paths.

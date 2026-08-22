@@ -15,8 +15,6 @@
 #   - OAuth client must be registered in auth server developer portal
 # ─────────────────────────────────────────────────────────────────────────────
 
-version: '3.8'
-
 services:
   # ─── Client App 1 (ShopHub E-commerce) ─────────────────────────────────────
   client-app-1:
@@ -24,19 +22,24 @@ services:
       context: ./cLient-app-1
       dockerfile: ../Dockerfile.client
     container_name: shophub-client
+    # Keep direct access local-only. Production traffic should enter through
+    # the reverse proxy on the shared Docker network.
     ports:
-      - "3001:3001"
+      - "127.0.0.1:${CLIENT_PORT:-3001}:3001"
     environment:
-      - NODE_ENV=development
-      - PORT=3001
-      - APP_NAME=ShopHub Client App 1
-      # OAuth Configuration (REAL credentials from registration)
-      - CLIENT_ID=3cbc1409a2716608ebf01a7d962e69cf
-      - CLIENT_SECRET=d97352ab0f1916409841e4655c489e31db76e5e4365bafc8eaf7cf0e3e9b922d
-      - REDIRECT_URI=http://localhost:3001/callback
-      - OAUTH_PROVIDER=http://auth-nginx
-      - OAUTH_PUBLIC_URL=http://localhost
-      - SESSION_SECRET=super_secure_random_string_min_32_chars_here_change_this
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      APP_NAME: ${CLIENT_APP_NAME:-ShopHub Client App 1}
+      CLIENT_ID: ${CLIENT_ID:-}
+      CLIENT_SECRET: ${CLIENT_SECRET:-}
+      REDIRECT_URI: ${CLIENT_REDIRECT_URI:-http://localhost:3001/callback}
+      # Internal HTTP endpoint avoids the public HTTPS certificate/redirect path
+      # when the client exchanges an authorization code server-to-server.
+      OAUTH_PROVIDER: ${OAUTH_PROVIDER_INTERNAL:-http://nginx}
+      OAUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost}
+      SESSION_SECRET: ${CLIENT_SESSION_SECRET:-}
+      MONGODB_URI: ${CLIENT_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-change_me}@mongodb:27017/authdb?authSource=admin}
+      COOKIE_SECURE: ${CLIENT_COOKIE_SECURE:-false}
     # Note: Auth server must be running separately
     # Remove depends_on if auth server is already running
     extra_hosts:
@@ -47,6 +50,40 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/session"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── Client App 2 (Workspace OAuth mockup) ────────────────────────────────
+  client-app-2:
+    build:
+      context: ./client-2
+      dockerfile: ../Dockerfile.client
+    container_name: workspace-client-2
+    # Client-2 credentials are intentionally optional on a server that only
+    # runs client-1. Supply client-2/.env before enabling that mockup.
+    env_file:
+      - path: ./client-2/.env
+        required: false
+    ports:
+      - "127.0.0.1:${CLIENT2_PORT:-3002}:3002"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3002
+      APP_NAME: ${CLIENT2_APP_NAME:-Workspace Client 2}
+      OAUTH_PROVIDER: ${CLIENT2_OAUTH_PROVIDER_INTERNAL:-http://nginx}
+      OAUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost}
+      SESSION_SECRET: ${CLIENT2_SESSION_SECRET:-}
+      COOKIE_SECURE: ${CLIENT2_COOKIE_SECURE:-false}
+      MONGODB_URI: ${CLIENT2_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-change_me}@mongodb:27017/authdb?authSource=admin}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - client-network
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -70,9 +107,10 @@ services:
 networks:
   client-network:
     driver: bridge
+    name: ${CLIENT_NETWORK_NAME:-client-network}
   auth-network:
     external: true
-    name: testmono_auth-network
+    name: ${AUTH_NETWORK_NAME:-auth-network}
 
 # Volumes (optional - for persistent data if needed)
 # volumes:

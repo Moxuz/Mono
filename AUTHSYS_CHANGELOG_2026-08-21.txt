@@ -1,0 +1,67 @@
+AUTH SYS FINAL CHANGELOG
+วันที่: 2026-08-21
+ขอบเขต: final code fixes, VPS deployment, and live verification
+
+====================
+แก้ไข (FIXED)
+====================
+
+1. OAuth consent / grant lifecycle
+- เพิ่ม grantId ให้ Consent และ AuthorizationCode
+- revoke consent เก็บ tombstone และทำให้ access/refresh token เดิมใช้ไม่ได้
+- ตรวจ active User, active OAuth client และ active consent grant ตอนใช้ token
+- ลบ OAuth client หรือ deactivate user แล้ว revoke grant ที่เกี่ยวข้อง
+- Allow ซ้ำด้วย scope เดิมขณะ grant ยัง active จะคง grant เดิม ไม่ทำให้ token ที่ออกไปแล้วเสียโดยไม่คาดคิด
+- refresh token ใช้ได้เฉพาะเมื่อมี offline_access และมีการ rotate/blacklist
+
+2. CSRF
+- แก้ global middleware ให้รองรับ csrf_token ที่ consent page ส่งใน JSON body
+- controller และ middleware ตรวจ signed token ชุดเดียวกัน
+- consent flow บน HTTPS ผ่านจริง ไม่ติด 403 จาก middleware ก่อนถึง controller
+
+3. Session / startup / security
+- production startup/readiness บังคับ MongoDB และ Redis session readiness
+- active session re-fetch User และปฏิเสธ account ที่ inactive
+- เปลี่ยน malformed login email object จาก 500 เป็น validation 400
+- first-party browser ใช้ HttpOnly session cookie; ไม่เก็บ bearer token ใน localStorage/sessionStorage
+
+4. Docker / deployment portability
+- production images ใช้ Node 20-alpine, รันด้วย non-root user และติดตั้ง production dependencies ด้วย npm ci --omit=dev
+- client-1 ใช้ HTTPS callback และเก็บ OAuth token ใน server-side session
+- client-2 Compose env เป็น optional ตอน render base config แต่ production ต้องกำหนด HTTPS callback จริง
+- deploy ใช้ Docker Compose บน VPS ได้โดยไม่ผูก Alibaba API และไม่ลบ named volumes
+
+====================
+ทดสอบ (VERIFIED)
+====================
+
+- npm test: 195/195 ผ่าน
+- JavaScript syntax scan: 119 files ผ่าน
+- VPS non-browser integration: 5 suites, 93/93 ผ่าน
+- Public HTTPS OAuth: 25/25 ผ่าน
+  ครอบคลุม client CRUD, PKCE, code replay, wrong verifier, refresh rotation,
+  UserInfo, introspection, revoke และ scope enforcement
+- AuthSys /health: HTTP 200, environment production
+- OIDC discovery: HTTP 200, issuer เป็น HTTPS
+- client-1 /api/session: HTTP 200
+- Redis session: app startup log ยืนยัน connected
+- MongoDB: ping = 1
+- Kafka: app log ยืนยัน connected to kafka:29092
+- auth-app, MongoDB, Redis, Kafka, Zookeeper และ client-1: healthy
+- source hash ของ csrf.js และ Consent.js ตรงกันระหว่าง local/VPS
+
+====================
+ยังต้องทำเชิงปฏิบัติการ (ไม่ใช่ blocking code bug)
+====================
+
+- ลบ security-group rule ที่เปิด All Traffic/SSH จาก 0.0.0.0/0 และจำกัด SSH ตาม IP/VPN
+- ทำ backup/restore drill ของ MongoDB และ OIDC key
+- หากเปิด client-2 บน VPS ให้ register OAuth app และตั้ง HTTPS callback จริง
+- Root, client-1 และ client-2 full dependency audit: 0 vulnerabilities; production image audit ของ AuthSys/client-1: 0 vulnerabilities
+- Dev test install เหลือเพียง deprecation warnings ของ test tooling; ไม่อยู่ใน production image
+- local Docker Desktop engine ยังใช้ไม่ได้ จึงใช้ VPS เป็น test runner ตามคู่มือ
+
+หมายเหตุ:
+- ไฟล์นี้ไม่เก็บ secret, private key, client secret หรือ production .env
+- ห้ามใช้ docker compose down -v ในการ redeploy ปกติ
+- Final VPS rebuild ใช้ Node v20.20.2 ทั้ง auth-app และ client-1; HTTPS overlay กลับมา healthy หลังใช้ compose overlay ครบชุด
