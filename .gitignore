@@ -36,3 +36,6 @@ build/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Generated load-test results
+/Final-Final/tests/k6/results/
