@@ -14,16 +14,19 @@ describe('Register', () => {
     const username = `regtest${Date.now()}`;
     let token;
 
-    it('creates account with valid data → 201 + token', async () => {
+    it('creates account with valid data → 201 + safe web response', async () => {
         const res = await post('/api/auth/register', { username, email, password, consentEssential: true });
         expect(res.status).toBe(201);
         expect(res.data.success).toBe(true);
         const d = res.data.data || res.data;
-        expect(d.token || res.data.token).toBeTruthy();
+        expect(d.authenticated).toBe(true);
+        expect(d.token).toBeUndefined();
+        expect(d.refreshToken).toBeUndefined();
+        expect(d.sessionId).toBeUndefined();
     });
 
     it('login with new account to get token for cleanup', async () => {
-        const res = await post('/api/auth/login', { email, password });
+        const res = await post('/api/auth/login/token', { email, password });
         expect(res.status).toBe(200);
         token = (res.data.data || res.data).token;
         expect(token).toBeTruthy();
@@ -78,8 +81,18 @@ describe('Login', () => {
     beforeAll(async () => { user = await createTestUser('login'); });
     afterAll(async ()  => { await cleanupUser(user.password, user.token); });
 
-    it('valid credentials → 200 + token + refreshToken + sessionId', async () => {
+    it('browser login → 200 without bearer credentials', async () => {
         const res = await post('/api/auth/login', { email: user.email, password: user.password });
+        expect(res.status).toBe(200);
+        const d = res.data.data || res.data;
+        expect(d.authenticated).toBe(true);
+        expect(d.token).toBeUndefined();
+        expect(d.refreshToken).toBeUndefined();
+        expect(d.sessionId).toBeUndefined();
+    });
+
+    it('explicit API login → 200 + token + refreshToken + sessionId', async () => {
+        const res = await post('/api/auth/login/token', { email: user.email, password: user.password });
         expect(res.status).toBe(200);
         const d = res.data.data || res.data;
         expect(d.token).toBeTruthy();
@@ -88,22 +101,22 @@ describe('Login', () => {
     });
 
     it('wrong password → 401', async () => {
-        const res = await post('/api/auth/login', { email: user.email, password: 'WrongPass99!' });
+        const res = await post('/api/auth/login/token', { email: user.email, password: 'WrongPass99!' });
         expect(res.status).toBe(401);
     });
 
     it('non-existent email → 401 (same response, no enumeration)', async () => {
-        const res = await post('/api/auth/login', { email: 'nobody@nowhere.com', password: 'AnyPass1' });
+        const res = await post('/api/auth/login/token', { email: 'nobody@nowhere.com', password: 'AnyPass1' });
         expect(res.status).toBe(401);
     });
 
     it('missing password → 400', async () => {
-        const res = await post('/api/auth/login', { email: user.email });
+        const res = await post('/api/auth/login/token', { email: user.email });
         expect(res.status).toBe(400);
     });
 
     it('missing email → 400', async () => {
-        const res = await post('/api/auth/login', { password: user.password });
+        const res = await post('/api/auth/login/token', { password: user.password });
         expect(res.status).toBe(400);
     });
 });
@@ -116,7 +129,7 @@ describe('Logout', () => {
     beforeAll(async () => { user = await createTestUser('logout'); });
     afterAll(async () => {
         // Re-login to clean up if the account still exists
-        const loginRes = await post('/api/auth/login', { email: user.email, password: user.password });
+        const loginRes = await post('/api/auth/login/token', { email: user.email, password: user.password });
         if (loginRes.status === 200) {
             const t = (loginRes.data.data || loginRes.data).token;
             await cleanupUser(user.password, t);
@@ -145,7 +158,7 @@ describe('Token Operations', () => {
     let user;
 
     beforeAll(async () => { user = await createTestUser('tokenops'); });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('validate-token with valid token → 200 { valid: true }', async () => {
         const res = await post('/api/auth/validate-token', { token: user.token });

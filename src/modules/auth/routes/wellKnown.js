@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const config  = require('../../../shared/config/config');
+const oidcKeys = require('../../../shared/config/oidcKeys');
 
 // ─── /.well-known/openid-configuration ───────────────────────────
 router.get('/openid-configuration', (req, res) => {
@@ -21,23 +22,23 @@ router.get('/openid-configuration', (req, res) => {
         grant_types_supported:                 ['authorization_code', 'refresh_token'],
         subject_types_supported:               ['public'],
         token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
-        id_token_signing_alg_values_supported: ['HS256'],
+        access_token_signing_alg_values_supported: ['RS256'],
+        id_token_signing_alg_values_supported: ['RS256'],
         code_challenge_methods_supported:      ['S256'],
+        nonce_supported:                       true,
 
         claims_supported: [
             'sub', 'iss', 'aud', 'exp', 'iat',
-            'email', 'email_verified',
-            'name', 'username', 'role'
+            'email',
+            'name', 'username'
         ],
     });
 });
 
 // ─── /.well-known/jwks.json ───────────────────────────────────────
-// ตอนนี้ใช้ HS256 จึง return empty keys
-// เมื่อ upgrade เป็น RS256 ค่อยเพิ่ม public key ที่นี่
 router.get('/jwks.json', (req, res) => {
     res.set('Cache-Control', 'public, max-age=3600');
-    res.json({ keys: [] });
+    res.json(oidcKeys.jwks);
 });
 
 module.exports = router;

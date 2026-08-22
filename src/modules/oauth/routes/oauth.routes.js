@@ -15,6 +15,7 @@ const {
 // OAuth 2.0 Flow (Public endpoints)
 router.get('/authorize',   authorizeLimiter,  oauthController.showAuthorizeForm);
 router.post('/authorize',  authorizeLimiter,  oauthController.authorize);
+router.get('/csrf',        authorizeLimiter,  oauthController.csrfToken);
 router.post('/token',      tokenLimiter,       oauthController.token);
 router.get('/userinfo',    userinfoLimiter,       oauthController.userinfo);
 router.post('/introspect', introspectLimiter,  oauthController.introspectToken);
@@ -23,13 +24,16 @@ router.post('/introspect', introspectLimiter,  oauthController.introspectToken);
 router.post('/clients',       authenticate, validate(rules.registerClient), oauthController.registerClient);
 router.get('/clients',        authenticate, oauthController.listClients);
 router.get('/clients/:id',    authenticate, oauthController.getClient);
-router.put('/clients/:id',    authenticate, oauthController.updateClient);
+router.put('/clients/:id',    authenticate, validate(rules.updateClient), oauthController.updateClient);
 router.delete('/clients/:id', authenticate, oauthController.deleteClient);
 
 // Token Management (Protected)
-router.post('/revoke', authenticate, revokeLimiter, oauthController.revokeToken);
+// RFC 7009 revocation is authenticated by OAuth client credentials, or by an
+// AuthSys bearer token for the first-party UI.
+router.post('/revoke', revokeLimiter, oauthController.revokeToken);
 
 // Consent Management (Protected) — PDPA right to object
+router.get('/consents', authenticate, generalLimiter, oauthController.listConsents);
 router.delete('/consents/:clientId', authenticate, generalLimiter, oauthController.revokeConsent);
 
 module.exports = router;

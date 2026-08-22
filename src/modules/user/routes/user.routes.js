@@ -2,7 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../../auth/middleware/authenticate');
 const userController = require('../controllers/user.controller');
+const authController = require('../../auth/controllers/auth.controller');
+const authService = require('../../auth/services/auth.service');
+const { validate, rules } = require('../../../shared/middleware/validate');
 const User = require('../../../shared/models/User');
+const Consent = require('../../../shared/models/Consent');
 const logger = require('../../../shared/utils/logger');
 
 /**
@@ -15,13 +19,15 @@ router.get('/profile', authenticate, userController.getProfile);
  * PUT /api/users/profile
  * Update current user profile
  */
-router.put('/profile', authenticate, userController.updateProfile);
+router.put('/profile', authenticate, validate(rules.profile), userController.updateProfile);
 
 /**
  * DELETE /api/users/account
  * Delete user account (PDPA Right to Erasure)
  */
-router.delete('/account', authenticate, userController.deleteAccount);
+// Keep this PDPA alias subject to the same password/OAuth re-authentication
+// policy as /api/auth/delete-account.
+router.delete('/account', authenticate, authController.deleteAccount);
 
 /**
  * GET /api/users/export
@@ -134,7 +140,7 @@ router.get('/:id', authenticate, authorize('admin'), async (req, res, next) => {
  * PUT /api/users/:id
  * Update user (own profile or admin)
  */
-router.put('/:id', authenticate, async (req, res, next) => {
+router.put('/:id', authenticate, validate(rules.userUpdate), async (req, res, next) => {
     try {
         const userId = req.params.id;
         
@@ -199,6 +205,11 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res, next) =
                 error: 'User not found'
             });
         }
+
+        // Deactivation must invalidate existing access/refresh tokens too;
+        // otherwise a later reactivation could revive old credentials.
+        await authService.blacklistAllUserTokens(user._id, 'admin_revoke');
+        await Consent.revokeAllForUser(user._id, 'admin_revoke');
 
         logger.info('User deactivated', { userId: user._id });
 

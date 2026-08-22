@@ -6,17 +6,49 @@ const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
 const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const logger = require('../../../shared/utils/logger');
+const { recordActiveUser } = require('../../dashboard/services/realtimeMetrics.service');
 
 // ตรวจสอบ JWT token จาก Authorization header ค้นหา user และอัปเดต session
 exports.authenticate = async (req, res, next) => {
     try {
-        let token = req.headers['authorization'] || req.query.token;
-        
+        // Bearer tokens must use the Authorization header. Query-string tokens
+        // leak through browser history, access logs and referrer headers.
+        let token = req.headers['authorization'];
+
+        // First-party browser pages use an HttpOnly express session. This path
+        // deliberately runs only when no Authorization header is supplied;
+        // an explicitly supplied invalid bearer token must never downgrade to
+        // a cookie session.
         if (!token) {
-            return res.status(401).json({
-                success: false,
-                message: 'No token provided'
-            });
+            const sessionUser = req.session?.user;
+            if (!sessionUser?.id) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'No token provided'
+                });
+            }
+
+            const sessionAccount = await User.findById(sessionUser.id);
+            if (!sessionAccount || !sessionAccount.isActive) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'User account is inactive or unavailable'
+                });
+            }
+
+            req.authSession = {
+                sessionId: sessionUser.sessionId || null,
+                sessionToken: null,
+                cookieSession: true
+            };
+            req.user = {
+                id: sessionAccount._id.toString(),
+                email: sessionAccount.email,
+                username: sessionAccount.username,
+                role: sessionAccount.role
+            };
+            recordActiveUser(sessionAccount._id.toString());
+            return next();
         }
 
         if (token.startsWith('Bearer ')) {
@@ -32,6 +64,16 @@ exports.authenticate = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, config.JWT_SECRET);
+
+        // Only access tokens may authenticate API requests.  Refresh tokens,
+        // OIDC ID tokens and re-authentication tokens are separate credentials
+        // and must never be accepted by the general API guard.
+        if (decoded.type !== 'access_token') {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid token type'
+            });
+        }
 
         const userId = decoded.id || decoded.sub;
 
@@ -85,7 +127,13 @@ exports.authenticate = async (req, res, next) => {
                 sessionToken: token
             };
         } else {
-            req.authSession = null;
+            // First-party API access is session-bound. Without this check a
+            // revoked session's still-valid JWT could continue to authorize
+            // requests until its natural expiry.
+            return res.status(401).json({
+                success: false,
+                message: 'Session expired or revoked'
+            });
         }
 
         // Attach user to request
@@ -95,6 +143,7 @@ exports.authenticate = async (req, res, next) => {
             username: user.username,
             role: user.role
         };
+        recordActiveUser(user._id.toString());
 
         next();
     } catch (error) {

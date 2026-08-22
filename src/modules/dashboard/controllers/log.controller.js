@@ -19,7 +19,7 @@ async function getSecurityLogs(req, res) {
             startDate,
             endDate,
             ipAddress,
-            sortBy = 'timestamp',
+            sortBy = 'createdAt',
             sortOrder = 'desc'
         } = req.query;
 
@@ -33,9 +33,9 @@ async function getSecurityLogs(req, res) {
 
         // Date range filter
         if (startDate || endDate) {
-            filter.timestamp = {};
-            if (startDate) filter.timestamp.$gte = new Date(startDate);
-            if (endDate) filter.timestamp.$lte = new Date(endDate);
+            filter.createdAt = {};
+            if (startDate) filter.createdAt.$gte = new Date(startDate);
+            if (endDate) filter.createdAt.$lte = new Date(endDate);
         }
 
         // Sort order
@@ -123,9 +123,9 @@ async function getLoginHistory(req, res) {
         }
 
         if (startDate || endDate) {
-            filter.timestamp = {};
-            if (startDate) filter.timestamp.$gte = new Date(startDate);
-            if (endDate) filter.timestamp.$lte = new Date(endDate);
+            filter.createdAt = {};
+            if (startDate) filter.createdAt.$gte = new Date(startDate);
+            if (endDate) filter.createdAt.$lte = new Date(endDate);
         }
 
         const pageNum = parseInt(page);
@@ -135,7 +135,7 @@ async function getLoginHistory(req, res) {
         const total = await SecurityAudit.countDocuments(filter);
 
         const logins = await SecurityAudit.find(filter)
-            .sort({ timestamp: -1 })
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limitNum)
             .lean();
@@ -188,7 +188,7 @@ async function getFailedLogins(req, res) {
 
         const filter = {
             action: 'login_failed',
-            timestamp: { $gte: hoursAgo }
+            createdAt: { $gte: hoursAgo }
         };
 
         const logins = await SecurityAudit.find(filter).lean();
@@ -204,19 +204,19 @@ async function getFailedLogins(req, res) {
                 grouped[key] = {
                     identifier: key,
                     count: 0,
-                    firstAttempt: login.timestamp,
-                    lastAttempt: login.timestamp,
+                    firstAttempt: login.createdAt,
+                    lastAttempt: login.createdAt,
                     emails: new Set(),
                     userAgents: new Set()
                 };
             }
 
             grouped[key].count++;
-            if (login.timestamp < grouped[key].firstAttempt) {
-                grouped[key].firstAttempt = login.timestamp;
+            if (login.createdAt < grouped[key].firstAttempt) {
+                grouped[key].firstAttempt = login.createdAt;
             }
-            if (login.timestamp > grouped[key].lastAttempt) {
-                grouped[key].lastAttempt = login.timestamp;
+            if (login.createdAt > grouped[key].lastAttempt) {
+                grouped[key].lastAttempt = login.createdAt;
             }
             if (login.metadata?.email) {
                 grouped[key].emails.add(login.metadata.email);
@@ -319,12 +319,12 @@ async function exportLogs(req, res) {
         if (action) filter.action = action;
         if (status) filter.status = status;
         if (startDate || endDate) {
-            filter.timestamp = {};
-            if (startDate) filter.timestamp.$gte = new Date(startDate);
-            if (endDate) filter.timestamp.$lte = new Date(endDate);
+            filter.createdAt = {};
+            if (startDate) filter.createdAt.$gte = new Date(startDate);
+            if (endDate) filter.createdAt.$lte = new Date(endDate);
         }
 
-        const logs = await SecurityAudit.find(filter).sort({ timestamp: -1 }).limit(1000).lean();
+        const logs = await SecurityAudit.find(filter).sort({ createdAt: -1 }).limit(1000).lean();
 
         // Batch fetch user emails to avoid N+1 queries
         const userIds = [...new Set(logs.map(l => l.userId?.toString()).filter(Boolean))];
@@ -338,7 +338,7 @@ async function exportLogs(req, res) {
         for (const log of logs) {
             const emailVal = log.userId ? (userMap[log.userId.toString()] || '') : '';
             const row = [
-                log.timestamp?.toISOString() || '',
+                log.createdAt?.toISOString() || '',
                 log.action || '',
                 log.status || '',
                 log.userId?.toString() || '',
@@ -385,15 +385,16 @@ async function getDashboardStats(req, res) {
         const activeUsers = await User.countDocuments({ isActive: true });
 
         // Login statistics
-        const totalLogins24h = await SecurityAudit.countDocuments({
+        const successfulLogins24h = await SecurityAudit.countDocuments({
             action: 'login_success',
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         const failedLogins24h = await SecurityAudit.countDocuments({
             action: 'login_failed',
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
+        const totalLogins24h = successfulLogins24h + failedLogins24h;
 
         // Active sessions
         const activeSessions = await Session.countDocuments({ isActive: true });
@@ -401,7 +402,7 @@ async function getDashboardStats(req, res) {
         // Account lockouts (last 24h)
         const accountLockouts = await SecurityAudit.countDocuments({
             action: 'account_locked',
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         // New users (last 7 days)
@@ -412,7 +413,7 @@ async function getDashboardStats(req, res) {
         // Password changes (last 30 days)
         const passwordChanges = await SecurityAudit.countDocuments({
             action: 'password_changed',
-            timestamp: { $gte: last30Days }
+            createdAt: { $gte: last30Days }
         });
 
         res.json({
@@ -425,9 +426,10 @@ async function getDashboardStats(req, res) {
                 },
                 logins: {
                     last24Hours: totalLogins24h,
+                    successfulLast24h: successfulLogins24h,
                     failedLast24h: failedLogins24h,
                     successRate: totalLogins24h > 0
-                        ? (((totalLogins24h - failedLogins24h) / totalLogins24h) * 100).toFixed(1)
+                        ? ((successfulLogins24h / totalLogins24h) * 100).toFixed(1)
                         : 100
                 },
                 sessions: {
@@ -462,8 +464,8 @@ async function getUserActivity(req, res) {
 
         const activities = await SecurityAudit.find({
             userId,
-            timestamp: { $gte: daysAgo }
-        }).sort({ timestamp: -1 }).lean();
+            createdAt: { $gte: daysAgo }
+        }).sort({ createdAt: -1 }).lean();
 
         res.json({
             success: true,

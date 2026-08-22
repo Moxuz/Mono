@@ -198,13 +198,6 @@ test('Encryption at Rest - Password hashing', () => {
     assert.ok(userCode.includes('select: false'));
 });
 
-test('Encryption at Rest - 2FA secret encryption', () => {
-    const fs = require('fs');
-    const twoFACode = fs.readFileSync('src/shared/services/2fa.service.js', 'utf8');
-    assert.ok(twoFACode.includes('encryptSecret'));
-    assert.ok(twoFACode.includes('decryptSecret'));
-});
-
 test('Encryption in Transit - HTTPS ready', () => {
     const fs = require('fs');
     const appCode = fs.readFileSync('src/app.js', 'utf8');

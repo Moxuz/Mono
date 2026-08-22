@@ -26,7 +26,61 @@ function generateCodeChallenge(verifier) {
 
 let user;
 let clientId, clientSecret, redirectUri;
-const REDIRECT_URI = 'http://localhost:3001/callback';
+const REDIRECT_URI = process.env.TEST_REDIRECT_URI || 'http://localhost:3001/callback';
+let browserCookie;
+
+function cookieHeader(response) {
+    return (response.headers['set-cookie'] || [])
+        .map(value => value.split(';')[0])
+        .join('; ');
+}
+
+async function ensureBrowserSession() {
+    const login = await post('/api/auth/login', {
+        email: user.email,
+        password: user.password
+    });
+    if (login.status !== 200) {
+        throw new Error('Browser session login failed: ' + JSON.stringify(login.data));
+    }
+    browserCookie = cookieHeader(login);
+    if (!browserCookie) throw new Error('Browser session cookie was not returned');
+}
+
+async function authorizeWithSession(options = {}) {
+    if (!browserCookie) await ensureBrowserSession();
+
+    const {
+        scope = 'openid profile email offline_access',
+        client = clientId,
+        redirect = redirectUri,
+        codeVerifier = generateCodeVerifier()
+    } = options;
+    const codeChallenge = generateCodeChallenge(codeVerifier);
+    const state = crypto.randomBytes(8).toString('hex');
+    const nonce = crypto.randomBytes(8).toString('hex');
+    const csrf = await get('/api/oauth/csrf', null, {
+        headers: { Cookie: browserCookie }
+    });
+    if (csrf.status !== 200) {
+        throw new Error('CSRF token request failed: ' + JSON.stringify(csrf.data));
+    }
+
+    const res = await post('/api/oauth/authorize', {
+        client_id: client,
+        redirect_uri: redirect,
+        response_type: 'code',
+        scope,
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+        nonce,
+        action: 'allow',
+        csrf_token: csrf.data.csrf_token
+    }, null, { headers: { Cookie: browserCookie } });
+
+    return { res, codeVerifier, codeChallenge, state, nonce };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -35,7 +89,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-    await cleanupUser(user.password, user.token);
+    if (user) await cleanupUser(user.password, user.token);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,7 +100,7 @@ describe('Client Registration', () => {
             client_name:   'Test OAuth Client',
             redirect_uris: [REDIRECT_URI],
             contact_email: user.email,
-            scope:         'openid profile email',
+            scope:         'openid profile email offline_access',
         }, user.token);
         expect(res.status).toBe(201);
         expect(res.data.success).toBe(true);
@@ -134,23 +188,12 @@ describe('Client CRUD', () => {
 describe('OAuth PKCE Authorization + Token Exchange', () => {
     let authCode;
     let oauthAccessToken, oauthRefreshToken;
-    const codeVerifier  = generateCodeVerifier();
-    const codeChallenge = generateCodeChallenge(codeVerifier);
-    const state = crypto.randomBytes(8).toString('hex');
+    let codeVerifier;
 
-    it('POST /api/oauth/authorize (with credentials) → 200, redirect_url with code', async () => {
-        const res = await post('/api/oauth/authorize', {
-            client_id:             clientId,
-            redirect_uri:          redirectUri,
-            response_type:         'code',
-            scope:                 'openid profile email',
-            state,
-            code_challenge:        codeChallenge,
-            code_challenge_method: 'S256',
-            action:                'approve',
-            email:                 user.email,
-            password:              user.password,
-        });
+    it('POST /api/oauth/authorize with AuthSys session → code', async () => {
+        const flow = await authorizeWithSession({ scope: 'openid profile email offline_access' });
+        codeVerifier = flow.codeVerifier;
+        const res = flow.res;
         expect(res.status).toBe(200);
         expect(res.data.success).toBe(true);
         const redirectUrl = res.data.redirect_url || res.data.data?.redirect_url;
@@ -158,6 +201,26 @@ describe('OAuth PKCE Authorization + Token Exchange', () => {
         expect(redirectUrl).toContain('code=');
         authCode = new URL(redirectUrl).searchParams.get('code');
         expect(authCode).toBeTruthy();
+    });
+
+    it('direct email/password in authorize body is rejected', async () => {
+        const codeVerifier = generateCodeVerifier();
+        const codeChallenge = generateCodeChallenge(codeVerifier);
+        const res = await post('/api/oauth/authorize', {
+            client_id: clientId,
+            redirect_uri: redirectUri,
+            response_type: 'code',
+            scope: 'openid profile email',
+            state: crypto.randomBytes(8).toString('hex'),
+            code_challenge: codeChallenge,
+            code_challenge_method: 'S256',
+            nonce: crypto.randomBytes(8).toString('hex'),
+            action: 'allow',
+            email: user.email,
+            password: user.password
+        });
+        expect(res.status).toBe(401);
+        expect(res.data.error).toBe('login_required');
     });
 
     it('POST /api/oauth/token (code exchange with PKCE) → 200, tokens', async () => {
@@ -193,22 +256,11 @@ describe('OAuth PKCE Authorization + Token Exchange', () => {
     });
 
     it('wrong code_verifier → 400', async () => {
-        // Get a fresh code first
-        const authRes = await post('/api/oauth/authorize', {
-            client_id:             clientId,
-            redirect_uri:          redirectUri,
-            response_type:         'code',
-            scope:                 'openid profile email',
-            state:                 crypto.randomBytes(8).toString('hex'),
-            code_challenge:        codeChallenge,
-            code_challenge_method: 'S256',
-            action:                'approve',
-            email:                 user.email,
-            password:              user.password,
-        });
-        const url2 = authRes.data.redirect_url || authRes.data.data?.redirect_url;
+        const verifier2 = generateCodeVerifier();
+        const flow2 = await authorizeWithSession({ codeVerifier: verifier2 });
+        const url2 = flow2.res.data.redirect_url || flow2.res.data.data?.redirect_url;
         const code2 = url2 ? new URL(url2).searchParams.get('code') : null;
-        if (!code2) return; // Skip if authorize failed
+        expect(code2).toBeTruthy();
 
         const res = await post('/api/oauth/token', {
             grant_type:    'authorization_code',
@@ -331,43 +383,16 @@ describe('Revoke Token', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('Scope Enforcement', () => {
-    it('scope not in client.scope → 400 invalid_scope', async () => {
-        const res = await post('/api/oauth/authorize', {
-            client_id:    clientId,
-            redirect_uri: redirectUri,
-            response_type: 'code',
-            scope:        'openid profile email admin:read write:all',
-            state:        crypto.randomBytes(8).toString('hex'),
-            action:       'approve',
-            email:        user.email,
-            password:     user.password,
-        });
-        // Either 400 with invalid_scope or 200 but scope clamped to allowed scopes
-        if (res.status === 400) {
-            expect(['invalid_scope', 'invalid scope'].some(s =>
-                (res.data.error || res.data.message || '').toLowerCase().includes(s)
-            )).toBe(true);
-        } else {
-            // Scope was silently clamped — acceptable
-            expect(res.status).toBe(200);
-        }
+    it('unregistered resource scope → 400 invalid_scope', async () => {
+        const flow = await authorizeWithSession({ scope: 'openid profile email admin:read write:all' });
+        const res = flow.res;
+        expect(res.status).toBe(400);
+        const message = res.data.error || res.data.message || res.data;
+        expect(String(message).toLowerCase()).toMatch(/invalid_scope|unsupported|scope/);
     });
 
-    it('only OIDC base scopes (openid profile email) → always allowed', async () => {
-        const verifier   = generateCodeVerifier();
-        const challenge  = generateCodeChallenge(verifier);
-        const res = await post('/api/oauth/authorize', {
-            client_id:             clientId,
-            redirect_uri:          redirectUri,
-            response_type:         'code',
-            scope:                 'openid profile email',
-            state:                 crypto.randomBytes(8).toString('hex'),
-            code_challenge:        challenge,
-            code_challenge_method: 'S256',
-            action:                'approve',
-            email:                 user.email,
-            password:              user.password,
-        });
+    it('OIDC base scopes → allowed', async () => {
+        const res = (await authorizeWithSession({ scope: 'openid profile email' })).res;
         expect(res.status).toBe(200);
         expect(res.data.success).toBe(true);
     });

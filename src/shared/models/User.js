@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema({
         required: [true, 'Username is required'],
         unique: true,
         sparse: true,
-        trim: true
+        trim: true,
+        maxlength: [64, 'Username must be at most 64 characters']
     },
     email: {
         type: String,
@@ -15,7 +16,8 @@ const userSchema = new mongoose.Schema({
         unique: true,
         lowercase: true,
         trim: true,
-        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email']
+        maxlength: [254, 'Email must be at most 254 characters'],
+        match: [/^[^\s@]+@[^\s@]+\.[^\s@]{2,63}$/, 'Please provide a valid email']
     },
     password: {
         type: String,
@@ -41,6 +43,18 @@ const userSchema = new mongoose.Schema({
     lastLogin: {
         type: Date
     },
+    displayName: {
+        type: String,
+        trim: true,
+        maxlength: 80,
+        default: ''
+    },
+    bio: {
+        type: String,
+        trim: true,
+        maxlength: 160,
+        default: ''
+    },
 
     // Account Lockout
     failedLoginAttempts: {
@@ -50,19 +64,6 @@ const userSchema = new mongoose.Schema({
     lockUntil: {
         type: Date,
         default: null
-    },
-
-    emailVerified: {
-        type: Boolean,
-        default: false
-    },
-    emailVerificationToken: {
-        type: String,
-        select: false
-    },
-    emailVerificationExpires: {
-        type: Date,
-        select: false
     },
 
     passwordResetToken: {

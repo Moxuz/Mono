@@ -87,7 +87,7 @@ async function run() {
     // ── 1. Valid Session ─────────────────────────────────────────────────────
     console.log('\n🔐 1. Valid Session');
 
-    const loginRes = await request('POST', '/api/auth/login', { email, password });
+    const loginRes = await request('POST', '/api/auth/login/token', { email, password });
     const token     = loginRes.data?.data?.token;
     const sessionId = loginRes.data?.data?.sessionId;
     const refreshTk = loginRes.data?.data?.refreshToken;
@@ -126,7 +126,7 @@ async function run() {
     console.log('\n🚫 3. Session Revocation');
 
     // Login a second time to get a fresh session we can revoke while keeping current
-    const login2Res  = await request('POST', '/api/auth/login', { email, password });
+    const login2Res  = await request('POST', '/api/auth/login/token', { email, password });
     const token2     = login2Res.data?.data?.token;
     const sessionId2 = login2Res.data?.data?.sessionId;
 
@@ -226,8 +226,8 @@ async function run() {
     console.log('\n🧹 7. Revoke All Other Sessions');
 
     // Login twice more to create additional sessions
-    const loginA = await request('POST', '/api/auth/login', { email, password });
-    const loginB = await request('POST', '/api/auth/login', { email, password });
+    const loginA = await request('POST', '/api/auth/login/token', { email, password });
+    const loginB = await request('POST', '/api/auth/login/token', { email, password });
     const tokenA = loginA.data?.data?.token;
     const tokenB = loginB.data?.data?.token;
 
@@ -269,7 +269,7 @@ async function run() {
         `HTTP ${revokeAllRes.status}: ${revokeAllRes.data?.message || revokeAllRes.data?.error || ''}`);
 
     // Login fresh to check count is really 0
-    const freshLogin = await request('POST', '/api/auth/login', { email, password });
+    const freshLogin = await request('POST', '/api/auth/login/token', { email, password });
     const freshToken = freshLogin.data?.data?.token;
 
     if (freshToken) {

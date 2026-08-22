@@ -1,15 +1,25 @@
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
+const config = require('../config/config');
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 class EmailService {
     constructor() {
         this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: parseInt(process.env.SMTP_PORT) || 587,
-            secure: false, // true for 465, false for other ports
+            host: config.email.smtp.host,
+            port: config.email.smtp.port,
+            secure: config.email.smtp.secure,
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
+                user: config.email.smtp.user,
+                pass: config.email.smtp.pass,
             },
         });
     }
@@ -19,7 +29,13 @@ class EmailService {
      */
     async verifyConnection() {
         try {
-            await this.transporter.verify();
+            await Promise.race([
+                this.transporter.verify(),
+                new Promise((_, reject) => {
+                    const timer = setTimeout(() => reject(new Error('SMTP verification timed out')), config.email.verifyTimeoutMs);
+                    timer.unref?.();
+                })
+            ]);
             logger.info('SMTP connection verified successfully');
             return true;
         } catch (error) {
@@ -34,7 +50,7 @@ class EmailService {
     async sendEmail({ to, subject, html, text }) {
         try {
             const mailOptions = {
-                from: `"${process.env.SMTP_FROM_NAME || 'Auth System'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+                from: `"${config.email.fromName}" <${config.email.fromAddress || config.email.smtp.user}>`,
                 to,
                 subject,
                 html,
@@ -54,6 +70,8 @@ class EmailService {
      * ส่ง email reset password
      */
     async sendPasswordResetEmail({ to, username, resetUrl }) {
+        const safeUsername = escapeHtml(username);
+        const safeResetUrl = escapeHtml(resetUrl);
         const html = `
             <!DOCTYPE html>
             <html lang="en">
@@ -131,15 +149,15 @@ class EmailService {
                         <h1>🔐 Password Reset Request</h1>
                     </div>
                     <div class="content">
-                        <p>Hi <strong>${username}</strong>,</p>
+                        <p>Hi <strong>${safeUsername}</strong>,</p>
                         <p>We received a request to reset your password. Click the button below to create a new password:</p>
                         
                         <center>
-                            <a href="${resetUrl}" class="button">Reset Password</a>
+                            <a href="${safeResetUrl}" class="button">Reset Password</a>
                         </center>
                         
                         <p>Or copy and paste this link in your browser:</p>
-                        <p class="link">${resetUrl}</p>
+                        <p class="link">${safeResetUrl}</p>
                         
                         <div class="warning">
                             <strong>⚠️ Important:</strong>
@@ -188,6 +206,7 @@ Need help? Contact our support team.
      * ส่ง email ยืนยันการเปลี่ยนรหัสผ่านสำเร็จ
      */
     async sendPasswordChangedEmail({ to, username }) {
+        const safeUsername = escapeHtml(username);
         const html = `
             <!DOCTYPE html>
             <html lang="en">
@@ -255,7 +274,7 @@ Need help? Contact our support team.
                     <div class="content">
                         <div class="success-icon">✅</div>
                         
-                        <p>Hi <strong>${username}</strong>,</p>
+                        <p>Hi <strong>${safeUsername}</strong>,</p>
                         <p>Your password has been successfully changed.</p>
                         
                         <div class="alert">
@@ -267,7 +286,6 @@ Need help? Contact our support team.
                         <ul>
                             <li>Never share your password with anyone</li>
                             <li>Use a unique password for each account</li>
-                            <li>Enable two-factor authentication for extra security</li>
                         </ul>
                         
                         <p style="margin-top: 30px;">Stay safe!</p>
@@ -292,7 +310,6 @@ If you didn't make this change, please contact our support team immediately.
 For your security:
 - Never share your password with anyone
 - Use a unique password for each account
-- Enable two-factor authentication for extra security
 
 Stay safe!
         `.trim();
@@ -309,6 +326,7 @@ Stay safe!
      * ส่ง welcome email
      */
     async sendWelcomeEmail({ to, username }) {
+        const safeUsername = escapeHtml(username);
         const html = `
             <!DOCTYPE html>
             <html lang="en">
@@ -360,7 +378,7 @@ Stay safe!
                         <h1>Welcome to Our Platform! 🎉</h1>
                     </div>
                     <div class="content">
-                        <p>Hi <strong>${username}</strong>,</p>
+                        <p>Hi <strong>${safeUsername}</strong>,</p>
                         <p>Welcome! Your account has been created successfully.</p>
                         <p>Get started by exploring our features.</p>
                         <p>If you have any questions, feel free to contact our support team.</p>
@@ -396,6 +414,14 @@ If you have any questions, feel free to contact our support team.
  * ส่ง email แจ้งเตือนการ login
  */
     async sendLoginAlertEmail({ to, username, deviceInfo, ipAddress, timestamp }) {
+      const safeUsername = escapeHtml(username);
+      const safeLoginTime = escapeHtml(new Date(timestamp).toLocaleString('en-US', {
+        timeZone: 'Asia/Bangkok', dateStyle: 'full', timeStyle: 'long'
+      }));
+      const safeIpAddress = escapeHtml(ipAddress || 'Unknown');
+      const safeDevice = escapeHtml(deviceInfo?.deviceType || 'Unknown');
+      const safeBrowser = escapeHtml(deviceInfo?.browser || 'Unknown');
+      const safeLocation = escapeHtml(deviceInfo?.location || 'Unknown');
       const loginTime = new Date(timestamp).toLocaleString('en-US', {
         timeZone: 'Asia/Bangkok',
         dateStyle: 'full',
@@ -501,30 +527,30 @@ If you have any questions, feel free to contact our support team.
                     <h1>New Login Detected</h1>
                 </div>
                 <div class="content">
-                    <p>Hi <strong>${username}</strong>,</p>
+                    <p>Hi <strong>${safeUsername}</strong>,</p>
                     <p>We detected a new login to your account. If this was you, you can safely ignore this email.</p>
                     
                     <div class="info-box">
                         <h3>📍 Login Details</h3>
                         <div class="info-item">
                             <span class="info-label">Time:</span>
-                            <span class="info-value">${loginTime}</span>
+                            <span class="info-value">${safeLoginTime}</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">IP Address:</span>
-                            <span class="info-value">${ipAddress || 'Unknown'}</span>
+                            <span class="info-value">${safeIpAddress}</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Device:</span>
-                            <span class="info-value">${deviceInfo?.deviceType || 'Unknown'}</span>
+                            <span class="info-value">${safeDevice}</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Browser:</span>
-                            <span class="info-value">${deviceInfo?.browser || 'Unknown'}</span>
+                            <span class="info-value">${safeBrowser}</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Location:</span>
-                            <span class="info-value">${deviceInfo?.location || 'Unknown'}</span>
+                            <span class="info-value">${safeLocation}</span>
                         </div>
                     </div>
 
@@ -534,18 +560,17 @@ If you have any questions, feel free to contact our support team.
                         <ul style="margin: 10px 0 0 0; padding-left: 20px;">
                             <li>Change your password immediately</li>
                             <li>Review your active sessions</li>
-                            <li>Enable two-factor authentication</li>
                         </ul>
                     </div>
 
                     <center>
-                        <a href="${process.env.AUTH_SERVER_URL}/profile.html?action=changePassword" class="button">
+                        <a href="${config.AUTH_SERVER_URL}/profile.html?action=changePassword" class="button">
                             Secure My Account
                         </a>
                     </center>
 
                     <p style="margin-top: 30px; font-size: 14px; color: #6c757d;">
-                        You can manage your notification preferences in your <a href="${process.env.AUTH_SERVER_URL}/settings.html" style="color: #667eea;">account settings</a>.
+                        You can manage your notification preferences in your <a href="${config.AUTH_SERVER_URL}/settings.html" style="color: #667eea;">account settings</a>.
                     </p>
                 </div>
                 <div class="footer">
@@ -573,9 +598,8 @@ If you have any questions, feel free to contact our support team.
     If you didn't log in at this time, please secure your account immediately:
     - Change your password
     - Review your active sessions
-    - Enable two-factor authentication
 
-    Secure your account: ${process.env.AUTH_SERVER_URL}/profile.html?action=changePassword
+    Secure your account: ${config.AUTH_SERVER_URL}/profile.html?action=changePassword
 
     You can manage notification preferences in your account settings.
       `.trim();
@@ -586,16 +610,6 @@ If you have any questions, feel free to contact our support team.
         html,
         text,
       });
-    }
-
-    /**
-     * Send email verification link
-     */
-    async sendVerificationEmail({ to, username, verificationUrl }) {
-        const { getVerificationTemplate } = require('./email.templates');
-        const html = getVerificationTemplate({ username, verificationUrl });
-        const text = `Hi ${username},\n\nPlease verify your email by visiting:\n${verificationUrl}\n\nThis link expires in 24 hours.`;
-        return this.sendEmail({ to, subject: '✅ Verify Your Email Address', html, text });
     }
 
 }

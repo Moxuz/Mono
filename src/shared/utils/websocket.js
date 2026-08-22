@@ -1,9 +1,9 @@
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
-const url = require('url');
 const SecurityAudit = require('../models/SecurityAudit');
 const logger = require('../utils/logger');
 const config = require('../config/config');
+const TokenBlacklist = require('../models/TokenBlacklist');
 
 let wss = null;
 const clients = new Set();
@@ -15,12 +15,16 @@ function initializeWebSocket(server) {
     // Use noServer mode so we can authenticate before accepting the upgrade
     wss = new WebSocket.Server({ noServer: true });
 
-    server.on('upgrade', (request, socket, head) => {
+    server.on('upgrade', async (request, socket, head) => {
         if (!request.url.startsWith('/ws')) return;
 
-        const parsedUrl = url.parse(request.url, true);
-        const token = parsedUrl.query.token ||
-            (request.headers['authorization'] || '').replace('Bearer ', '');
+        // Do not accept query-string tokens: they leak into access logs and
+        // browser history. WebSocket clients should use Authorization or the
+        // HttpOnly token cookie set by the auth flow.
+        const cookieHeader = request.headers.cookie || '';
+        const tokenCookie = cookieHeader.split(';').map(part => part.trim()).find(part => part.startsWith('token='));
+        const token = (request.headers['authorization'] || '').replace('Bearer ', '') ||
+            (tokenCookie ? decodeURIComponent(tokenCookie.slice('token='.length)) : '');
 
         if (!token) {
             logger.warn('WebSocket rejected: no token provided');
@@ -31,6 +35,9 @@ function initializeWebSocket(server) {
 
         try {
             request.wsUser = jwt.verify(token, config.JWT_SECRET);
+            if (request.wsUser.type !== 'access_token' || await TokenBlacklist.isBlacklisted(token)) {
+                throw new Error('Invalid access token');
+            }
         } catch {
             logger.warn('WebSocket rejected: invalid or expired token');
             socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');

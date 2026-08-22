@@ -16,29 +16,35 @@ const clientSchema = new mongoose.Schema({
     client_name: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
+        maxlength: 100
     },
     description: {
         type: String,
-        trim: true
+        trim: true,
+        maxlength: 500
     },
     logo_uri: {
         type: String
     },
     redirect_uris: [{
         type: String,
-        required: true
+        required: true,
+        maxlength: 2048
     }],
-    grant_types: [{
-        type: String,
-        enum: ['authorization_code', 'refresh_token', 'client_credentials'],
-        default: ['authorization_code']
-    }],
-    response_types: [{
-        type: String,
-        enum: ['code', 'token', 'id_token'],
+    // Private-project policy: confidential web clients using only the
+    // authorization-code flow. Refresh is available only when the requested
+    // scope contains offline_access.
+    grant_types: {
+        type: [String],
+        enum: ['authorization_code', 'refresh_token'],
+        default: ['authorization_code', 'refresh_token']
+    },
+    response_types: {
+        type: [String],
+        enum: ['code'],
         default: ['code']
-    }],
+    },
     scope: {
         type: String,
         default: 'openid profile email'
@@ -51,12 +57,14 @@ const clientSchema = new mongoose.Schema({
     },
     application_type: {
         type: String,
-        enum: ['web', 'native', 'spa'],
+        enum: ['web'],
         default: 'web'
     },
     contact_email: {
         type: String,
-        required: true
+        required: true,
+        maxlength: 254,
+        match: /^[^\s@]+@[^\s@]+\.[^\s@]{2,63}$/
     },
     isActive: {
         type: Boolean,
@@ -103,7 +111,8 @@ clientSchema.methods.incrementUsage = async function() {
 clientSchema.statics.findActiveClient = async function(client_id, redirect_uri) {
     return await this.findOne({
         client_id,
-        redirect_uris: redirect_uri,
+        // OAuth redirect URI matching is an exact string comparison.
+        redirect_uris: { $in: [redirect_uri] },
         isActive: true
     });
 };

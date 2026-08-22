@@ -23,27 +23,30 @@ const getIpFromRequest = (req) => {
 
 let redisClient = null;
 let isRedisConnected = false;
+let redisInitPromise = null;
 
 // เริ่มต้นเชื่อมต่อ Redis สำหรับใช้เป็น store ของ rate limiter
 async function initRedis() {
-    if (redisClient) {
+    if (redisClient && (isRedisReady() || ['connecting', 'connect'].includes(redisClient.status))) {
         return isRedisConnected;
     }
 
-    try {
+    if (redisInitPromise) return redisInitPromise;
+
+    redisInitPromise = (async () => {
+      try {
         const redisConfig = {
             host: config.REDIS_HOST || 'localhost',
             port: config.REDIS_PORT || 6379,
-            maxRetriesPerRequest: 3,
-            connectTimeout: 5000,   // 5s to establish connection
+            maxRetriesPerRequest: 1,
+            connectTimeout: config.REDIS_CONNECT_TIMEOUT_MS,
             commandTimeout: 2000,   // 2s per command
             retryStrategy: (times) => {
-                if (times === 6) {
-                    getLogger().warn('[Redis] Max initial retries reached, falling back to memory store — will keep retrying in background');
-                }
-                // Never return null: keep retrying so the store auto-upgrades when Redis recovers
-                if (times > 20) return 10000; // every 10s after 20 attempts
-                return Math.min(times * 100, 2000);
+                // Redis is an optional acceleration for local development.
+                // A bounded attempt prevents startup from hanging forever when
+                // Docker/Redis is unavailable.
+                if (times > 1) return null;
+                return Math.min(times * 100, 250);
             },
             lazyConnect: true
         };
@@ -76,14 +79,23 @@ async function initRedis() {
 
         // Connect
         await redisClient.connect();
-        
+
         return isRedisConnected;
-    } catch (error) {
+      } catch (error) {
         getLogger().warn('[Redis] Failed to connect:', error.message);
         getLogger().info('[Redis] Falling back to memory store');
         isRedisConnected = false;
+        if (redisClient) {
+            try { redisClient.disconnect(); } catch (_) { /* best effort */ }
+        }
+        redisClient = null;
         return false;
-    }
+      } finally {
+        redisInitPromise = null;
+      }
+    })();
+
+    return redisInitPromise;
 }
 
 // คืนค่า Redis client instance ปัจจุบัน
@@ -102,7 +114,10 @@ function isRedisReady() {
 // ปิดการเชื่อมต่อ Redis
 async function closeRedis() {
     if (redisClient) {
-        await redisClient.quit();
+        try {
+            if (redisClient.status === 'ready') await redisClient.quit();
+            else redisClient.disconnect();
+        } catch (_) { /* best effort during shutdown */ }
         redisClient = null;
         isRedisConnected = false;
         getLogger().info('[Redis] Connection closed');
@@ -153,7 +168,12 @@ const userIpKeyGenerator = (req) => {
  * @returns {string}
  */
 const emailIpKeyGenerator = (req) => {
-    const email = req.body?.email || 'no-email';
+    // Never interpolate an unvalidated object into a rate-limit key. A
+    // NoSQL-injection payload must reach the normal 400 validation path,
+    // not make the limiter throw a 500 before validation runs.
+    const email = typeof req.body?.email === 'string'
+        ? req.body.email
+        : 'invalid-email';
     const ip = getIpFromRequest(req);
     return `${ip}_${email}`;
 };

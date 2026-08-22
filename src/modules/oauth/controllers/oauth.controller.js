@@ -1,9 +1,97 @@
+const jwt = require('jsonwebtoken');
 const oauthService = require('../services/oauth.service');
 const User = require('../../../shared/models/User');
 const Client = require('../../../shared/models/Client');
 const logger = require('../../../shared/utils/logger');
 const Consent = require('../../../shared/models/Consent');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
+const {
+    sanitizeRequestedScopes,
+    validateRegisteredScopes
+} = require('../../../shared/utils/oauthScopes');
+const { generateCSRFToken, validateCSRFToken } = require('../../../shared/middleware/csrf');
+async function getActiveSessionUser(req) {
+    const sessionUserId = req.session?.user?.id;
+    if (!sessionUserId) return null;
+
+    try {
+        const user = await User.findById(sessionUserId);
+        if (!user || !user.isActive) {
+            if (req.session) {
+                delete req.session.user;
+                delete req.session.oauthClientFlow;
+            }
+            return null;
+        }
+        return user;
+    } catch (_) {
+        if (req.session) {
+            delete req.session.user;
+            delete req.session.oauthClientFlow;
+        }
+        return null;
+    }
+}
+const config = require('../../../shared/config/config');
+
+function validateRedirectUris(redirectUris) {
+    if (!Array.isArray(redirectUris) || redirectUris.length < 1 || redirectUris.length > 10) {
+        return 'redirect_uris must contain between 1 and 10 URLs';
+    }
+
+    for (const redirectUri of redirectUris) {
+        if (typeof redirectUri !== 'string' || redirectUri.trim() !== redirectUri || redirectUri.length === 0 || redirectUri.length > 2048) {
+            return 'Each redirect URI must be a trimmed string of 1-2048 characters';
+        }
+
+        let parsed;
+        try {
+            parsed = new URL(redirectUri);
+        } catch {
+            return 'Each redirect URI must be a valid absolute URL';
+        }
+
+        const isLocalhost = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+        const isHttps = parsed.protocol === 'https:';
+        const isDevelopmentLocalhost = config.NODE_ENV !== 'production' && parsed.protocol === 'http:' && isLocalhost;
+
+        if ((!isHttps && !isDevelopmentLocalhost) || parsed.hash || parsed.username || parsed.password) {
+            return config.NODE_ENV === 'production'
+                ? 'Redirect URIs must use HTTPS and cannot contain fragments or credentials'
+                : 'Redirect URIs must use HTTPS; HTTP is allowed only for localhost during development';
+        }
+    }
+
+    return null;
+}
+
+function validateAuthorizationSecurity(client, codeChallenge, codeChallengeMethod, nonce, state) {
+    if (client.application_type !== 'web' ||
+        !Array.isArray(client.grant_types) ||
+        !client.grant_types.includes('authorization_code') ||
+        !Array.isArray(client.response_types) ||
+        !client.response_types.includes('code')) {
+        return 'Only confidential web clients are supported';
+    }
+    if (typeof state !== 'string' || !state || state.length > 2048 ||
+        !/^[A-Za-z0-9._~-]+$/.test(state)) {
+        return 'state is required and must be a valid OAuth value';
+    }
+    if (!codeChallenge) {
+        return 'PKCE with S256 is required for all clients';
+    }
+    if (codeChallengeMethod !== 'S256') {
+        return 'Only the S256 PKCE method is supported';
+    }
+    if (!/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) {
+        return 'code_challenge must be a valid S256 challenge';
+    }
+    if (typeof nonce !== 'string' || !nonce || nonce.length > 255 ||
+        !/^[A-Za-z0-9._~-]+$/.test(nonce)) {
+        return 'nonce is required and must be a valid OAuth value';
+    }
+    return null;
+}
 
 /**
  * Register new OAuth client
@@ -20,8 +108,30 @@ exports.registerClient = async (req, res, next) => {
                 error: 'Missing required fields: client_name, redirect_uris, contact_email'
             });
         }
+        if (clientData.application_type && clientData.application_type !== 'web') {
+            return res.status(400).json({
+                success: false,
+                error: 'Only web applications are supported for this private AuthSys deployment'
+            });
+        }
 
-        const result = await oauthService.registerClient(clientData, ownerId);
+        const redirectError = validateRedirectUris(clientData.redirect_uris);
+        if (redirectError) {
+            return res.status(400).json({ success: false, error: redirectError });
+        }
+
+        const registeredScopes = validateRegisteredScopes(clientData.scope);
+        if (!registeredScopes.valid) {
+            return res.status(400).json({
+                success: false,
+                error: registeredScopes.error
+            });
+        }
+
+        const result = await oauthService.registerClient({
+            ...clientData,
+            scope: registeredScopes.scopes.join(' ')
+        }, ownerId);
 
         logger.info('OAuth client registered', { 
             client_id: result.client_id,
@@ -88,6 +198,20 @@ exports.updateClient = async (req, res, next) => {
         const clientId = req.params.id;
         const ownerId = req.user.id;
         const updateData = req.body;
+        const immutableFields = ['application_type', 'scope', 'grant_types', 'response_types', 'client_secret'];
+        if (immutableFields.some((field) => Object.prototype.hasOwnProperty.call(updateData, field))) {
+            return res.status(400).json({
+                success: false,
+                error: 'Application type, scopes, grant types, response types and client secret cannot be changed'
+            });
+        }
+
+        if (updateData.redirect_uris !== undefined) {
+            const redirectError = validateRedirectUris(updateData.redirect_uris);
+            if (redirectError) {
+                return res.status(400).json({ success: false, error: redirectError });
+            }
+        }
 
         const client = await oauthService.updateClient(clientId, updateData, ownerId);
 
@@ -137,15 +261,31 @@ exports.showAuthorizeForm = async (req, res, next) => {
     try {
         const {
             client_id, redirect_uri, response_type,
-            scope, state, code_challenge, code_challenge_method
+            scope, state, code_challenge, code_challenge_method, nonce
         } = req.query;
 
+        if (response_type !== 'code') {
+            return res.status(400).json({
+                error: 'unsupported_response_type',
+                error_description: 'Only response_type=code is supported'
+            });
+        }
+
+        if (!client_id || !redirect_uri) {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: 'client_id and redirect_uri are required'
+            });
+        }
+        if (state !== undefined && (typeof state !== 'string' || state.length > 2048)) {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: 'state must be at most 2048 characters'
+            });
+        }
+
         // 1) validate client
-        const client = await Client.findOne({
-            client_id,
-            redirect_uris: redirect_uri,
-            isActive: true
-        });
+        const client = await Client.findActiveClient(client_id, redirect_uri);
 
         if (!client) {
             securityAuditService.logSecurityEvent({
@@ -161,16 +301,14 @@ exports.showAuthorizeForm = async (req, res, next) => {
             });
         }
 
-        // Validate and sanitize scope
-        const rawScope = scope
-            ? scope.replace(/[^\w\s:]/g, '').trim()
-            : 'openid profile email';
+        const authorizationError = validateAuthorizationSecurity(
+            client, code_challenge, code_challenge_method, nonce, state
+        );
+        if (authorizationError) {
+            return res.status(400).json({ error: 'invalid_request', error_description: authorizationError });
+        }
 
-        // Enforce scope: openid/profile/email always allowed; anything else must be
-        // in the client's registered scope or it is silently dropped.
-        const OIDC_BASE = new Set(['openid', 'profile', 'email']);
-        const clientAllowed = new Set(client.scope ? client.scope.split(/\s+/) : []);
-        const validScopes = rawScope.split(/\s+/).filter(s => s && (OIDC_BASE.has(s) || clientAllowed.has(s)));
+        const validScopes = sanitizeRequestedScopes(scope, client.scope);
 
         if (validScopes.length === 0) {
             return res.status(400).send('<h1>invalid_scope</h1><p>The requested scopes are not permitted for this client.</p>');
@@ -187,26 +325,27 @@ exports.showAuthorizeForm = async (req, res, next) => {
             scope:                requestedScope,
             state:                state               || '',
             code_challenge:       code_challenge       || '',
-            code_challenge_method: code_challenge_method || 'S256',
+            code_challenge_method: code_challenge_method || '',
+            ...(nonce ? { nonce } : {}),
         });
 
         // 2) เช็ค session
-        const sessionUser = req.session?.user;
+        const sessionUser = await getActiveSessionUser(req);
 
         if (sessionUser) {
             // ─── login แล้ว → เช็ค consent ───────────────────────
-            const alreadyConsented = await Consent.hasConsented(
-                sessionUser.id, client_id, requestedScope
+            const consent = await Consent.getActiveGrant(
+                sessionUser._id, client_id, requestedScope
             );
 
-            if (alreadyConsented) {
+            if (consent) {
                 // เคย consent แล้ว → ออก code เลย
                 const pkce = code_challenge
-                    ? { code_challenge, code_challenge_method: code_challenge_method || 'S256' }
+                    ? { code_challenge, code_challenge_method }
                     : null;
 
                 const code = await oauthService.generateAuthorizationCode(
-                    sessionUser.id, client_id, redirect_uri, requestedScope, pkce
+                    sessionUser._id, client_id, redirect_uri, requestedScope, pkce, nonce, consent.grantId
                 );
 
                 const sep = redirect_uri.includes('?') ? '&' : '?';
@@ -242,15 +381,60 @@ exports.authorize = async (req, res, next) => {
     try {
         const {
             client_id, redirect_uri,
-            scope, state, email, password,
+            scope, state,
             code_challenge, code_challenge_method,
-            action
+            action, response_type, nonce
         } = req.body;
 
+        if (response_type !== 'code') {
+            return res.status(400).json({
+                error: 'unsupported_response_type',
+                error_description: 'Only response_type=code is supported'
+            });
+        }
+
+        // ─── validate client ───────────────────────────────────────
+        if (!client_id || !redirect_uri) {
+            return res.status(400).json({ error: 'client_id and redirect_uri are required' });
+        }
+        if (state !== undefined && (typeof state !== 'string' || state.length > 2048)) {
+            return res.status(400).json({ error: 'state must be at most 2048 characters' });
+        }
+
+        const client = await Client.findActiveClient(client_id, redirect_uri);
+        if (!client) {
+            return res.status(400).json({ error: 'Invalid client or redirect URI' });
+        }
+
+        const authorizationError = validateAuthorizationSecurity(
+            client, code_challenge, code_challenge_method, nonce, state
+        );
+        if (authorizationError) {
+            return res.status(400).json({ error: 'invalid_request', error_description: authorizationError });
+        }
+
+        // The browser consent page uses the AuthSys session cookie. Bind its
+        // state-changing POST to a short-lived CSRF token. Authorization must
+        // always use the already-authenticated AuthSys browser session.
+        const sessionUser = await getActiveSessionUser(req);
+        if (sessionUser && !validateCSRFToken(req.body.csrf_token, sessionUser._id.toString())) {
+            return res.status(403).json({ error: 'csrf_invalid', error_description: 'Invalid authorization request' });
+        }
+
         const sep = redirect_uri.includes('?') ? '&' : '?';
+        if (!['allow', 'deny'].includes(action)) {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: 'action must be allow or deny'
+            });
+        }
 
         // ─── Deny ──────────────────────────────────────────────────
+        // Validate the client and callback before returning an error redirect.
         if (action === 'deny') {
+            if (req.session?.oauthClientFlow?.clientId === client_id) {
+                delete req.session.oauthClientFlow;
+            }
             return res.json({
                 success: false,
                 redirect_url: `${redirect_uri}${sep}error=access_denied` +
@@ -258,82 +442,17 @@ exports.authorize = async (req, res, next) => {
             });
         }
 
-        // ─── validate client ───────────────────────────────────────
-        const client = await Client.findActiveClient(client_id, redirect_uri);
-        if (!client) {
-            return res.status(400).json({ error: 'Invalid client or redirect URI' });
+        if (!sessionUser) {
+            return res.status(401).json({
+                error: 'login_required',
+                error_description: 'Sign in to AuthSys before approving an application'
+            });
         }
-
-        let userId;
-
-        // ─── เช็ค session ─────────────────────────────────────────
-        if (req.session?.user) {
-            userId = req.session.user.id;
-        } else {
-            // ต้อง login
-            if (!email || !password) {
-                return res.status(400).json({ error: 'Email and password are required' });
-            }
-
-            const bcrypt = require('bcryptjs');
-            const SecurityAudit = require('../../../shared/models/SecurityAudit');
-            const user   = await User.findOne({ email }).select('+password +failedLoginAttempts +lockUntil');
-            if (!user) {
-                return res.status(401).json({ error: 'Invalid credentials' });
-            }
-
-            if (!user.isActive) {
-                return res.status(403).json({ error: 'Account is inactive' });
-            }
-
-            if (user.isLocked()) {
-                return res.status(423).json({ error: 'Account is temporarily locked due to too many failed attempts' });
-            }
-
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) {
-                await user.incrementLoginAttempts();
-                SecurityAudit.logEvent({
-                    userId: user._id,
-                    action: 'login_failed',
-                    status: 'failure',
-                    ipAddress: req.ip,
-                    userAgent: req.headers['user-agent'],
-                    metadata: { context: 'oauth_authorize', client_id }
-                }).catch(() => {});
-                return res.status(401).json({ error: 'Invalid credentials' });
-            }
-
-            await user.resetLoginAttempts();
-            SecurityAudit.logEvent({
-                userId: user._id,
-                action: 'login_success',
-                status: 'success',
-                ipAddress: req.ip,
-                userAgent: req.headers['user-agent'],
-                metadata: { context: 'oauth_authorize', client_id }
-            }).catch(() => {});
-
-            // บันทึก session
-            req.session.user = {
-                id:       user._id.toString(),
-                email:    user.email,
-                username: user.username,
-                role:     user.role
-            };
-
-            userId = user._id.toString();
-        }
+        const userId = sessionUser._id.toString();
 
         // ─── บันทึก Consent ───────────────────────────────────────
-        // Validate and sanitize scope, then clamp to client's registered scope
-        const rawScope = scope
-            ? scope.replace(/[^\w\s:]/g, '').trim()
-            : 'openid profile email';
-
-        const OIDC_BASE = new Set(['openid', 'profile', 'email']);
-        const clientAllowed = new Set(client.scope ? client.scope.split(/\s+/) : []);
-        const validScopes = rawScope.split(/\s+/).filter(s => s && (OIDC_BASE.has(s) || clientAllowed.has(s)));
+        // Validate and sanitize scope, then clamp to client's registered scope.
+        const validScopes = sanitizeRequestedScopes(scope, client.scope);
 
         if (validScopes.length === 0) {
             return res.status(400).json({
@@ -344,7 +463,10 @@ exports.authorize = async (req, res, next) => {
 
         const sanitizedScope = validScopes.join(' ');
 
-        await Consent.saveConsent(userId, client_id, sanitizedScope);
+        const consent = await Consent.saveConsent(userId, client_id, sanitizedScope);
+        if (req.session?.oauthClientFlow?.clientId === client_id) {
+            delete req.session.oauthClientFlow;
+        }
         securityAuditService.logSecurityEvent({
             userId,
             action: 'consent_granted',
@@ -355,13 +477,15 @@ exports.authorize = async (req, res, next) => {
 
         // ─── ออก code ─────────────────────────────────────────────
         const pkce = code_challenge
-            ? { code_challenge, code_challenge_method: code_challenge_method || 'S256' }
+            ? { code_challenge, code_challenge_method }
             : null;
 
         const code = await oauthService.generateAuthorizationCode(
             userId, client_id, redirect_uri,
             sanitizedScope,
-            pkce
+            pkce,
+            nonce,
+            consent.grantId
         );
 
         logger.info(`OAuth Authorization granted: user=${userId} client=${client_id}`, {
@@ -391,7 +515,7 @@ exports.authorize = async (req, res, next) => {
 // token endpoint - รับ code_verifier
 exports.token = async (req, res, next) => {
     try {
-        const {
+        let {
             code,
             client_id,
             client_secret,
@@ -402,6 +526,25 @@ exports.token = async (req, res, next) => {
             session_token
         } = req.body;
 
+        // Support the RFC 6749 client_secret_basic method advertised by
+        // discovery, while retaining client_secret_post for existing clients.
+        const basic = req.headers.authorization;
+        if ((!client_id || !client_secret) && basic?.startsWith('Basic ')) {
+            try {
+                const decoded = Buffer.from(basic.slice(6), 'base64').toString('utf8');
+                const separator = decoded.indexOf(':');
+                if (separator > 0) {
+                    client_id = decodeURIComponent(decoded.slice(0, separator));
+                    client_secret = decodeURIComponent(decoded.slice(separator + 1));
+                }
+            } catch {
+                return res.status(401).json({
+                    error: 'invalid_client',
+                    error_description: 'Invalid client authentication'
+                });
+            }
+        }
+
         if (grant_type === 'refresh_token') {
             if (!refresh_token) {
                 return res.status(400).json({
@@ -409,6 +552,34 @@ exports.token = async (req, res, next) => {
                     error_description: 'refresh_token is required'
                 });
             }
+
+            // This server registers confidential OAuth clients. Require the
+            // client credentials on refresh so a stolen refresh token cannot
+            // be replayed by an unrelated application.
+            if (!client_id || !client_secret) {
+                return res.status(401).json({
+                    error: 'invalid_client',
+                    error_description: 'client_id and client_secret are required'
+                });
+            }
+            const refreshClient = await Client.findOne({ client_id, isActive: true }).select('+client_secret');
+            if (!refreshClient || refreshClient.application_type !== 'web' ||
+                !Array.isArray(refreshClient.grant_types) ||
+                !refreshClient.grant_types.includes('refresh_token') ||
+                !(await refreshClient.compareSecret(client_secret))) {
+                return res.status(401).json({
+                    error: 'invalid_client',
+                    error_description: 'Invalid client credentials'
+                });
+            }
+            const refreshClaims = jwt.decode(refresh_token);
+            if (!refreshClaims || refreshClaims.client_id !== client_id) {
+                return res.status(401).json({
+                    error: 'invalid_grant',
+                    error_description: 'Refresh token does not belong to this client'
+                });
+            }
+
             const result = await oauthService.refreshAccessToken(refresh_token, { sessionToken: session_token });
             
             logger.info(`OAuth Token refreshed: client=${client_id}`, {
@@ -434,6 +605,12 @@ exports.token = async (req, res, next) => {
         }
 
 
+        if (!code_verifier) {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: 'code_verifier is required for authorization_code'
+            });
+        }
         const tokens = await oauthService.exchangeCodeForTokens(
             code,
             client_id,
@@ -457,7 +634,9 @@ exports.token = async (req, res, next) => {
         });
         res.status(401).json({
             error: 'invalid_grant',
-            error_description: error.message
+            error_description: error.name === 'TokenExpiredError'
+                ? 'Authorization grant expired'
+                : 'Invalid authorization grant'
         });
     }
 };
@@ -521,21 +700,61 @@ exports.userinfo = async (req, res, next) => {
 
         res.status(401).json({
             error: 'invalid_token',
-            error_description: error.message || 'Invalid token'
+            error_description: 'Invalid access token'
         });
     }
 };
 
 exports.revokeToken = async (req, res, next) => {
     try {
-        const { token } = req.body;
-        const userId = req.user.id;
+        let { token, client_id, client_secret } = req.body;
 
         if (!token) {
             return res.status(400).json({
                 success: false,
                 error: 'Token is required'
             });
+        }
+
+        const basic = req.headers.authorization;
+        if ((!client_id || !client_secret) && basic?.startsWith('Basic ')) {
+            const decodedBasic = Buffer.from(basic.slice(6), 'base64').toString('utf8');
+            const separator = decodedBasic.indexOf(':');
+            if (separator > 0) {
+                client_id = decodeURIComponent(decodedBasic.slice(0, separator));
+                client_secret = decodeURIComponent(decodedBasic.slice(separator + 1));
+            }
+        }
+
+        const claims = jwt.decode(token);
+        if (!claims?.sub) {
+            return res.status(400).json({ error: 'invalid_request', error_description: 'Invalid token' });
+        }
+
+        let userId = claims.sub;
+        if (client_id || client_secret) {
+            if (!client_id || !client_secret) {
+                return res.status(401).json({ error: 'invalid_client', error_description: 'Complete client authentication is required' });
+            }
+            const client = await Client.findOne({ client_id, isActive: true }).select('+client_secret');
+            if (!client || !(await client.compareSecret(client_secret))) {
+                return res.status(401).json({ error: 'invalid_client', error_description: 'Invalid client credentials' });
+            }
+            if (claims.client_id && claims.client_id !== client_id) {
+                return res.status(401).json({ error: 'invalid_client', error_description: 'Token does not belong to this client' });
+            }
+        } else {
+            // First-party compatibility path: validate the bearer as a live
+            // access token before allowing it to revoke itself.
+            const bearer = basic?.startsWith('Bearer ') ? basic.slice(7) : null;
+            if (!bearer) {
+                return res.status(401).json({ error: 'invalid_client', error_description: 'OAuth client credentials or matching bearer token required' });
+            }
+            const bearerClaims = await oauthService.verifyAccessToken(bearer);
+            if (bearerClaims.sub !== claims.sub) {
+                return res.status(403).json({ error: 'access_denied', error_description: 'Token belongs to another user' });
+            }
+            userId = bearerClaims.sub;
         }
 
         await oauthService.revokeToken(token, userId, 'user_logout');
@@ -548,7 +767,11 @@ exports.revokeToken = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('Revoke token error:', error);
-        next(error);
+        res.status(401).json({
+            success: false,
+            error: 'invalid_request',
+            error_description: 'Unable to revoke token'
+        });
     }
 };
 
@@ -557,7 +780,16 @@ exports.revokeToken = async (req, res, next) => {
  */
 exports.introspectToken = async (req, res, next) => {
     try {
-        const { token, client_id, client_secret } = req.body;
+        let { token, client_id, client_secret } = req.body;
+
+        if ((!client_id || !client_secret) && req.headers.authorization?.startsWith('Basic ')) {
+            const decodedBasic = Buffer.from(req.headers.authorization.slice(6), 'base64').toString('utf8');
+            const separator = decodedBasic.indexOf(':');
+            if (separator > 0) {
+                client_id = decodeURIComponent(decodedBasic.slice(0, separator));
+                client_secret = decodeURIComponent(decodedBasic.slice(separator + 1));
+            }
+        }
 
         if (!token) {
             return res.status(400).json({
@@ -587,7 +819,11 @@ exports.introspectToken = async (req, res, next) => {
         res.json(result);
     } catch (error) {
         logger.error('Introspect token error:', error);
-        next(error);
+        res.status(401).json({
+            active: false,
+            error: 'invalid_token',
+            error_description: 'Unable to introspect token'
+        });
     }
 };
 
@@ -604,7 +840,7 @@ exports.revokeConsent = async (req, res, next) => {
             return res.status(400).json({ success: false, error: 'clientId is required' });
         }
 
-        await Consent.revokeConsent(userId, clientId);
+        await Consent.revokeConsent(userId, clientId, 'user_request');
 
         logger.info(`Consent revoked: userId=${userId} clientId=${clientId}`);
 
@@ -614,3 +850,52 @@ exports.revokeConsent = async (req, res, next) => {
         next(error);
     }
 }; 
+
+/**
+ * List the current user's active OAuth consents.
+ * GET /api/oauth/consents
+ */
+exports.listConsents = async (req, res, next) => {
+    try {
+        const consents = await Consent.find({
+            userId: req.user.id,
+            revokedAt: null,
+            expiresAt: { $gt: new Date() }
+        }).sort({ updatedAt: -1 }).lean();
+
+        const clientIds = consents.map(consent => consent.clientId);
+        const clients = await Client.find({ client_id: { $in: clientIds } })
+            .select('client_id client_name logo_uri')
+            .lean();
+        const clientMap = new Map(clients.map(client => [client.client_id, client]));
+
+        res.json({
+            success: true,
+            data: {
+                consents: consents.map(consent => ({
+                    client_id: consent.clientId,
+                    client_name: clientMap.get(consent.clientId)?.client_name || 'Unknown application',
+                    logo_uri: clientMap.get(consent.clientId)?.logo_uri || null,
+                    scope: consent.scope,
+                    granted_at: consent.grantedAt,
+                    expires_at: consent.expiresAt
+                }))
+            }
+        });
+    } catch (error) {
+        logger.error('List consent error:', error);
+        next(error);
+    }
+};
+
+/**
+ * Issue a short-lived CSRF token for the browser consent form.
+ * GET /api/oauth/csrf
+ */
+exports.csrfToken = async (req, res) => {
+    const user = await getActiveSessionUser(req);
+    if (!user) {
+        return res.status(401).json({ error: 'login_required' });
+    }
+    res.json({ csrf_token: generateCSRFToken(user._id.toString()) });
+};

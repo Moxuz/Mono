@@ -28,10 +28,6 @@
       "description": "User management endpoints"
     },
     {
-      "name": "2FA",
-      "description": "Two-factor authentication endpoints"
-    },
-    {
       "name": "Sessions",
       "description": "Session management endpoints"
     },
@@ -216,36 +212,6 @@
             }
           },
           "401": { "description": "Invalid refresh token" }
-        }
-      }
-    },
-    "/api/auth/verify-email": {
-      "get": {
-        "tags": ["Authentication"],
-        "summary": "Verify email address",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": true,
-            "schema": { "type": "string" }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Email verified successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "message": { "type": "string", "example": "Email verified successfully" }
-                  }
-                }
-              }
-            }
-          }
         }
       }
     },
@@ -502,7 +468,6 @@
                     "sub": { "type": "string" },
                     "name": { "type": "string" },
                     "email": { "type": "string" },
-                    "email_verified": { "type": "boolean" },
                     "picture": { "type": "string" }
                   }
                 }
@@ -735,90 +700,6 @@
                     "client_id": { "type": "string" },
                     "username": { "type": "string" },
                     "exp": { "type": "number" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/2fa/setup": {
-      "post": {
-        "tags": ["2FA"],
-        "summary": "Setup 2FA",
-        "security": [{ "bearerAuth": [] }],
-        "responses": {
-          "200": {
-            "description": "2FA setup information",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean" },
-                    "qrCodeUrl": { "type": "string" },
-                    "secret": { "type": "string" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/2fa/verify": {
-      "post": {
-        "tags": ["2FA"],
-        "summary": "Verify 2FA code",
-        "security": [{ "bearerAuth": [] }],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["code"],
-                "properties": {
-                  "code": { "type": "string", "example": "123456" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "2FA verified successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean" },
-                    "message": { "type": "string" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/2fa/backup-codes": {
-      "post": {
-        "tags": ["2FA"],
-        "summary": "Generate backup codes",
-        "security": [{ "bearerAuth": [] }],
-        "responses": {
-          "200": {
-            "description": "Backup codes generated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean" },
-                    "backupCodes": { "type": "array", "items": { "type": "string" } }
                   }
                 }
               }
@@ -1116,8 +997,6 @@
           "email": { "type": "string" },
           "role": { "type": "string", "enum": ["user", "admin", "moderator"] },
           "isActive": { "type": "boolean" },
-          "emailVerified": { "type": "boolean" },
-          "twoFactorEnabled": { "type": "boolean" },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         }

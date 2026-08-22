@@ -69,7 +69,7 @@ class AuthService {
             logger.info(`User created successfully: ${user.email} (ID: ${user._id})`);
 
             // Log security event first — audit must succeed before firing email
-            securityAuditService.logSecurityEvent({
+            await securityAuditService.logSecurityEvent({
                 userId: user._id,
                 action: 'account_created',
                 status: 'success',
@@ -124,7 +124,7 @@ class AuthService {
     }
 
     // อัปเดตสถานะการยินยอม cookie ของ user
-    async updateCookieConsent(userId, { cookieConsentAccepted, cookieConsentAt, consentIp, version }) {
+    async updateCookieConsent(userId, { cookieConsentAccepted, analyticsAccepted, cookieConsentAt, consentIp, version }) {
         try {
             logger.info(`Updating cookie consent for user ID: ${userId}`);
 
@@ -138,6 +138,11 @@ class AuthService {
             user.pdpaConsent.cookieConsentAt       = cookieConsentAt;
             user.pdpaConsent.consentIp             = consentIp;
             user.pdpaConsent.policyVersion         = version || user.pdpaConsent.policyVersion;
+
+            if (typeof analyticsAccepted === 'boolean') {
+                user.pdpaConsent.analyticsAccepted = analyticsAccepted;
+                user.pdpaConsent.analyticsAcceptedAt = cookieConsentAt;
+            }
 
             await user.save();
             logger.info(`Cookie consent updated for user: ${user.email}`);
@@ -231,7 +236,8 @@ class AuthService {
                     user._id,
                     token,
                     refreshToken,
-                    req
+                    req,
+                    remember
                 );
                 logger.info(`Session created for user: ${email} (Session ID: ${session.sessionId})`);
             } catch (error) {
@@ -264,6 +270,7 @@ class AuthService {
                 email: user.email,
                 role: user.role,
                 provider: user.googleId ? 'google' : user.githubId ? 'github' : 'local',
+                type: 'access_token',
                 jti: crypto.randomBytes(16).toString('hex')
             },
             config.JWT_SECRET,
@@ -298,6 +305,9 @@ class AuthService {
             }
 
             const decoded = jwt.verify(token, config.JWT_SECRET);
+            if (decoded.type !== 'access_token') {
+                return { valid: false, error: 'Invalid access token' };
+            }
 
             const now = Math.floor(Date.now() / 1000);
             if (decoded.exp && decoded.exp < now) {
@@ -482,16 +492,18 @@ class AuthService {
             const Session = require('../../../shared/models/Session');
 
             const sessions = await Session.find({ userId, isActive: true });
+            const tokenReason = reason === 'password_change' ? 'password_changed' : reason;
+            const sessionReason = reason === 'password_changed' ? 'password_change' : reason;
 
             for (const session of sessions) {
                 if (session.accessTokenHash) {
-                    await TokenBlacklist.revokeByHash(session.accessTokenHash, userId, null, reason);
+                    await TokenBlacklist.revokeByHash(session.accessTokenHash, userId, null, tokenReason);
                 }
                 if (session.refreshTokenHash) {
-                    await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, null, reason);
+                    await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, null, tokenReason);
                 }
 
-                await Session.updateOne({ _id: session._id }, { $set: { isActive: false, revokedAt: new Date(), revokeReason: 'security_breach' } });
+                await Session.updateOne({ _id: session._id }, { $set: { isActive: false, revokedAt: new Date(), revokeReason: sessionReason } });
             }
 
             logger.warn(`All tokens blacklisted for user ${userId} - Reason: ${reason}`);
@@ -624,10 +636,17 @@ class AuthService {
             logger.info(`Password reset requested for: ${email}`);
 
             const user = await User.findOne({ email })
-                .select('+passwordResetToken +passwordResetExpires');
+                .select('+password +passwordResetToken +passwordResetExpires');
 
             if (!user) {
                 logger.info(`Password reset - email not found (not revealing): ${email}`);
+                return { message: 'If this email exists, a reset link has been sent.' };
+            }
+
+            // Social-only accounts do not have a local password to reset.
+            // They must authenticate with Google/GitHub and use Set password.
+            if (!user.password) {
+                logger.info(`Password reset skipped - social-only account: ${user.email}`);
                 return { message: 'If this email exists, a reset link has been sent.' };
             }
 
@@ -678,6 +697,15 @@ class AuthService {
 
             if (!user) {
                 logger.warn('Password reset failed - invalid or expired token');
+                throw new Error('Invalid or expired reset token');
+            }
+
+            // Tokens created for social-only accounts by older builds are not
+            // usable as local password resets.
+            if (!user.password) {
+                user.passwordResetToken = undefined;
+                user.passwordResetExpires = undefined;
+                await user.save();
                 throw new Error('Invalid or expired reset token');
             }
 
@@ -734,6 +762,17 @@ class AuthService {
                 throw new Error('User not found');
             }
 
+            if (preferences.theme !== undefined && !['dark', 'light', 'auto'].includes(preferences.theme)) {
+                throw new Error('Invalid theme preference');
+            }
+            if (preferences.language !== undefined && !['en', 'th'].includes(preferences.language)) {
+                throw new Error('Invalid language preference');
+            }
+            if (preferences.notifications !== undefined &&
+                (typeof preferences.notifications !== 'object' || preferences.notifications === null || Array.isArray(preferences.notifications))) {
+                throw new Error('Invalid notification preferences');
+            }
+
             if (preferences.theme) {
                 user.preferences.theme = preferences.theme;
             }
@@ -785,7 +824,23 @@ class AuthService {
         }
     }
 
-    // เปลี่ยนรหัสผ่าน โดยตรวจสอบรหัสเดิมก่อน (ยกเว้น OAuth user)
+    // ตั้ง local password ครั้งแรกสำหรับบัญชีที่ authenticate ผ่าน OAuth
+    async setPassword(userId, newPassword, req) {
+        const user = await User.findById(userId).select('+password');
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (user.password) {
+            const error = new Error('Password is already set');
+            error.code = 'PASSWORD_ALREADY_SET';
+            throw error;
+        }
+
+        return this.changePassword(userId, null, newPassword, req);
+    }
+
+    // เปลี่ยนรหัสผ่าน โดยตรวจสอบรหัสเดิมก่อน
     async changePassword(userId, currentPassword, newPassword, req) {
         try {
             logger.info(`Password change requested for user ID: ${userId}`);
@@ -824,6 +879,8 @@ class AuthService {
 
             user.password = newPassword;
             await user.save();
+            // Password changes invalidate every OAuth/web session credential.
+            await this.blacklistAllUserTokens(userId, 'password_change');
             logger.info(`Password updated for user: ${user.email}`);
 
             emailService

@@ -12,7 +12,7 @@ describe('Get Sessions', () => {
     let user;
 
     beforeAll(async () => { user = await createTestUser('getsess'); });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('GET /api/auth/sessions → 200, array with at least 1 session', async () => {
         const res = await get('/api/auth/sessions', user.token);
@@ -56,10 +56,10 @@ describe('Revoke Single Session', () => {
     beforeAll(async () => {
         // Login twice to get two sessions
         user = await createTestUser('revokesess');
-        const login2 = await post('/api/auth/login', { email: user.email, password: user.password });
+        const login2 = await post('/api/auth/login/token', { email: user.email, password: user.password });
         sessionId = (login2.data.data || login2.data).sessionId;
     });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('POST /api/auth/sessions/revoke with valid sessionId → 200', async () => {
         const res = await post('/api/auth/sessions/revoke', { sessionId }, user.token);
@@ -92,12 +92,12 @@ describe('Revoke All Others', () => {
 
     beforeAll(async () => {
         user = await createTestUser('revokeall');
-        const login2 = await post('/api/auth/login', { email: user.email, password: user.password });
+        const login2 = await post('/api/auth/login/token', { email: user.email, password: user.password });
         const d2 = login2.data.data || login2.data;
         session2Token = d2.token;
         session2Id    = d2.sessionId;
     });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('POST /api/auth/sessions/revoke-all-others → 200, count ≥ 1', async () => {
         const res = await post('/api/auth/sessions/revoke-all-others',
@@ -129,7 +129,7 @@ describe('Emergency Lockdown', () => {
     beforeAll(async () => { user = await createTestUser('lockdown'); });
     afterAll(async () => {
         // Re-login since lockdown revokes all tokens
-        const res = await post('/api/auth/login', { email: user.email, password: user.password });
+        const res = await post('/api/auth/login/token', { email: user.email, password: user.password });
         if (res.status === 200) {
             const t = (res.data.data || res.data).token;
             await cleanupUser(user.password, t);

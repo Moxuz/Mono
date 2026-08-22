@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const consentSchema = new mongoose.Schema({
     userId: {
@@ -8,7 +9,17 @@ const consentSchema = new mongoose.Schema({
     },
     clientId: {
         type: String,
-        required: true
+        required: true,
+        index: true
+    },
+    // New or changed approvals receive a new grant identifier. Repeating an active
+    // approval for the same scopes keeps the grant so existing tokens remain valid;
+    // explicit revocation still changes the grant on the next approval.
+    grantId: {
+        type: String,
+        required: true,
+        index: true,
+        default: () => crypto.randomBytes(24).toString('hex')
     },
     scope: {
         type: String,
@@ -18,55 +29,118 @@ const consentSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    revokedAt: {
+        type: Date,
+        default: null,
+        index: true
+    },
+    revokeReason: {
+        type: String,
+        default: null
+    },
     expiresAt: {
         type: Date,
-        default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 วัน
+        default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         index: { expires: 0 }
     }
 }, {
     timestamps: true
 });
 
-// ─── index ป้องกัน duplicate ──────────────────────────────────────
+// One active grant record per user/client. Revocation keeps the record for
+// audit/history and a later approval receives a new grantId.
 consentSchema.index({ userId: 1, clientId: 1 }, { unique: true });
 
-// ─── เช็คว่าเคย consent แล้วยัง ──────────────────────────────────
-consentSchema.statics.hasConsented = async function(userId, clientId, scope) {
+// Read the currently active grant and ensure it covers requested scopes.
+consentSchema.statics.getActiveGrant = async function(userId, clientId, scope = '') {
     const consent = await this.findOne({
         userId,
         clientId,
+        revokedAt: null,
         expiresAt: { $gt: new Date() }
     });
 
-    if (!consent) return false;
+    if (!consent) return null;
 
-    // เช็คว่า scope ที่ขอ ครอบคลุมอยู่ใน scope ที่เคย approve ไหม
-    const approvedScopes = consent.scope.split(' ');
-    const requestedScopes = scope.split(' ');
-    return requestedScopes.every(s => approvedScopes.includes(s));
+    // Upgrade records created before grant binding without document validation.
+    if (!consent.grantId) {
+        const grantId = crypto.randomBytes(24).toString('hex');
+        await this.updateOne({ _id: consent._id }, { $set: { grantId } });
+        consent.grantId = grantId;
+    }
+
+    const requestedScopes = String(scope || '').split(/\s+/).filter(Boolean);
+    if (requestedScopes.length > 0) {
+        const approvedScopes = new Set(String(consent.scope || '').split(/\s+/).filter(Boolean));
+        if (!requestedScopes.every((requested) => approvedScopes.has(requested))) {
+            return null;
+        }
+    }
+
+    return consent;
 };
 
-// ─── บันทึก consent ───────────────────────────────────────────────
+consentSchema.statics.hasConsented = async function(userId, clientId, scope) {
+    return Boolean(await this.getActiveGrant(userId, clientId, scope));
+};
+
+// Standard identity consent is remembered for 30 days. Extended/resource
+// scopes are remembered for 7 days in this private deployment.
 consentSchema.statics.saveConsent = async function(userId, clientId, scope) {
-    // Scope-based TTL: standard OIDC scopes → 30d; extended scopes → 7d
-    const OIDC_BASE = new Set(['openid', 'profile', 'email']);
-    const hasExtendedScopes = scope.split(/\s+/).some(s => s && !OIDC_BASE.has(s));
+    const OIDC_BASE = new Set(['openid', 'profile', 'email', 'offline_access']);
+    const normalizedScope = String(scope || '').split(/\s+/).filter(Boolean).join(' ');
+    const hasExtendedScopes = normalizedScope.split(' ').some((s) => s && !OIDC_BASE.has(s));
     const ttlDays = hasExtendedScopes ? 7 : 30;
+    const now = new Date();
+
+    const current = await this.findOne({ userId, clientId })
+        .select('grantId scope revokedAt expiresAt');
+    const currentScopes = new Set(String(current?.scope || '').split(/\s+/).filter(Boolean));
+    const requestedScopes = new Set(normalizedScope.split(' ').filter(Boolean));
+    const sameScope = Boolean(current) && currentScopes.size === requestedScopes.size &&
+        [...requestedScopes].every((requested) => currentScopes.has(requested));
+    const keepGrant = Boolean(current?.grantId && !current.revokedAt &&
+        current.expiresAt && current.expiresAt > now && sameScope);
+    const grantId = keepGrant ? current.grantId : crypto.randomBytes(24).toString('hex');
+
     return this.findOneAndUpdate(
         { userId, clientId },
         {
-            userId,
-            clientId,
-            scope,
-            expiresAt: new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000)
+            $set: {
+                userId,
+                clientId,
+                scope: normalizedScope,
+                grantId,
+                grantedAt: new Date(),
+                revokedAt: null,
+                revokeReason: null,
+                expiresAt: new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000)
+            }
         },
-        { upsert: true, new: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 };
 
-// ─── ยกเลิก consent ───────────────────────────────────────────────
-consentSchema.statics.revokeConsent = async function(userId, clientId) {
-    await this.deleteOne({ userId, clientId });
+// Keep a tombstone so existing grants cannot silently become valid again.
+consentSchema.statics.revokeConsent = async function(userId, clientId, reason = 'user_request') {
+    return this.updateOne(
+        { userId, clientId, revokedAt: null },
+        { $set: { revokedAt: new Date(), revokeReason: reason } }
+    );
+};
+
+consentSchema.statics.revokeAllForUser = async function(userId, reason = 'user_deactivated') {
+    return this.updateMany(
+        { userId, revokedAt: null },
+        { $set: { revokedAt: new Date(), revokeReason: reason } }
+    );
+};
+
+consentSchema.statics.revokeAllForClient = async function(clientId, reason = 'client_deactivated') {
+    return this.updateMany(
+        { clientId, revokedAt: null },
+        { $set: { revokedAt: new Date(), revokeReason: reason } }
+    );
 };
 
 module.exports = mongoose.model('Consent', consentSchema);

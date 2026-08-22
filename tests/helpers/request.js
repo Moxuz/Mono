@@ -39,6 +39,7 @@ function makeRequest(method, path, body = null, token = null, extra = {}) {
             port: url.port || (isHttps ? 443 : 80),
             path: url.pathname + url.search,
             method: method.toUpperCase(),
+            agent: false,
             headers,
         };
 

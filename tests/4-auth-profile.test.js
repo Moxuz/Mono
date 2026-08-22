@@ -12,7 +12,7 @@ describe('Get Profile', () => {
     let user;
 
     beforeAll(async () => { user = await createTestUser('profile'); });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('GET /api/auth/profile → 200, contains id/username/email/role', async () => {
         const res = await get('/api/auth/profile', user.token);
@@ -44,7 +44,7 @@ describe('Preferences', () => {
     let user;
 
     beforeAll(async () => { user = await createTestUser('prefs'); });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('GET /api/auth/preferences → 200, has theme/language/notifications', async () => {
         const res = await get('/api/auth/preferences', user.token);
@@ -78,7 +78,7 @@ describe('Cookie Consent', () => {
     let user;
 
     beforeAll(async () => { user = await createTestUser('consent'); });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('POST /api/auth/update-cookie-consent { cookieConsentAccepted: true } → 200', async () => {
         const res = await post('/api/auth/update-cookie-consent', {
@@ -114,7 +114,7 @@ describe('Audit Logs', () => {
     let user;
 
     beforeAll(async () => { user = await createTestUser('auditlogs'); });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('GET /api/auth/audit-logs → 200, array', async () => {
         const res = await get('/api/auth/audit-logs', user.token);
@@ -149,7 +149,7 @@ describe('Delete Account', () => {
     it('login with deleted account → 401', async () => {
         const user = await createTestUser('del2');
         await del('/api/auth/delete-account', { password: user.password }, user.token);
-        const login = await post('/api/auth/login', { email: user.email, password: user.password });
+        const login = await post('/api/auth/login/token', { email: user.email, password: user.password });
         expect(login.status).toBe(401);
     });
 

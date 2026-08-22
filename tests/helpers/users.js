@@ -30,7 +30,7 @@ async function createTestUser(suffix = '') {
         throw new Error(`createTestUser: register failed ${reg.status} — ${JSON.stringify(reg.data)}`);
     }
 
-    const login = await post('/api/auth/login', { email, password });
+    const login = await post('/api/auth/login/token', { email, password });
     if (login.status !== 200) {
         throw new Error(`createTestUser: login failed ${login.status} — ${JSON.stringify(login.data)}`);
     }

@@ -17,6 +17,12 @@ const authorizationCodeSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    // Bind the one-time code to the exact consent grant that approved it.
+    grantId: {
+        type: String,
+        required: true,
+        index: true
+    },
     redirectUri: {
         type: String,
         required: true
@@ -36,7 +42,7 @@ const authorizationCodeSchema = new mongoose.Schema({
         index: { expires: 0 }
     },
 
-    // PKCE fields สำหรับ OAuth 2.0 code challenge
+    // PKCE fields for OAuth 2.0 code challenge
     code_challenge: {
         type: String,
         default: null
@@ -45,6 +51,12 @@ const authorizationCodeSchema = new mongoose.Schema({
         type: String,
         enum: ['S256'],
         default: 'S256'
+    },
+    // OIDC nonce is echoed into the ID token to prevent replay/mix-up attacks.
+    nonce: {
+        type: String,
+        maxlength: 255,
+        default: null
     }
 
 }, {

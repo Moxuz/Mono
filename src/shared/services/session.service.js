@@ -1,4 +1,5 @@
 const Session = require('../models/Session');
+const TokenBlacklist = require('../models/TokenBlacklist');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const securityAuditService = require('../services/securityAudit.service');
@@ -38,7 +39,7 @@ function parseUserAgent(userAgent) {
 /**
  * Create new session
  */
-async function createSession(userId, accessToken, refreshToken, req) {
+async function createSession(userId, accessToken, refreshToken, req, remember = false) {
     try {
         const userAgent = req?.headers?.['user-agent'] || '';
         let ipAddress = req?.ip || req?.headers?.['x-forwarded-for']?.split(',')[0] || 'unknown';
@@ -53,7 +54,8 @@ async function createSession(userId, accessToken, refreshToken, req) {
             refreshToken,
             userAgent,
             ipAddress,  
-            deviceInfo
+            deviceInfo,
+            expiresAt: new Date(Date.now() + (remember ? 30 : 1) * 24 * 60 * 60 * 1000)
         };
         
         const result = await Session.createSession(sessionData);
@@ -73,6 +75,20 @@ async function createSession(userId, accessToken, refreshToken, req) {
     } catch (error) {
         logger.error('Create session error:', error);
         throw error;
+    }
+}
+
+function blacklistReason(reason) {
+    return reason === 'password_change' ? 'password_changed' : reason;
+}
+
+async function blacklistSessionTokens(session, userId, reason) {
+    const tokenReason = blacklistReason(reason);
+    if (session.accessTokenHash) {
+        await TokenBlacklist.revokeByHash(session.accessTokenHash, userId, null, tokenReason);
+    }
+    if (session.refreshTokenHash) {
+        await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, null, tokenReason);
     }
 }
 
@@ -137,6 +153,8 @@ async function revokeSession(sessionId, userId, reason = 'user_logout') {
         if (!session) {
             throw new Error('Session not found');
         }
+
+        await blacklistSessionTokens(session, userId, reason);
         
         await session.revoke(reason);
         
@@ -154,6 +172,12 @@ async function revokeSession(sessionId, userId, reason = 'user_logout') {
  */
 async function revokeAllOtherSessions(userId, currentSessionId, reason = 'user_logout') {
     try {
+        const query = { userId, isActive: true };
+        if (currentSessionId) query._id = { $ne: currentSessionId };
+        const sessions = await Session.find(query);
+        for (const session of sessions) {
+            await blacklistSessionTokens(session, userId, reason);
+        }
         await Session.revokeAllSessions(userId, reason, currentSessionId);
         
         logger.info(`All other sessions revoked for user ${userId}`, { function: 'revokeAllOtherSessions', userId, excludedSessionId: currentSessionId });
@@ -170,6 +194,10 @@ async function revokeAllOtherSessions(userId, currentSessionId, reason = 'user_l
  */
 async function revokeAllSessions(userId, reason = 'user_logout') {
     try {
+        const sessions = await Session.find({ userId, isActive: true });
+        for (const session of sessions) {
+            await blacklistSessionTokens(session, userId, reason);
+        }
         await Session.revokeAllSessions(userId, reason, null);
         
         logger.info(`All sessions revoked for user ${userId}`, { reason });

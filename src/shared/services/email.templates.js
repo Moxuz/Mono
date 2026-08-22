@@ -1,5 +1,15 @@
 const config = require('../config/config');
 
+const escapeHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const safeAuthUrl = escapeHtml(config.AUTH_SERVER_URL);
+const safeFromAddress = escapeHtml(config.email.fromAddress);
+
 const baseLayout = (content) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -42,9 +52,9 @@ const baseLayout = (content) => `
       <div class="footer">
         <p>© ${new Date().getFullYear()}  Auth System. All rights reserved.</p>
         <p style="margin-top:6px">
-          <a href="${config.AUTH_SERVER_URL}/privacy-policy.html">Privacy Policy</a>
+          <a href="${safeAuthUrl}/privacy-policy.html">Terms & Privacy</a>
           &nbsp;·&nbsp;
-          <a href="mailto:support@globalauthen.com">Contact Support</a>
+          <a href="mailto:${safeFromAddress}">Contact Support</a>
         </p>
         <p style="margin-top:10px;font-size:11px;color:#bbb">
           This is an automated email. Please do not reply.
@@ -57,14 +67,17 @@ const baseLayout = (content) => `
 `;
 
 const getPasswordResetTemplate = ({ username, resetUrl }) =>
-  baseLayout(`
+  (() => {
+    const safeUsername = escapeHtml(username);
+    const safeResetUrl = escapeHtml(resetUrl);
+    return baseLayout(`
     <h2>Reset Your Password</h2>
-    <p>Hi <strong>${username}</strong>,</p>
+    <p>Hi <strong>${safeUsername}</strong>,</p>
     <p>We received a request to reset the password for your account.
        Click the button below to set a new password.</p>
 
     <div style="text-align:center; margin: 32px 0;">
-      <a href="${resetUrl}" class="btn">🔐 Reset Password</a>
+      <a href="${safeResetUrl}" class="btn">🔐 Reset Password</a>
     </div>
 
     <div class="note">
@@ -76,19 +89,22 @@ const getPasswordResetTemplate = ({ username, resetUrl }) =>
 
     <p style="font-size:13px;color:#888">
       If the button above doesn't work, copy and paste this URL into your browser:<br />
-      <a href="${resetUrl}" style="color:#667eea;word-break:break-all">${resetUrl}</a>
+      <a href="${safeResetUrl}" style="color:#667eea;word-break:break-all">${safeResetUrl}</a>
     </p>
   `);
+  })();
 
 const getWelcomeTemplate = ({ username }) =>
-  baseLayout(`
+  (() => {
+    const safeUsername = escapeHtml(username);
+    return baseLayout(`
     <h2>Welcome to Auth System! 🎉</h2>
-    <p>Hi <strong>${username}</strong>,</p>
+    <p>Hi <strong>${safeUsername}</strong>,</p>
     <p>Your account has been created successfully.
        You can now log in and start using the platform.</p>
 
     <div style="text-align:center; margin: 32px 0;">
-      <a href="${config.AUTH_SERVER_URL}/login.html" class="btn">
+      <a href="${safeAuthUrl}/login.html" class="btn">
         🚀 Go to Login
       </a>
     </div>
@@ -97,61 +113,38 @@ const getWelcomeTemplate = ({ username }) =>
 
     <p style="font-size:13px;color:#888">
       If you did not create this account, please contact us at
-      <a href="mailto:support@globalauthen.com" style="color:#667eea">
-        support@globalauthen.com
+      <a href="mailto:${safeFromAddress}" style="color:#667eea">
+        ${safeFromAddress}
       </a>
     </p>
   `);
+  })();
 
 const getPasswordChangedTemplate = ({ username }) =>
-  baseLayout(`
+  (() => {
+    const safeUsername = escapeHtml(username);
+    return baseLayout(`
     <h2>Password Changed 🔒</h2>
-    <p>Hi <strong>${username}</strong>,</p>
+    <p>Hi <strong>${safeUsername}</strong>,</p>
     <p>Your account password was changed on
        <strong>${new Date().toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' })}</strong>.
     </p>
 
     <div class="note">
       ⚠️ If you did not make this change, please
-      <a href="${config.AUTH_SERVER_URL}/login.html" style="color:#667eea">
+      <a href="${safeAuthUrl}/login.html" style="color:#667eea">
         log in immediately
       </a>
       and reset your password, or contact us at
-      <a href="mailto:support@globalauthen.com" style="color:#667eea">
-        support@globalauthen.com
+      <a href="mailto:${safeFromAddress}" style="color:#667eea">
+        ${safeFromAddress}
       </a>
     </div>
   `);
-
-const getVerificationTemplate = ({ username, verificationUrl }) =>
-  baseLayout(`
-    <h2>Verify Your Email Address ✉️</h2>
-    <p>Hi <strong>${username}</strong>,</p>
-    <p>Thanks for registering! Please verify your email address by clicking the button below.</p>
-
-    <div style="text-align:center; margin: 32px 0;">
-      <a href="${verificationUrl}" class="btn">✅ Verify Email</a>
-    </div>
-
-    <div class="note">
-      ⏱️ This link will expire in <strong>24 hours</strong>.<br />
-      If you did not create an account, you can safely ignore this email.
-    </div>
-
-    <hr class="divider" />
-
-    <p style="font-size:13px;color:#888">
-      If the button above doesn't work, copy and paste this URL into your browser:<br />
-      <a href="${verificationUrl}" style="color:#667eea;word-break:break-all">${verificationUrl}</a>
-    </p>
-    <p style="font-size:13px;color:#888;margin-top:8px">
-      ${config.AUTH_SERVER_URL}
-    </p>
-  `);
+  })();
 
 module.exports = {
   getPasswordResetTemplate,
   getWelcomeTemplate,
   getPasswordChangedTemplate,
-  getVerificationTemplate,
 };

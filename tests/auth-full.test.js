@@ -67,13 +67,13 @@ async function run() {
   // ── 2. LOGIN ─────────────────────────────────────────────────────────────
   console.log('\n\uD83D\uDD11 2. Login');
 
-  const badLogin = await req('POST', '/api/auth/login', { email, password: 'WrongPass999!' });
+  const badLogin = await req('POST', '/api/auth/login/token', { email, password: 'WrongPass999!' });
   check('Wrong password rejected (401)', badLogin.status === 401, 'HTTP ' + badLogin.status);
 
-  const noUserLogin = await req('POST', '/api/auth/login', { email: 'nobody@nowhere.com', password });
+  const noUserLogin = await req('POST', '/api/auth/login/token', { email: 'nobody@nowhere.com', password });
   check('Unknown email rejected (401)', noUserLogin.status === 401, 'HTTP ' + noUserLogin.status);
 
-  const loginRes = await req('POST', '/api/auth/login', { email, password });
+  const loginRes = await req('POST', '/api/auth/login/token', { email, password });
   check('Valid login returns 200',    loginRes.status === 200, 'HTTP ' + loginRes.status);
   check('Login returns access token', !!(loginRes.data && loginRes.data.data && loginRes.data.data.token));
   check('Login returns refreshToken', !!(loginRes.data && loginRes.data.data && loginRes.data.data.refreshToken));
@@ -147,11 +147,11 @@ async function run() {
   const cpRes = await req('POST', '/api/auth/change-password', { currentPassword: password, newPassword }, auth(workingToken));
   check('Change password succeeds (200)', cpRes.status === 200, 'HTTP ' + cpRes.status + ': ' + (cpRes.data && cpRes.data.error || ''));
 
-  const reloginRes = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const reloginRes = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   check('Login with new password works',  reloginRes.status === 200, 'HTTP ' + reloginRes.status);
   const reloginToken = reloginRes.data && reloginRes.data.data && reloginRes.data.data.token;
 
-  const oldPwdLogin = await req('POST', '/api/auth/login', { email, password });
+  const oldPwdLogin = await req('POST', '/api/auth/login/token', { email, password });
   check('Old password rejected after change', oldPwdLogin.status === 401, 'HTTP ' + oldPwdLogin.status);
 
   // ── 6. FORGOT / RESET PASSWORD ───────────────────────────────────────────
@@ -188,8 +188,8 @@ async function run() {
                 (countRes.data && countRes.data.count != null ? countRes.data.count : null));
   check('Session count >= 1', typeof count === 'number' && count >= 1, 'count: ' + count);
 
-  const extra1 = await req('POST', '/api/auth/login', { email, password: newPassword });
-  const extra2 = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const extra1 = await req('POST', '/api/auth/login/token', { email, password: newPassword });
+  const extra2 = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const tokenExtra1 = extra1.data && extra1.data.data && extra1.data.data.token;
   const sessionIdExtra1 = extra1.data && extra1.data.data && extra1.data.data.sessionId;
 
@@ -212,7 +212,7 @@ async function run() {
   // ── 8. LOGOUT ────────────────────────────────────────────────────────────
   console.log('\n\uD83D\uDEAA 8. Logout');
 
-  const loginForLogout = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginForLogout = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const logoutToken = loginForLogout.data && loginForLogout.data.data && loginForLogout.data.data.token;
   const logoutRes = await req('POST', '/api/auth/logout', null, auth(logoutToken));
   check('POST /logout returns 200', logoutRes.status === 200, 'HTTP ' + logoutRes.status);
@@ -220,7 +220,7 @@ async function run() {
   // ── 9. PREFERENCES ───────────────────────────────────────────────────────
   console.log('\n\u2699\uFE0F  9. Preferences');
 
-  const loginForPrefs = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginForPrefs = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const prefsToken = loginForPrefs.data && loginForPrefs.data.data && loginForPrefs.data.data.token;
 
   const getPrefs = await req('GET', '/api/auth/preferences', null, auth(prefsToken));
@@ -244,15 +244,6 @@ async function run() {
 
   const logsRes = await req('GET', '/api/auth/audit-logs', null, auth(prefsToken));
   check('GET /audit-logs returns 200', logsRes.status === 200, 'HTTP ' + logsRes.status);
-
-  // ── 11. EMAIL VERIFICATION ───────────────────────────────────────────────
-  console.log('\n\uD83D\uDCEC 11. Email Verification');
-
-  const resendRes = await req('POST', '/api/auth/resend-verification', { email });
-  check('POST /resend-verification returns 200 or 400', resendRes.status === 200 || resendRes.status === 400, 'HTTP ' + resendRes.status);
-
-  const badVerify = await req('GET', '/api/auth/verify-email?token=invalid-token-xyz');
-  check('Invalid verify token rejected (not 200)', badVerify.status !== 200, 'HTTP ' + badVerify.status);
 
   // ── 12. OAUTH PROVIDER STATUS & INITIATION ───────────────────────────────
   console.log('\n\uD83C\uDF10 12. OAuth Provider Status & Initiation');
@@ -293,7 +284,7 @@ async function run() {
   // ── 14. OAUTH CLIENT CRUD ────────────────────────────────────────────────
   console.log('\n\uD83D\uDD11 14. OAuth Client (API Key) CRUD');
 
-  const loginForOauth = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginForOauth = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const oauthToken = loginForOauth.data && loginForOauth.data.data && loginForOauth.data.data.token;
 
   const listEmpty = await req('GET', '/api/oauth/clients', null, auth(oauthToken));
@@ -302,15 +293,15 @@ async function run() {
   const createOauth = await req('POST', '/api/oauth/clients', {
     client_name: 'Test OAuth App',
     redirect_uris: ['http://localhost:3000/callback'],
-    application_type: 'native',
+    application_type: 'web',
     contact_email: email,
-    scope: 'read write'
+    scope: 'openid profile email'
   }, auth(oauthToken));
   check('POST /oauth/clients returns 201', createOauth.status === 201, 'HTTP ' + createOauth.status);
   const client = createOauth.data && createOauth.data.data;
   check('Response has client_id',     !!(client && client.client_id));
   check('Response has client_secret', !!(client && client.client_secret));
-  check('Response has scope',         client && client.scope === 'read write', 'scope: ' + (client && client.scope));
+  check('Response has scope',         client && client.scope === 'openid profile email', 'scope: ' + (client && client.scope));
 
   if (client && client.client_id) {
     const getClient = await req('GET', '/api/oauth/clients/' + client.client_id, null, auth(oauthToken));
@@ -331,7 +322,7 @@ async function run() {
   // ── 16. USERS MODULE ─────────────────────────────────────────────────────
   console.log('\n\uD83D\uDC65 16. Users Module');
 
-  const loginForUsers = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginForUsers = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const usersToken = loginForUsers.data && loginForUsers.data.data && loginForUsers.data.data.token;
 
   const meRes = await req('GET', '/api/users/me', null, auth(usersToken));
@@ -361,15 +352,15 @@ async function run() {
   const createProto = await req('POST', '/api/oauth/clients', {
     client_name: 'Proto Test App',
     redirect_uris: ['http://localhost:3000/cb'],
-    application_type: 'native',
+    application_type: 'web',
     contact_email: email,
-    scope: 'read'
+    scope: 'openid profile email'
   }, auth(usersToken));
   const protoClient = createProto.data && createProto.data.data;
 
   // GET /api/oauth/authorize — without session redirects to login page (302)
   const authzQuery = protoClient
-    ? '?client_id=' + protoClient.client_id + '&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcb&response_type=code&scope=read&state=s'
+    ? '?client_id=' + protoClient.client_id + '&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcb&response_type=code&scope=openid%20profile%20email&state=s&code_challenge=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&code_challenge_method=S256&nonce=n'
     : '?client_id=none';
   const authzGet = await req('GET', '/api/oauth/authorize' + authzQuery);
   check('GET /oauth/authorize redirects (302) when not logged in', authzGet.status === 302, 'HTTP ' + authzGet.status);
@@ -381,7 +372,7 @@ async function run() {
   check('Introspect returns active field (boolean)',  typeof (introspectRes.data && introspectRes.data.active) === 'boolean');
 
   // POST /api/oauth/revoke — revoke a secondary token
-  const loginForRevoke = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginForRevoke = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const tokenToRevoke = loginForRevoke.data && loginForRevoke.data.data && loginForRevoke.data.data.token;
   const revokeRes = await req('POST', '/api/oauth/revoke', { token: tokenToRevoke }, auth(usersToken));
   check('POST /oauth/revoke returns 200', revokeRes.status === 200, 'HTTP ' + revokeRes.status);
@@ -413,7 +404,7 @@ async function run() {
   // ── 19. EMERGENCY LOCKDOWN ───────────────────────────────────────────────
   console.log('\n\uD83D\uDEA8 19. Emergency Lockdown');
 
-  const loginForLock = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginForLock = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const lockToken = loginForLock.data && loginForLock.data.data && loginForLock.data.data.token;
 
   const lockRes = await req('POST', '/api/auth/emergency-lockdown', null, auth(lockToken));
@@ -423,7 +414,7 @@ async function run() {
 
   // Access JWTs remain valid until expiry — lockdown blacklists refresh tokens only.
   // Verify the session list is now empty (all sessions deactivated).
-  const loginForSessionCheck = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginForSessionCheck = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const postLockToken = loginForSessionCheck.data && loginForSessionCheck.data.data && loginForSessionCheck.data.data.token;
   const sessionsAfterLock = await req('GET', '/api/sessions', null, auth(postLockToken));
   const sessionCountAfterLock = sessionsAfterLock.data && sessionsAfterLock.data.data && sessionsAfterLock.data.data.sessions
@@ -433,7 +424,7 @@ async function run() {
   // ── 15. ACCOUNT DELETION ─────────────────────────────────────────────────
   console.log('\n\uD83D\uDCA5 15. Account Deletion');
 
-  const loginForDel = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginForDel = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   const delToken = loginForDel.data && loginForDel.data.data && loginForDel.data.data.token;
 
   const badDelRes = await req('DELETE', '/api/auth/delete-account', { password: 'WrongPass!' }, auth(delToken));
@@ -442,7 +433,7 @@ async function run() {
   const delRes = await req('DELETE', '/api/auth/delete-account', { password: newPassword }, auth(delToken));
   check('DELETE /delete-account with correct password returns 200', delRes.status === 200, 'HTTP ' + delRes.status + ': ' + (delRes.data && delRes.data.error || ''));
 
-  const loginAfterDel = await req('POST', '/api/auth/login', { email, password: newPassword });
+  const loginAfterDel = await req('POST', '/api/auth/login/token', { email, password: newPassword });
   check('Login after deletion fails (account gone)', loginAfterDel.status === 401, 'HTTP ' + loginAfterDel.status);
 
   // ── SUMMARY ──────────────────────────────────────────────────────────────

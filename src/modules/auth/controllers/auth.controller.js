@@ -7,8 +7,19 @@ const User = require('../../../shared/models/User');
 const bcrypt = require('bcryptjs');
 const Session = require('../../../shared/models/Session');
 const SecurityAudit = require('../../../shared/models/SecurityAudit');
+const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const jwt = require('jsonwebtoken');
 const config = require('../../../shared/config/config');
+const { recordLoginAttempt, recordActiveUser } = require('../../dashboard/services/realtimeMetrics.service');
+const { establishWebSession, destroyWebSession } = require('../../../shared/services/webSession.service');
+
+function safeWebAuthResponse(result, remember = false) {
+    return {
+        authenticated: true,
+        remembered: Boolean(remember),
+        user: result?.user || null
+    };
+}
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 // รับข้อมูลสมัครสมาชิก ตรวจสอบ consent และเรียก authService.register
@@ -53,17 +64,19 @@ exports.register = async (req, res, next) => {
                 essentialAcceptedAt: now,
                 analyticsAccepted:   !!consentAnalytics,
                 analyticsAcceptedAt: consentAnalytics ? now : null,
-                policyVersion:       '1.0.0',
+                policyVersion:       '1.1.0',
                 consentIp
             }
         });
+
+        await establishWebSession(req, result.user, result.sessionId);
 
         logger.info(`User registered: ${email} | analytics: ${!!consentAnalytics} | IP: ${consentIp}`);
 
         res.status(201).json({
             success: true,
             message: 'User registered successfully',
-            data:    result
+            data:    safeWebAuthResponse(result)
         });
 
     } catch (error) {
@@ -99,6 +112,12 @@ exports.login = async (req, res, next) => {
     try {
         const { email, password, remember } = req.body;
         const result = await authService.login({ email, password, remember, req });
+        const apiTokenResponse = req.apiTokenResponse === true;
+        if (!apiTokenResponse) {
+            await establishWebSession(req, result.user, result.sessionId, [], { remember: Boolean(remember) });
+        }
+        recordLoginAttempt(true, req.ip, result.user?.id);
+        recordActiveUser(result.user?.id);
 
         const loginIp = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress;
         logger.info(`User logged in: ${email}`, { 
@@ -110,9 +129,10 @@ exports.login = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'Login successful',
-            data:    result
+            data:    apiTokenResponse ? result : safeWebAuthResponse(result, remember)
         });
     } catch (error) {
+        recordLoginAttempt(false, req.ip);
         const loginIp = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress;
         const emailLog = typeof req.body.email === 'string' ? req.body.email : '[invalid]';
         logger.error(`Login failed for: ${emailLog}`, {
@@ -153,6 +173,30 @@ exports.login = async (req, res, next) => {
             message: 'An error occurred during login'
         });
     }
+};
+
+// Explicit compatibility endpoint for non-browser API tooling. First-party
+// web pages must use POST /api/auth/login and receive only the HttpOnly session
+// response. OAuth clients should prefer the authorization-code token endpoint.
+exports.loginToken = async (req, res, next) => {
+    req.apiTokenResponse = true;
+    return exports.login(req, res, next);
+};
+
+// Return first-party browser session state without exposing a bearer token.
+exports.getWebSession = (req, res) => {
+    const user = req.session?.user;
+    if (!user) return res.json({ authenticated: false, user: null });
+    res.json({
+        authenticated: true,
+        user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            provider: user.provider || 'local'
+        }
+    });
 };
 
 // บันทึกการตั้งค่า theme, ภาษา และการแจ้งเตือนของ user
@@ -312,18 +356,21 @@ exports.logout = async (req, res, next) => {
             }
         }
 
-        req.logout((err) => {
-            if (err) return next(err);
-            if (req.session) req.session.destroy();
-            res.clearCookie('connect.sid');
+        if (!authHeader?.startsWith('Bearer ') && req.session?.user?.sessionId) {
+            await authService.revokeSession(userId, req.session.user.sessionId)
+                .catch(err => logger.warn('Failed to revoke cookie session:', err.message));
+        }
 
-            logger.info(`User logged out: ${email || userId}`, {
-                userId,
-                ip: req.ip || req.connection?.remoteAddress
-            });
+        await new Promise((resolve, reject) => req.logout((err) => err ? reject(err) : resolve()));
+        await destroyWebSession(req);
+        res.clearCookie('connect.sid');
 
-            res.json({ success: true, message: 'Logged out successfully' });
+        logger.info(`User logged out: ${email || userId}`, {
+            userId,
+            ip: req.ip || req.connection?.remoteAddress
         });
+
+        res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
         logger.error('Logout error:', error);
         next(error);
@@ -335,7 +382,8 @@ exports.deleteAccount = async (req, res) => {
     try {
         const userId = req.user._id || req.user.id;
         const email = req.user.email;
-        const { password, reauth_token } = req.body;
+        const { password } = req.body;
+        const reauth_token = req.cookies?.reauth_token || req.body?.reauth_token;
 
         const clientIp = req.ip || req.socket?.remoteAddress;
 
@@ -385,6 +433,7 @@ exports.deleteAccount = async (req, res) => {
                 });
             }
             logger.info('deleteAccount: OAuth re-authentication verified', { function: 'deleteAccount', userId });
+            res.clearCookie('reauth_token');
         }
 
         // Delegate to userService — soft delete: anonymize data, revoke sessions, audit log
@@ -443,7 +492,7 @@ exports.refreshToken = async (req, res, next) => {
 // บันทึกหรืออัปเดตการยินยอม cookie ของ user ที่ล็อกอินอยู่
 exports.updateCookieConsent = async (req, res, next) => {
     try {
-        const { cookieConsentAccepted, version } = req.body;
+        const { cookieConsentAccepted, analyticsAccepted, version } = req.body;
         const userId = req.user?.id;
 
         if (!userId) {
@@ -455,6 +504,18 @@ exports.updateCookieConsent = async (req, res, next) => {
                 error: 'cookieConsentAccepted must be boolean'
             });
         }
+        if (analyticsAccepted !== undefined && typeof analyticsAccepted !== 'boolean') {
+            return res.status(400).json({
+                success: false,
+                error: 'analyticsAccepted must be boolean'
+            });
+        }
+        if (version !== undefined && (typeof version !== 'string' || version.length > 32)) {
+            return res.status(400).json({
+                success: false,
+                error: 'version must be a short string'
+            });
+        }
 
         const consentIp = req.ip ||
                           req.headers['x-forwarded-for']?.split(',')[0] ||
@@ -462,6 +523,7 @@ exports.updateCookieConsent = async (req, res, next) => {
 
         await authService.updateCookieConsent(userId, {
             cookieConsentAccepted,
+            analyticsAccepted,
             cookieConsentAt: new Date(),
             version,
             consentIp
@@ -486,8 +548,12 @@ exports.forgotPassword = async (req, res, next) => {
         await authService.forgotPassword(email, req);
         res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
     } catch (error) {
-        // Only expose the generic message for email-enumeration-safe errors.
-        // Re-throw SMTP/config failures so they surface as 500 rather than silent success.
+        // Keep the response enumeration-safe, but do not hide operational
+        // failures from logs/monitoring.
+        logger.error('Forgot password processing failed:', {
+            error: error.message,
+            email: typeof req.body?.email === 'string' ? req.body.email : '[invalid]'
+        });
         res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
     }
 };
@@ -564,6 +630,54 @@ exports.changePassword = async (req, res, next) => {
         res.status(400).json({
             success: false,
             error: error.message
+        });
+    }
+};
+
+// ─── Set Password ────────────────────────────────────────────────────────────
+// บัญชีที่เริ่มจาก Google/GitHub ยังไม่มี local password จึงตั้ง password ได้
+// หลังผ่านการ authenticate ด้วย social provider แล้วเท่านั้น
+exports.setPassword = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+
+        const { newPassword } = req.body;
+        const result = await authService.setPassword(userId, newPassword, req);
+
+        res.json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        logger.error('Set password error:', error);
+
+        if (error.code === 'WEAK_PASSWORD') {
+            return res.status(400).json({
+                success: false,
+                error: 'WEAK_PASSWORD',
+                message: 'New password does not meet requirements',
+                details: error.details
+            });
+        }
+
+        if (error.code === 'PASSWORD_ALREADY_SET') {
+            return res.status(409).json({
+                success: false,
+                error: error.code,
+                message: 'Password is already set. Use change password instead.'
+            });
+        }
+
+        res.status(400).json({
+            success: false,
+            error: error.message || 'Failed to set password'
         });
     }
 };
@@ -737,6 +851,9 @@ exports.getProfile = async (req, res, next) => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
+                provider: user.googleId ? 'google' : user.githubId ? 'github' : 'local',
+                displayName: user.displayName || '',
+                bio: user.bio || '',
                 createdAt: user.createdAt,
                 lastLogin: user.lastLogin,
                 hasPassword: !!user.password
@@ -748,38 +865,6 @@ exports.getProfile = async (req, res, next) => {
             success: false,
             error: 'Failed to get profile'
         });
-    }
-};
-
-// ─── OAuth Session Bridge ─────────────────────────────────────────────────────
-// ตรวจสอบ JWT จาก query string ตั้งค่า server session แล้ว redirect ไปยังหน้าที่กำหนด
-exports.setOAuthSession = async (req, res) => {
-    const { token, returnTo } = req.query;
-    // Only allow relative paths to prevent open redirect attacks
-    const safeReturn = (returnTo && /^\/(?!\/)/.test(returnTo)) ? returnTo : '/login.html';
-
-    if (!token) return res.redirect(`/login.html?error=missing_token`);
-
-    try {
-        const decoded = jwt.verify(token, config.JWT_SECRET);
-        const user = await User.findById(decoded.sub || decoded.id);
-        if (!user || !user.isActive) return res.redirect('/login.html?error=invalid_token');
-
-        req.session.user = {
-            id:       user._id.toString(),
-            email:    user.email,
-            username: user.username,
-            role:     user.role
-        };
-
-        await new Promise((resolve, reject) =>
-            req.session.save(err => err ? reject(err) : resolve())
-        );
-
-        res.redirect(safeReturn);
-    } catch (err) {
-        logger.error('OAuth session bridge error:', err.message);
-        res.redirect('/login.html?error=invalid_token');
     }
 };
 
@@ -813,4 +898,3 @@ exports.emergencyLockdown = async (req, res, next) => {
         });
     }
 };
-

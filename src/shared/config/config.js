@@ -1,6 +1,10 @@
 require('dotenv').config();
 
-const missing = ['JWT_SECRET', 'SESSION_SECRET'].filter(k => !process.env[k]);
+const requiredEnv = ['JWT_SECRET', 'SESSION_SECRET'];
+if (process.env.NODE_ENV === 'production' && !process.env.OIDC_PRIVATE_KEY) {
+    requiredEnv.push('OIDC_PRIVATE_KEY');
+}
+const missing = requiredEnv.filter(k => !process.env[k]);
 if (missing.length) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
 }
@@ -10,9 +14,14 @@ module.exports = {
     PORT: process.env.PORT || 5000,
     BASE_URL: process.env.BASE_URL || 'http://localhost:5000',
     AUTH_SERVER_URL: process.env.AUTH_SERVER_URL || 'http://localhost:5000',
+    TRUST_PROXY: process.env.TRUST_PROXY === undefined
+        ? (process.env.NODE_ENV === 'production' ? 1 : false)
+        : (process.env.TRUST_PROXY === 'true' ? 1 : (Number.isFinite(Number(process.env.TRUST_PROXY)) ? Number(process.env.TRUST_PROXY) : false)),
 
     // Database
     MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/authdb',
+    MONGO_SERVER_SELECTION_TIMEOUT_MS: parseInt(process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS, 10) || 3000,
+    MONGO_CONNECT_TIMEOUT_MS: parseInt(process.env.MONGO_CONNECT_TIMEOUT_MS, 10) || 3000,
 
     // JWT
     JWT_SECRET: process.env.JWT_SECRET,
@@ -31,6 +40,7 @@ module.exports = {
 
     // Session
     SESSION_SECRET: process.env.SESSION_SECRET,
+    USE_REDIS_SESSIONS: process.env.USE_REDIS_SESSIONS === 'true' || process.env.NODE_ENV === 'production',
 
     // CORS
     CORS_ORIGIN: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:4000'],
@@ -44,11 +54,22 @@ module.exports = {
     REDIS_HOST: process.env.REDIS_HOST || 'localhost',
     REDIS_PORT: parseInt(process.env.REDIS_PORT) || 6379,
     REDIS_PASSWORD: process.env.REDIS_PASSWORD || null,
+    REDIS_CONNECT_TIMEOUT_MS: parseInt(process.env.REDIS_CONNECT_TIMEOUT_MS, 10) || 1500,
+    REDIS_REQUIRED: process.env.REDIS_REQUIRED === 'true' || process.env.NODE_ENV === 'production',
 
     // Kafka
     USE_KAFKA_LOGGING: process.env.USE_KAFKA_LOGGING === 'true',
-    KAFKA_BROKER: process.env.KAFKA_BROKER || 'localhost:9092',
+    KAFKA_BROKER: process.env.KAFKA_BROKER || process.env.KAFKA_BROKERS || 'localhost:9092',
     KAFKA_CLIENT_ID: process.env.KAFKA_CLIENT_ID || 'auth-app',
+    KAFKA_CONNECT_TIMEOUT_MS: parseInt(process.env.KAFKA_CONNECT_TIMEOUT_MS, 10) || 2000,
+    KAFKA_RETRIES: parseInt(process.env.KAFKA_RETRIES, 10) || 0,
+
+    // OIDC signing keys. In development an ephemeral RSA key is generated so
+    // the application can run without Docker-managed secrets. Production
+    // requires OIDC_PRIVATE_KEY so ID tokens remain verifiable after restart.
+    OIDC_PRIVATE_KEY: process.env.OIDC_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    OIDC_PUBLIC_KEY: process.env.OIDC_PUBLIC_KEY?.replace(/\\n/g, '\n'),
+    OIDC_KEY_ID: process.env.OIDC_KEY_ID || 'authsys-1',
 
     email: {
         smtp: {
@@ -58,7 +79,8 @@ module.exports = {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
         },
-        fromName:    process.env.EMAIL_FROM_NAME    || 'ShopHub Auth',
-        fromAddress: process.env.EMAIL_FROM_ADDRESS || 'noreply@shophub.com',
+        fromName: process.env.EMAIL_FROM_NAME || process.env.SMTP_FROM_NAME || 'ShopHub Auth',
+        fromAddress: process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_FROM_EMAIL || 'noreply@shophub.com',
+        verifyTimeoutMs: parseInt(process.env.SMTP_VERIFY_TIMEOUT_MS, 10) || 2500,
     },
 };

@@ -31,6 +31,7 @@ const tokenBlacklistSchema = new mongoose.Schema({
             'security_breach',
             'token_rotation',
             'password_changed',
+            'account_deleted',
             'expired'
         ],
         default: 'user_logout'

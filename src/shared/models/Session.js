@@ -43,11 +43,12 @@ const sessionSchema = new mongoose.Schema({
         default: Date.now
     },
     // expiresAt drives the TTL index — set at login time
-    // remember=true → 30d, remember=false → 1d, default → 90d
+    // session.service sets 30d for remember-me and 1d otherwise; keep the
+    // schema fallback short as a safety net for direct model writes.
     expiresAt: {
         type: Date,
         required: true,
-        default: () => new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+        default: () => new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
     },
     // Refresh token family for rotation
     refreshTokenFamily: {
@@ -60,7 +61,11 @@ const sessionSchema = new mongoose.Schema({
     },
     revokeReason: {
         type: String,
-        enum: ['user_logout', 'admin_revoke', 'security', 'token_compromised', 'password_change', 'expired']
+        enum: [
+            'user_logout', 'user_revoked', 'admin_revoke',
+            'security', 'security_breach', 'token_compromised',
+            'password_change', 'password_changed', 'account_deleted', 'expired'
+        ]
     }
 }, {
     timestamps: true  // adds createdAt, updatedAt
@@ -160,6 +165,7 @@ sessionSchema.statics.createSession = async function(data) {
             userAgent: data.userAgent || '',
             ipAddress: data.ipAddress || 'unknown',
             deviceInfo: data.deviceInfo || { browser: 'Unknown', os: 'Unknown', device: 'Unknown' },
+            expiresAt: data.expiresAt,
         });
 
         return {

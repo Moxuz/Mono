@@ -148,21 +148,6 @@ async function logPasswordResetCompleted(user, req) {
 }
 
 /**
- * Email verified
- */
-async function logEmailVerified(user, req) {
-    return logSecurityEvent({
-        userId: user._id,
-        email: user.email,
-        action: 'email_verified',
-        status: 'success',
-        ipAddress: req?.ip,
-        userAgent: req?.headers?.['user-agent'],
-        metadata: {}
-    });
-}
-
-/**
  * Account locked
  */
 async function logAccountLocked(user, req, reason) {
@@ -194,7 +179,6 @@ module.exports = {
     logPasswordChanged,
     logPasswordResetRequested,
     logPasswordResetCompleted,
-    logEmailVerified,
     logAccountLocked,
     getUserAuditLogs,
     getRecentFailedLogins,

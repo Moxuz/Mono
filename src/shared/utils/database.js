@@ -9,33 +9,55 @@ try {
     logger = console;
 }
 
+let listenersAttached = false;
+
 const connectDB = async () => {
+    if (mongoose.connection.readyState === 1) {
+        return mongoose.connection;
+    }
+
     try {
+        if (mongoose.connection.readyState === 2) {
+            await mongoose.connection.asPromise();
+            return mongoose.connection;
+        }
+
         const conn = await mongoose.connect(config.MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: config.MONGO_SERVER_SELECTION_TIMEOUT_MS,
+            connectTimeoutMS: config.MONGO_CONNECT_TIMEOUT_MS,
+            socketTimeoutMS: config.MONGO_CONNECT_TIMEOUT_MS,
+            family: 4
         });
 
         logger.info(`MongoDB Connected: ${conn.connection.host}`);
-        
-        mongoose.connection.on('error', (err) => {
-            logger.error('MongoDB connection error:', err);
-        });
 
-        mongoose.connection.on('disconnected', () => {
-            logger.warn('MongoDB disconnected. Attempting to reconnect...');
-        });
+        if (!listenersAttached) {
+            mongoose.connection.on('error', (err) => {
+                logger.error('MongoDB connection error:', err);
+            });
 
-        mongoose.connection.on('reconnected', () => {
-            logger.info('MongoDB reconnected');
-        });
+            mongoose.connection.on('disconnected', () => {
+                logger.warn('MongoDB disconnected. Attempting to reconnect...');
+            });
+
+            mongoose.connection.on('reconnected', () => {
+                logger.info('MongoDB reconnected');
+            });
+
+            listenersAttached = true;
+        }
+
+        return conn;
 
     } catch (error) {
         logger.error('MongoDB connection failed:', error.message);
-        // Don't exit in development
+        // Keep local development and route-level smoke tests usable when
+        // MongoDB is not installed. Production still fails fast because
+        // authentication cannot be safely served without its database.
         if (config.NODE_ENV === 'production') {
-            process.exit(1);
+            throw error;
         }
+        return null;
     }
 };
 

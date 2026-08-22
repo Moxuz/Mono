@@ -28,19 +28,31 @@ if (GOOGLE_ENABLED) {
       // ค้นหาหรือสร้าง user จากข้อมูล Google profile
       async (accessToken, refreshToken, profile, done) => {
         try {
-          const email    = profile.emails?.[0]?.value;
+          const emailEntry = profile.emails?.find(entry => entry?.value);
+          const email = emailEntry?.value?.trim().toLowerCase();
+          const emailVerified = profile._json?.email_verified === true || emailEntry?.verified === true;
           const googleId = profile.id;
           const username = profile.displayName || email?.split('@')[0];
 
-          if (!email) return done(new Error('No email from Google'), null);
+          if (!email || !emailVerified) return done(new Error('A verified Google email is required'), null);
 
-          let user = await User.findOne({ $or: [{ googleId }, { email }] });
+          let user = await User.findOne({ googleId });
 
           if (user) {
-            if (!user.googleId) {
-              user.googleId = googleId;
-              await user.save();
+            if (!user.isActive) return done(new Error('Account is inactive'), null);
+            user.lastLogin = new Date();
+            await user.save();
+            return done(null, user);
+          }
+          user = await User.findOne({ email });
+          if (user) {
+            if (!user.isActive) return done(new Error('Account is inactive'), null);
+            if (user.googleId && user.googleId !== googleId) {
+              return done(new Error('Google account is already linked'), null);
             }
+            user.googleId = googleId;
+            user.lastLogin = new Date();
+            await user.save();
             return done(null, user);
           }
 
@@ -53,7 +65,7 @@ if (GOOGLE_ENABLED) {
             pdpaConsent: {
               essentialAccepted:   true,
               essentialAcceptedAt: now,
-              policyVersion:       '1.0.0',
+              policyVersion:       '1.1.0',
             },
           });
 

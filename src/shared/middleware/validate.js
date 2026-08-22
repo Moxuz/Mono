@@ -6,7 +6,7 @@
  * Rule values are objects: { required, type, minLen, maxLen, match, enum: [...] }
  */
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,63}$/;
 
 /**
  * Build a validation middleware from a rules object.
@@ -18,7 +18,8 @@ function validate(rules) {
 
         for (const [field, rule] of Object.entries(rules)) {
             const value = req.body[field];
-            const isEmpty = value === undefined || value === null || value === '';
+            const isEmpty = value === undefined || value === null || value === '' ||
+                (typeof value === 'string' && value.trim() === '');
 
             if (rule.required && isEmpty) {
                 errors.push(`${field} is required`);
@@ -26,6 +27,25 @@ function validate(rules) {
             }
 
             if (isEmpty) continue; // optional field not provided — skip remaining checks
+
+            if (rule.type === 'boolean') {
+                if (typeof value !== 'boolean') errors.push(`${field} must be a boolean`);
+                continue;
+            }
+
+            if (rule.type === 'array') {
+                if (!Array.isArray(value)) {
+                    errors.push(`${field} must be an array`);
+                    continue;
+                }
+                if (rule.minItems !== undefined && value.length < rule.minItems) {
+                    errors.push(`${field} must contain at least ${rule.minItems} item(s)`);
+                }
+                if (rule.maxItems !== undefined && value.length > rule.maxItems) {
+                    errors.push(`${field} must contain at most ${rule.maxItems} item(s)`);
+                }
+                continue;
+            }
 
             // Non-string objects (e.g., after NoSQL injection stripping) are invalid
             if (typeof value === 'object') {
@@ -94,15 +114,18 @@ function stripOperators(obj) {
 const rules = {
     register: {
         username: { required: true, minLen: 3, maxLen: 30 },
-        email:    { required: true, type: 'email' },
+        email:    { required: true, type: 'email', maxLen: 254 },
         password: { required: true, minLen: 8, maxLen: 128 },
+        consentEssential: { required: true, type: 'boolean' },
+        consentAnalytics: { type: 'boolean' },
     },
     login: {
-        email:    { required: true, type: 'email' },
+        email:    { required: true, type: 'email', maxLen: 254 },
         password: { required: true, minLen: 1, maxLen: 128 },
+        remember: { type: 'boolean' },
     },
     forgotPassword: {
-        email: { required: true, type: 'email' },
+        email: { required: true, type: 'email', maxLen: 254 },
     },
     resetPassword: {
         password: { required: true, minLen: 8, maxLen: 128 },
@@ -111,9 +134,30 @@ const rules = {
         currentPassword: { required: true, minLen: 1, maxLen: 128 },
         newPassword:     { required: true, minLen: 8, maxLen: 128 },
     },
+    setPassword: {
+        newPassword:     { required: true, minLen: 8, maxLen: 128 },
+    },
     registerClient: {
         client_name:   { required: true, minLen: 1, maxLen: 100 },
-        contact_email: { required: true, type: 'email' },
+        contact_email: { required: true, type: 'email', maxLen: 254 },
+        redirect_uris: { required: true, type: 'array', minItems: 1, maxItems: 10 },
+        application_type: { enum: ['web'] },
+        scope: { maxLen: 500 },
+    },
+    updateClient: {
+        client_name:   { minLen: 1, maxLen: 100 },
+        contact_email: { type: 'email', maxLen: 254 },
+        redirect_uris: { type: 'array', minItems: 1, maxItems: 10 },
+    },
+    profile: {
+        username:   { minLen: 3, maxLen: 64 },
+        email:      { type: 'email', maxLen: 254 },
+        displayName:{ maxLen: 80 },
+        bio:        { maxLen: 160 },
+    },
+    userUpdate: {
+        username: { minLen: 3, maxLen: 64 },
+        email:    { type: 'email', maxLen: 254 },
     },
 };
 

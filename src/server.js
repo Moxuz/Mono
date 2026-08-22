@@ -4,6 +4,7 @@ const app         = require('./app');
 const config      = require('./shared/config/config');
 const emailService = require('./shared/services/email.service');
 const mongoose    = require('mongoose');
+const connectDB   = require('./shared/utils/database');
 const { initializeWebSocket, broadcastSecurityEvent } = require('./shared/utils/websocket');
 const { initRedis, closeRedis, isRedisReady } = require('./shared/middleware/rateLimiter');
 const kafkaLogger = require('./shared/utils/kafkaLogger');
@@ -20,21 +21,11 @@ try {
 
 const PORT = config.PORT || 5000;
 
-// เชื่อมต่อฐานข้อมูล MongoDB
-const connectDB = async () => {
-  await mongoose.connect(config.MONGODB_URI);
-  logger.info('MongoDB connected');
-};
-
-// เริ่มต้น server โดยเชื่อมต่อ DB, ตรวจสอบ email และ Redis ก่อน
+// เริ่มต้น server โดยเชื่อมต่อ DB, ตรวจสอบ SMTP และ Redis ก่อน
 const startServer = async () => {
   try {
-    // 1. Connect DB
-    try {
-      await connectDB();
-    } catch (dbError) {
-      logger.error('Database connection failed:', dbError.message);
-    }
+    // 1. Connect DB. Production must fail fast if MongoDB is unavailable.
+    await connectDB();
 
     // 2. Email service
     const emailOk = await emailService.verifyConnection();
@@ -44,12 +35,27 @@ const startServer = async () => {
 
     // 3. Initialize Redis
     try {
-      await initRedis();
+      const redisReady = await initRedis();
       const redisStatus = isRedisReady() ? 'Connected' : 'Using memory store';
       logger.info(`Redis: ${redisStatus}`);
+      if (config.REDIS_REQUIRED && !redisReady) {
+        throw new Error('Redis is required but unavailable');
+      }
     } catch (redisError) {
       logger.error('Redis initialization failed:', redisError.message);
-      logger.warn('Continuing without Redis...');
+      if (config.REDIS_REQUIRED) throw redisError;
+      logger.warn('Continuing with in-memory rate limiting/session fallback...');
+    }
+
+    // Production must never silently fall back to express-session MemoryStore.
+    if (config.NODE_ENV === 'production') {
+      if (!config.USE_REDIS_SESSIONS) {
+        throw new Error('Production requires USE_REDIS_SESSIONS=true');
+      }
+      const sessionReady = await app.locals.sessionStoreReady;
+      if (!sessionReady) {
+        throw new Error('Redis-backed session store is unavailable');
+      }
     }
 
     // 4. Start HTTP server
@@ -77,6 +83,12 @@ const startServer = async () => {
           logger.info('Redis connection closed');
         } catch (err) {
           logger.error('Redis close error:', err.message);
+        }
+        try {
+          await app.locals.closeSessionRedis?.();
+          logger.info('Session store connection closed');
+        } catch (err) {
+          logger.error('Session store close error:', err.message);
         }
         if (config.USE_KAFKA_LOGGING) {
           try {

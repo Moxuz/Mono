@@ -34,7 +34,9 @@ router.use(authenticate);
  *       200:
  *         description: Dashboard statistics
  */
-router.get('/stats', getDashboardStats);
+// These are system-wide counts (users, sessions, logins), not per-user data.
+// Keep the endpoint behind the same admin boundary as the other log views.
+router.get('/stats', authorizeRole('admin'), getDashboardStats);
 
 /**
  * @swagger

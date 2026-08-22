@@ -269,6 +269,59 @@ test('verifyPKCE: missing verifier → false', () => {
 test('verifyPKCE: missing challenge → false', () => {
     const v = makeVerifier();
     assert.strictEqual(oauthService.verifyPKCE(v, '', 'S256'), false);
+
+section('OAuth policy');
+
+const { validateRegisteredScopes, sanitizeRequestedScopes } = require('../src/shared/utils/oauthScopes');
+const oauthConfig = require('../src/shared/config/config');
+const oauthKeys = require('../src/shared/config/oidcKeys');
+const jwtLib = require('jsonwebtoken');
+const policyUser = { _id: { toString: () => '507f1f77bcf86cd799439011' } };
+
+test('registered scopes accept OIDC base scopes', () => {
+    const result = validateRegisteredScopes('openid profile email');
+    assert.strictEqual(result.valid, true);
+});
+
+test('registered scopes reject custom resource scopes', () => {
+    const result = validateRegisteredScopes('openid profile admin:read');
+    assert.strictEqual(result.valid, false);
+    assert.ok(/unsupported/i.test(result.error));
+});
+
+test('requested scopes reject unregistered custom scopes', () => {
+    assert.deepStrictEqual(
+        sanitizeRequestedScopes('openid profile admin:read', 'openid profile email'),
+        []
+    );
+});
+
+test('OAuth access tokens use RS256', () => {
+    const token = oauthService.generateAccessToken(policyUser, 'test-client', 'openid profile email');
+    const complete = jwtLib.decode(token, { complete: true });
+    assert.strictEqual(complete.header.alg, 'RS256');
+    const verified = jwtLib.verify(token, oauthKeys.publicKey, {
+        algorithms: ['RS256'],
+        issuer: oauthConfig.BASE_URL || 'http://localhost:5000',
+        audience: 'test-client'
+    });
+    assert.strictEqual(verified.type, 'access_token');
+});
+
+test('OAuth refresh tokens require offline_access', () => {
+    assert.throws(
+        () => oauthService.generateRefreshToken(policyUser, 'test-client', 'openid profile email'),
+        /offline_access/
+    );
+    const token = oauthService.generateRefreshToken(
+        policyUser,
+        'test-client',
+        'openid profile email offline_access'
+    );
+    const complete = jwtLib.decode(token, { complete: true });
+    assert.strictEqual(complete.header.alg, 'HS256');
+});
+
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

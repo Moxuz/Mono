@@ -1,5 +1,7 @@
 const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
+const Consent = require('../../../shared/models/Consent');
+const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const logger = require('../../../shared/utils/logger');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
 
@@ -21,6 +23,8 @@ async function getUserById(userId) {
             username: user.username,
             email: user.email,
             role: user.role,
+            displayName: user.displayName || '',
+            bio: user.bio || '',
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };
@@ -42,7 +46,7 @@ async function updateUser(userId, updateData) {
         }
 
         // Allowed fields for update
-        const allowedFields = ['username', 'email'];
+        const allowedFields = ['username', 'email', 'displayName', 'bio'];
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
                 user[field] = updateData[field];
@@ -57,7 +61,9 @@ async function updateUser(userId, updateData) {
             id: user._id,
             username: user.username,
             email: user.email,
-            role: user.role
+            role: user.role,
+            displayName: user.displayName || '',
+            bio: user.bio || ''
         };
     } catch (error) {
         logger.error('Update user failed:', error.message);
@@ -78,8 +84,21 @@ async function deleteUser(userId, reason = 'user_request') {
 
         logger.warn(`User deletion requested: ${user.email} (reason: ${reason})`);
 
+        // Blacklist token hashes before deactivating sessions so old access
+        // and refresh tokens cannot become usable if account state changes.
+        const activeSessions = await Session.find({ userId, isActive: true });
+        for (const session of activeSessions) {
+            if (session.accessTokenHash) {
+                await TokenBlacklist.revokeByHash(session.accessTokenHash, userId, null, 'account_deleted');
+            }
+            if (session.refreshTokenHash) {
+                await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, null, 'account_deleted');
+            }
+        }
+
         // Revoke all sessions first
         await Session.revokeAllSessions(userId, 'account_deleted');
+        await Consent.revokeAllForUser(userId, 'account_deleted');
 
         // Log security event before deletion
         await securityAuditService.logSecurityEvent({

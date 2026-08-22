@@ -86,19 +86,19 @@ async function getLoginStats(req, res) {
         // Total login attempts (last 24h)
         const totalLogins24h = await SecurityAudit.countDocuments({
             action: { $in: ['login_success', 'login_failed'] },
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         // Successful logins
         const successfulLogins24h = await SecurityAudit.countDocuments({
             action: 'login_success',
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         // Failed logins
         const failedLogins24h = await SecurityAudit.countDocuments({
             action: 'login_failed',
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         // Success rate
@@ -111,13 +111,13 @@ async function getLoginStats(req, res) {
             {
                 $match: {
                     action: { $in: ['login_success', 'login_failed'] },
-                    timestamp: { $gte: last7Days }
+                    createdAt: { $gte: last7Days }
                 }
             },
             {
                 $group: {
                     _id: {
-                        date: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
+                        date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
                         action: '$action'
                     },
                     count: { $sum: 1 }
@@ -142,7 +142,7 @@ async function getLoginStats(req, res) {
             {
                 $match: {
                     action: 'login_success',
-                    timestamp: { $gte: last24Hours }
+                    createdAt: { $gte: last24Hours }
                 }
             },
             {
@@ -198,20 +198,20 @@ async function getSecurityStats(req, res) {
         // Account lockouts (last 24h)
         const accountLockouts24h = await SecurityAudit.countDocuments({
             action: 'account_locked',
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         // Password changes (last 24h)
         const passwordChanges24h = await SecurityAudit.countDocuments({
             action: 'password_changed',
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         // Security events by type (last 24h)
         const eventsByType = await SecurityAudit.aggregate([
             {
                 $match: {
-                    timestamp: { $gte: last24Hours }
+                    createdAt: { $gte: last24Hours }
                 }
             },
             {
@@ -228,7 +228,7 @@ async function getSecurityStats(req, res) {
             {
                 $match: {
                     action: 'login_failed',
-                    timestamp: { $gte: last24Hours },
+                    createdAt: { $gte: last24Hours },
                     ipAddress: { $ne: null }
                 }
             },
@@ -288,7 +288,7 @@ async function getAPIStats(req, res) {
 
         // Total API calls (estimate from security audit)
         const totalAPICalls = await SecurityAudit.countDocuments({
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         // Active tokens (sessions)
@@ -297,7 +297,7 @@ async function getAPIStats(req, res) {
         // Revoked tokens (last 24h)
         const revokedTokens = await SecurityAudit.countDocuments({
             action: { $in: ['logout', 'token_revoked'] },
-            timestamp: { $gte: last24Hours }
+            createdAt: { $gte: last24Hours }
         });
 
         // OAuth clients
@@ -340,7 +340,7 @@ async function getActivity(req, res) {
         const skip = (page - 1) * limit;
 
         const activities = await SecurityAudit.find()
-            .sort({ timestamp: -1 })
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
             .lean();

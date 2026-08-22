@@ -45,19 +45,11 @@ test('Load password validator', () => {
 test('Load email templates', () => {
     const templates = require('../src/shared/services/email.templates');
     if (!templates.getPasswordResetTemplate) throw new Error('getPasswordResetTemplate not exported');
-    if (!templates.getVerificationTemplate) throw new Error('getVerificationTemplate not exported');
 });
 
 test('Load email service', () => {
     const emailService = require('../src/shared/services/email.service');
     if (!emailService.verifyConnection) throw new Error('verifyConnection not exported');
-    if (!emailService.sendVerificationEmail) throw new Error('sendVerificationEmail not exported');
-});
-
-test('Load email verification service', () => {
-    const evService = require('../src/shared/services/emailVerification.service');
-    if (!evService.verifyEmail) throw new Error('verifyEmail not exported');
-    if (!evService.resendVerificationEmail) throw new Error('resendVerificationEmail not exported');
 });
 
 test('Load security audit service', () => {
@@ -190,13 +182,6 @@ test('Password validator - common password', () => {
     if (result.valid) throw new Error('Common password should be invalid');
 });
 
-test('Email templates render correctly', () => {
-    const { getVerificationTemplate } = require('../src/shared/services/email.templates');
-    const html = getVerificationTemplate({ username: 'Test', verificationUrl: 'http://test.com' });
-    if (!html.includes('Test')) throw new Error('Username not in template');
-    if (!html.includes('http://localhost:5000')) throw new Error('AUTH_SERVER_URL not in template');
-});
-
 test('User model has lockout methods', () => {
     const mongoose = require('mongoose');
     const User = require('../src/shared/models/User');
@@ -205,7 +190,6 @@ test('User model has lockout methods', () => {
     const schema = User.schema.obj;
     if (!schema.failedLoginAttempts) throw new Error('failedLoginAttempts field missing');
     if (!schema.lockUntil) throw new Error('lockUntil field missing');
-    if (!schema.emailVerified) throw new Error('emailVerified field missing');
     
     // Check methods exist
     const mockUser = new User({ username: 'test', email: 'test@test.com', password: 'Test123!' });

@@ -30,7 +30,7 @@ router.use(authenticate);
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: User security summary including 2FA status, recent logins, and sessions
+ *         description: User security summary including recent logins and sessions
  */
 router.get('/security-summary', getSecuritySummary);
 

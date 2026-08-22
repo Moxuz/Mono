@@ -38,7 +38,6 @@ const securityAuditSchema = new mongoose.Schema({
             'account_created',
             'account_deactivated',
             'account_deleted',
-            'email_verified',
         ]
     },
     status: {

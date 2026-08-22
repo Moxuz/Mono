@@ -73,7 +73,7 @@ router.get('/login-activity', authenticate, dashboardController.getLoginActivity
  *       200:
  *         description: Dashboard API info
  */
-router.get('/', authenticate, authorizeRole('admin', 'moderator'), (req, res) => {
+router.get('/', authenticate, authorizeRole('admin'), (req, res) => {
     res.json({
         success: true,
         message: 'Dashboard API',

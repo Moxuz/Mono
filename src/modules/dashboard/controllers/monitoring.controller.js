@@ -1,60 +1,14 @@
 const SecurityAudit = require('../../../shared/models/SecurityAudit');
 const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
+const mongoose = require('mongoose');
 const logger = require('../../../shared/utils/logger');
 const os = require('os');
 const { broadcastMetrics } = require('../../../shared/utils/websocket');
-
-// In-memory store for real-time metrics (can be replaced with Redis)
-let realTimeMetrics = {
-    activeUsers: new Map(),
-    loginAttempts: [],
-    systemMetrics: {
-        cpuUsage: 0,
-        memoryUsage: 0,
-        requestCount: 0,
-        errorCount: 0
-    }
-};
-
-/**
- * Record a login attempt for real-time monitoring
- */
-function recordLoginAttempt(success, ipAddress, userId = null) {
-    realTimeMetrics.loginAttempts.push({
-        timestamp: new Date(),
-        success,
-        ipAddress,
-        userId
-    });
-
-    // Keep only last 1000 attempts
-    if (realTimeMetrics.loginAttempts.length > 1000) {
-        realTimeMetrics.loginAttempts.shift();
-    }
-
-    // Broadcast via WebSocket
-    broadcastMetrics({
-        event: 'login_attempt',
-        success,
-        timestamp: new Date().toISOString()
-    });
-}
-
-/**
- * Record active user
- */
-function recordActiveUser(userId) {
-    realTimeMetrics.activeUsers.set(userId, new Date());
-
-    // Clean up users inactive for more than 30 minutes
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-    for (const [uid, lastActive] of realTimeMetrics.activeUsers.entries()) {
-        if (lastActive < thirtyMinutesAgo) {
-            realTimeMetrics.activeUsers.delete(uid);
-        }
-    }
-}
+const kafkaLogger = require('../../../shared/utils/kafkaLogger');
+const { isRedisReady } = require('../../../shared/middleware/rateLimiter');
+const config = require('../../../shared/config/config');
+const { recordLoginAttempt, recordActiveUser, getSnapshot } = require('../services/realtimeMetrics.service');
 
 /**
  * Get real-time monitoring data
@@ -63,13 +17,7 @@ function recordActiveUser(userId) {
 async function getRealTimeMonitoring(req, res) {
     try {
         // Active users (last 30 minutes)
-        const activeUsersCount = realTimeMetrics.activeUsers.size;
-
-        // Login attempts in last 5 minutes
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        const recentAttempts = realTimeMetrics.loginAttempts.filter(
-            attempt => attempt.timestamp > fiveMinutesAgo
-        );
+        const { activeUsersCount, recentAttempts } = getSnapshot();
 
         const successfulLogins = recentAttempts.filter(a => a.success).length;
         const failedLogins = recentAttempts.filter(a => !a.success).length;
@@ -138,9 +86,42 @@ async function getSystemHealth(req, res) {
         const cpuUsage = process.cpuUsage();
         const uptime = process.uptime();
 
+        const redisRequired = config.REDIS_REQUIRED || config.USE_REDIS_SESSIONS;
+        const kafkaEnabled = config.USE_KAFKA_LOGGING;
+        const dependencies = {
+            mongodb: {
+                status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+            },
+            redis: {
+                status: isRedisReady() ? 'connected' : redisRequired ? 'disconnected' : 'memory'
+            },
+            kafka: (() => {
+                const status = kafkaLogger.getStatus();
+                return {
+                    status: !kafkaEnabled ? 'disabled' : status.connected ? 'connected' : 'disconnected',
+                    enabled: status.enabled
+                };
+            })()
+        };
+
         // Calculate health score
         let healthScore = 100;
         const issues = [];
+
+        if (dependencies.mongodb.status !== 'connected') {
+            healthScore -= 35;
+            issues.push('MongoDB is disconnected');
+        }
+        if (dependencies.redis.status === 'disconnected') {
+            healthScore -= 25;
+            issues.push('Redis is disconnected');
+        } else if (dependencies.redis.status === 'memory') {
+            issues.push('Redis is unavailable; using in-memory fallback');
+        }
+        if (dependencies.kafka.status === 'disconnected') {
+            healthScore -= 10;
+            issues.push('Kafka logging is disconnected');
+        }
 
         // Check memory usage
         const memoryPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
@@ -176,6 +157,7 @@ async function getSystemHealth(req, res) {
                 status: healthScore >= 80 ? 'healthy' : healthScore >= 60 ? 'warning' : 'critical',
                 healthScore,
                 issues,
+                dependencies,
                 metrics: {
                     memory: {
                         heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
@@ -223,13 +205,13 @@ async function getLoginChartData(req, res) {
             {
                 $match: {
                     action: { $in: ['login_success', 'login_failed'] },
-                    timestamp: { $gte: hoursAgo }
+                    createdAt: { $gte: hoursAgo }
                 }
             },
             {
                 $group: {
                     _id: {
-                        $dateToString: { format: '%Y-%m-%d %H:00', date: '$timestamp' }
+                        $dateToString: { format: '%Y-%m-%d %H:00', date: '$createdAt' }
                     },
                     total: { $sum: 1 },
                     successful: {
@@ -271,9 +253,9 @@ async function getSecurityEvents(req, res) {
         const hoursAgo = new Date(Date.now() - (parseInt(hours) * 60 * 60 * 1000));
 
         const events = await SecurityAudit.find({
-            timestamp: { $gte: hoursAgo }
+            createdAt: { $gte: hoursAgo }
         })
-            .sort({ timestamp: -1 })
+            .sort({ createdAt: -1 })
             .limit(parseInt(limit))
             .lean();
 
@@ -321,24 +303,25 @@ async function getMetricsSummary(req, res) {
         });
 
         // Login statistics
-        const loginsToday = await SecurityAudit.countDocuments({
+        const successfulLoginsToday = await SecurityAudit.countDocuments({
             action: 'login_success',
-            timestamp: { $gte: new Date(now - 24 * 60 * 60 * 1000) }
+            createdAt: { $gte: new Date(now - 24 * 60 * 60 * 1000) }
         });
 
         const failedLoginsToday = await SecurityAudit.countDocuments({
             action: 'login_failed',
-            timestamp: { $gte: new Date(now - 24 * 60 * 60 * 1000) }
+            createdAt: { $gte: new Date(now - 24 * 60 * 60 * 1000) }
         });
+        const totalLoginsToday = successfulLoginsToday + failedLoginsToday;
 
         // Security events
         const securityEventsToday = await SecurityAudit.countDocuments({
-            timestamp: { $gte: new Date(now - 24 * 60 * 60 * 1000) }
+            createdAt: { $gte: new Date(now - 24 * 60 * 60 * 1000) }
         });
 
         const accountLockoutsToday = await SecurityAudit.countDocuments({
             action: 'account_locked',
-            timestamp: { $gte: new Date(now - 24 * 60 * 60 * 1000) }
+            createdAt: { $gte: new Date(now - 24 * 60 * 60 * 1000) }
         });
 
         // Active sessions
@@ -354,10 +337,11 @@ async function getMetricsSummary(req, res) {
                     growth: totalUsers > 0 ? ((newUsersWeek / totalUsers) * 100).toFixed(1) : 0
                 },
                 logins: {
-                    today: loginsToday,
+                    today: totalLoginsToday,
+                    successfulToday: successfulLoginsToday,
                     failedToday: failedLoginsToday,
-                    successRate: loginsToday > 0
-                        ? (((loginsToday - failedLoginsToday) / loginsToday) * 100).toFixed(1)
+                    successRate: totalLoginsToday > 0
+                        ? ((successfulLoginsToday / totalLoginsToday) * 100).toFixed(1)
                         : 100
                 },
                 security: {

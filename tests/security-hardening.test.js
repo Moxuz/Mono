@@ -292,14 +292,6 @@ test('crypto.randomBytes works', () => {
     assert.strictEqual(bytes.length, 32);
 });
 
-test('2FA service uses encryption', () => {
-    const twoFAService = require('../src/shared/services/2fa.service');
-    const fs = require('fs');
-    const serviceCode = fs.readFileSync('src/shared/services/2fa.service.js', 'utf8');
-    assert.ok(serviceCode.includes('encryptSecret'), '2FA service should encrypt secrets');
-    assert.ok(serviceCode.includes('decryptSecret'), '2FA service should decrypt secrets');
-});
-
 // ─────────────────────────────────────────────────────────────────────────────
 // 8. SECURITY AUDIT LOGGING
 // ─────────────────────────────────────────────────────────────────────────────

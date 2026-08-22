@@ -15,7 +15,7 @@ describe('Change Password', () => {
     beforeAll(async () => { user = await createTestUser('chgpwd'); });
     afterAll(async () => {
         // Re-login with new password to clean up (if changed)
-        const loginRes = await post('/api/auth/login', { email: user.email, password: newPassword });
+        const loginRes = await post('/api/auth/login/token', { email: user.email, password: newPassword });
         if (loginRes.status === 200) {
             const t = (loginRes.data.data || loginRes.data).token;
             await cleanupUser(newPassword, t);
@@ -34,7 +34,7 @@ describe('Change Password', () => {
     });
 
     it('can login with new password after change', async () => {
-        const res = await post('/api/auth/login', { email: user.email, password: newPassword });
+        const res = await post('/api/auth/login/token', { email: user.email, password: newPassword });
         expect(res.status).toBe(200);
         user.token = (res.data.data || res.data).token;
     });
@@ -78,7 +78,7 @@ describe('Forgot Password', () => {
     let user;
 
     beforeAll(async () => { user = await createTestUser('forgotpwd'); });
-    afterAll(async () => { await cleanupUser(user.password, user.token); });
+    afterAll(async () => { if (user) await cleanupUser(user.password, user.token); });
 
     it('registered email → 200 generic message', async () => {
         const res = await post('/api/auth/forgot-password', { email: user.email });

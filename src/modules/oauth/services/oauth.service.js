@@ -4,12 +4,15 @@ const bcrypt = require('bcryptjs');
 const Client = require('../../../shared/models/Client');
 const User = require('../../../shared/models/User');
 const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
+const Consent = require('../../../shared/models/Consent');
 const AuthorizationCode = require('../../../shared/models/AuthorizationCode');
 const Session = require('../../../shared/models/Session');
 const config = require('../../../shared/config/config');
 const sessionService = require('../../../shared/services/session.service');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
 const logger = require('../../../shared/utils/logger');
+const { parseScopes } = require('../../../shared/utils/oauthScopes');
+const oidcKeys = require('../../../shared/config/oidcKeys');
 
 class OAuthService {
 
@@ -17,31 +20,41 @@ class OAuthService {
     // Authorization Code
     // ─────────────────────────────────────────
 
-    async generateAuthorizationCode(userId, clientId, redirectUri, scope, pkce = null) {
+    async generateAuthorizationCode(userId, clientId, redirectUri, scope, pkce = null, nonce = null, grantId = null) {
+        if (!pkce?.code_challenge || pkce.code_challenge_method !== 'S256' || !nonce) {
+            throw new Error('Authorization code requires S256 PKCE and nonce');
+        }
+
         try {
+            const consent = await Consent.getActiveGrant(userId, clientId, scope);
+            if (!consent || (grantId && String(consent.grantId) !== String(grantId))) {
+                throw new Error('OAuth grant is inactive');
+            }
+
             const code = crypto.randomBytes(32).toString('hex');
-            const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes (RFC 6749 best practice)
+            const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
 
             const authCodeData = {
                 code,
                 clientId,
                 userId,
+                grantId: consent.grantId,
                 redirectUri,
                 scope,
                 expiresAt
             };
 
-            if (pkce && pkce.code_challenge) {
-                authCodeData.code_challenge = pkce.code_challenge;
-                authCodeData.code_challenge_method = pkce.code_challenge_method || 'S256';
-            }
+            authCodeData.nonce = nonce;
+            authCodeData.code_challenge = pkce.code_challenge;
+            authCodeData.code_challenge_method = pkce.code_challenge_method;
 
             await AuthorizationCode.create(authCodeData);
 
             logger.info('Authorization code created', {
                 clientId,
                 userId,
-                hasPKCE: !!authCodeData.code_challenge
+                grantId: consent.grantId,
+                hasPKCE: true
             });
 
             return code;
@@ -50,9 +63,6 @@ class OAuthService {
             throw error;
         }
     }
-
-    // ─────────────────────────────────────────
-    // PKCE Verification
     // ─────────────────────────────────────────
 
     verifyPKCE(codeVerifier, codeChallenge, method = 'S256') {
@@ -78,12 +88,14 @@ class OAuthService {
 
     async exchangeCodeForTokens(code, clientId, clientSecret, redirectUri, codeVerifier = null) {
         try {
-            // 1) Atomically find and mark code as used (prevents replay race condition)
-            const authCode = await AuthorizationCode.findOneAndUpdate(
-                { code, usedAt: null, expiresAt: { $gt: new Date() } },
-                { $set: { usedAt: new Date() } },
-                { new: false }
-            ).populate('userId');
+            // Read the code first.  It must not be consumed until the client
+            // credentials, redirect URI and PKCE verifier have all passed.
+            // The final compare-and-set below still prevents replay races.
+            const authCode = await AuthorizationCode.findOne({
+                code,
+                usedAt: null,
+                expiresAt: { $gt: new Date() }
+            }).populate('userId');
 
             if (!authCode) {
                 await securityAuditService.logSecurityEvent({
@@ -95,7 +107,31 @@ class OAuthService {
                 throw new Error('Invalid or expired authorization code');
             }
 
-            // 2) PKCE verification
+            // 2) Validate client
+            const client = await this.validateClient(clientId, clientSecret, redirectUri);
+            if (!client) {
+                logger.warn('exchangeCodeForTokens: client validation failed', { clientId });
+                await securityAuditService.logSecurityEvent({
+                    userId: authCode.userId?._id,
+                    action: 'client_auth_failed',
+                    status: 'failure',
+                    metadata: { reason: 'invalid_client', clientId }
+                });
+                throw new Error('Invalid client credentials');
+            }
+
+            if (client.application_type !== 'web' ||
+                !authCode.code_challenge ||
+                authCode.code_challenge_method !== 'S256') {
+                throw new Error('PKCE is required for this client');
+            }
+
+            // 3) Check code belongs to client before consuming it
+            if (authCode.clientId !== clientId || authCode.redirectUri !== redirectUri) {
+                throw new Error('Authorization code does not match client');
+            }
+
+            // 4) PKCE verification
             if (authCode.code_challenge) {
                 if (!codeVerifier) {
                     await securityAuditService.logSecurityEvent({
@@ -123,32 +159,40 @@ class OAuthService {
                 }
             }
 
-            // 3) Validate client
-            const client = await this.validateClient(clientId, clientSecret, redirectUri);
-            if (!client) {
-                logger.warn('exchangeCodeForTokens: client validation failed', { clientId });
-                await securityAuditService.logSecurityEvent({
-                    userId: authCode.userId?._id,
-                    action: 'client_auth_failed',
-                    status: 'failure',
-                    metadata: { reason: 'invalid_client', clientId }
-                });
-                throw new Error('Invalid client credentials');
+            const user = authCode.userId;
+            if (!user || !user.isActive) {
+                throw new Error('User not found or inactive');
+            }
+            if (!authCode.grantId ||
+                !await this.isGrantActive(user._id, clientId, authCode.grantId, authCode.scope)) {
+                throw new Error('OAuth grant is inactive');
             }
 
-            // 4) Check code belongs to client
-            if (authCode.clientId !== clientId) {
-                throw new Error('Authorization code does not match client');
+            // 5) Consume only after all checks pass.  If another request won
+            // the race, this request must fail without issuing tokens.
+            const consumedCode = await AuthorizationCode.findOneAndUpdate(
+                { _id: authCode._id, usedAt: null, expiresAt: { $gt: new Date() } },
+                { $set: { usedAt: new Date() } },
+                { new: false }
+            );
+            if (!consumedCode) {
+                throw new Error('Invalid or expired authorization code');
             }
 
             // 6) Generate tokens
-            const user = authCode.userId;
-            if (!user) {
-                throw new Error('User not found');
+            const scopes = parseScopes(authCode.scope);
+            const access_token = this.generateAccessToken(user, clientId, authCode.scope, authCode.grantId);
+            const id_token = this.generateIdToken(user, clientId, authCode.scope, authCode.nonce);
+            const tokenResponse = {
+                access_token,
+                id_token,
+                token_type: 'Bearer',
+                expires_in: 3600,
+                scope: authCode.scope
+            };
+            if (scopes.has('offline_access')) {
+                tokenResponse.refresh_token = this.generateRefreshToken(user, clientId, authCode.scope, authCode.grantId);
             }
-            const access_token  = this.generateAccessToken(user, clientId, authCode.scope);
-            const id_token      = this.generateIdToken(user, clientId);
-            const refresh_token = this.generateRefreshToken(user, clientId);
 
             await client.incrementUsage();
 
@@ -161,14 +205,7 @@ class OAuthService {
 
             logger.info('Authorization code exchanged for tokens', { clientId, userId: user._id });
 
-            return {
-                access_token,
-                id_token,
-                refresh_token,
-                token_type: 'Bearer',
-                expires_in: 3600,
-                scope: authCode.scope
-            };
+            return tokenResponse;
         } catch (error) {
             logger.error('exchangeCodeForTokens failed:', error.message);
             throw error;
@@ -191,10 +228,12 @@ class OAuthService {
                 description:      clientData.description,
                 logo_uri:         clientData.logo_uri,
                 redirect_uris:    clientData.redirect_uris,
-                application_type: clientData.application_type || 'web',
+                application_type: 'web',
                 contact_email:    clientData.contact_email,
                 owner:            ownerId,
-                scope:            clientData.scope || 'openid profile email'
+                scope:            clientData.scope || 'openid profile email',
+                grant_types:      ['authorization_code', 'refresh_token'],
+                response_types:   ['code']
             });
 
             await client.save();
@@ -204,6 +243,9 @@ class OAuthService {
                 client_secret, // Only time it's shown
                 client_name: client.client_name,
                 scope:       client.scope,
+                application_type: client.application_type,
+                grant_types: client.grant_types,
+                response_types: client.response_types,
                 created_at:  client.createdAt
             };
         } catch (error) {
@@ -269,14 +311,12 @@ class OAuthService {
             if (!client) throw new Error('Client not found');
             client.isActive = false;
             await client.save();
+            await Consent.revokeAllForClient(clientId, 'client_deactivated');
             return { message: 'Client deactivated successfully' };
         } catch (error) {
             throw error;
         }
-    }
-
-    // ─────────────────────────────────────────
-    // Validate Client (OAuth Flow - ไม่มี owner)
+    }    // Validate Client (OAuth Flow - ไม่มี owner)
     // ─────────────────────────────────────────
 
     async validateClient(clientId, clientSecret, redirectUri) {
@@ -293,13 +333,16 @@ class OAuthService {
                 logger.warn('validateClient: client inactive', { clientId });
                 return null;
             }
+            if (client.application_type !== 'web' ||
+                !Array.isArray(client.grant_types) ||
+                !client.grant_types.includes('authorization_code')) {
+                logger.warn('validateClient: unsupported application or grant type', { clientId });
+                return null;
+            }
 
-            // Normalize URL ก่อนเปรียบเทียบ (ป้องกัน trailing slash)
-            const normalizeUrl = (url) => url?.replace(/\/$/, '').toLowerCase().trim();
-            const receivedUri  = normalizeUrl(redirectUri);
-            const hasMatch     = client.redirect_uris.some(
-                uri => normalizeUrl(uri) === receivedUri
-            );
+            // RFC 9700 requires exact redirect URI matching. Case and trailing
+            // slash differences identify different callbacks.
+            const hasMatch = client.redirect_uris.includes(redirectUri);
 
             if (!hasMatch) {
                 logger.warn('validateClient: redirect_uri mismatch', { clientId });
@@ -319,69 +362,113 @@ class OAuthService {
     }
 
     // ─────────────────────────────────────────
+    async isGrantActive(userId, clientId, grantId, scope) {
+        if (!userId || !clientId || !grantId) return false;
+
+        const [user, client, consent] = await Promise.all([
+            User.findById(userId).select('_id isActive'),
+            Client.findOne({ client_id: clientId, isActive: true }).select('_id'),
+            Consent.findOne({
+                userId,
+                clientId,
+                grantId,
+                revokedAt: null,
+                expiresAt: { $gt: new Date() }
+            }).select('scope grantId')
+        ]);
+
+        if (!user?.isActive || !client || !consent) return false;
+
+        const approvedScopes = new Set(String(consent.scope || '').split(/\s+/).filter(Boolean));
+        return String(scope || '')
+            .split(/\s+/)
+            .filter(Boolean)
+            .every((requested) => approvedScopes.has(requested));
+    }
     // Token Generation
     // ─────────────────────────────────────────
 
-    generateAccessToken(user, clientId, scope) {
+    generateAccessToken(user, clientId, scope, grantId = null) {
         const baseUrl = config.BASE_URL || 'http://localhost:5000';
+        const claims = {
+            sub:       user._id.toString(),
+            client_id: clientId,
+            scope,
+            type:      'access_token'
+        };
+        if (grantId) claims.grant_id = String(grantId);
+
         return jwt.sign(
-            {
-                sub:       user._id.toString(),
-                email:     user.email,
-                username:  user.username,
-                role:      user.role,
-                client_id: clientId,
-                scope,
-                type:      'access_token'
-            },
-            config.JWT_SECRET,
-            { expiresIn: '1h', issuer: baseUrl, audience: clientId }
+            claims,
+            oidcKeys.privateKey,
+            { algorithm: 'RS256', keyid: oidcKeys.keyId, expiresIn: '1h', issuer: baseUrl, audience: clientId }
         );
     }
 
-    generateIdToken(user, clientId) {
+    generateIdToken(user, clientId, scope = '', nonce = null) {
         const baseUrl = config.BASE_URL || 'http://localhost:5000';
         const now = Math.floor(Date.now() / 1000);
-        return jwt.sign(
-            {
-                sub:            user._id.toString(),
-                email:          user.email,
-                email_verified: true,
-                username:       user.username,
-                name:           user.username,
-                aud:            clientId,
-                iss:            baseUrl,
-                iat:            now,
-                exp:            now + 3600,
-                type:           'id_token'
-            },
-            config.JWT_SECRET
-        );
+        const scopes = parseScopes(scope);
+        const claims = {
+            sub: user._id.toString(),
+            aud: clientId,
+            iss: baseUrl,
+            iat: now,
+            exp: now + 3600,
+            type: 'id_token'
+        };
+
+        if (nonce) claims.nonce = nonce;
+
+        if (scopes.has('email')) claims.email = user.email;
+        if (scopes.has('profile')) {
+            claims.username = user.username;
+            claims.name = user.username;
+        }
+
+        return jwt.sign(claims, oidcKeys.privateKey, {
+            algorithm: 'RS256',
+            keyid: oidcKeys.keyId
+        });
     }
 
-    generateRefreshToken(user, clientId) {
+    generateRefreshToken(user, clientId, scope, grantId = null) {
+        const scopes = parseScopes(scope);
+        if (!scopes.has('offline_access')) {
+            throw new Error('offline_access is required for refresh tokens');
+        }
+
         const baseUrl = config.BASE_URL || 'http://localhost:5000';
+        const claims = {
+            sub:       user._id.toString(),
+            client_id: clientId,
+            scope,
+            type:      'refresh_token',
+            jti:       crypto.randomBytes(16).toString('hex')
+        };
+        if (grantId) claims.grant_id = String(grantId);
+
         return jwt.sign(
-            {
-                sub:       user._id.toString(),
-                client_id: clientId,
-                type:      'refresh_token',
-                jti:       crypto.randomBytes(16).toString('hex')
-            },
+            claims,
             config.JWT_SECRET,
-            { expiresIn: '30d', issuer: baseUrl, audience: clientId }
+            { algorithm: 'HS256', expiresIn: '30d', issuer: baseUrl, audience: clientId }
         );
     }
-
-
-    // ─────────────────────────────────────────
-    // Token Operations
     // ─────────────────────────────────────────
 
     async refreshAccessToken(refreshToken, req) {
         try {
-            const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
+            const baseUrl = config.BASE_URL || 'http://localhost:5000';
+            const decoded = jwt.verify(refreshToken, config.JWT_SECRET, {
+                algorithms: ['HS256'],
+                issuer: baseUrl
+            });
+
             if (decoded.type !== 'refresh_token') throw new Error('Invalid token type');
+            if (!decoded.grant_id) throw new Error('OAuth grant is inactive');
+            if (!parseScopes(decoded.scope).has('offline_access')) {
+                throw new Error('Refresh token is not authorized for offline access');
+            }
 
             const isBlacklisted = await TokenBlacklist.isBlacklisted(refreshToken);
             if (isBlacklisted) throw new Error('Token has been revoked');
@@ -389,7 +476,11 @@ class OAuthService {
             const user = await User.findById(decoded.sub);
             if (!user || !user.isActive) throw new Error('User not found or inactive');
 
-            // If session tracking is available, validate and rotate
+            if (!await this.isGrantActive(decoded.sub, decoded.client_id, decoded.grant_id, decoded.scope)) {
+                throw new Error('OAuth grant is inactive');
+            }
+
+            // If session tracking is available, validate and rotate.
             if (req?.sessionToken) {
                 const sessionValidation = await sessionService.validateAndRotateRefreshToken(
                     req.sessionToken,
@@ -403,36 +494,43 @@ class OAuthService {
                     throw new Error('Invalid session');
                 }
 
-                // Blacklist old refresh token before issuing new one
                 await TokenBlacklist.revokeToken(refreshToken, user._id, decoded.client_id, 'user_logout');
 
-                // Generate new refresh token (rotation)
-                const newRefreshToken = this.generateRefreshToken(user, decoded.client_id);
-
-                // Update session with new refresh token
+                const newRefreshToken = this.generateRefreshToken(
+                    user, decoded.client_id, decoded.scope, decoded.grant_id
+                );
                 await sessionService.updateRefreshToken(req.sessionToken, newRefreshToken);
 
                 const access_token = this.generateAccessToken(
-                    user, decoded.client_id, 'openid profile email'
+                    user, decoded.client_id, decoded.scope, decoded.grant_id
                 );
 
                 return {
                     access_token,
-                    refresh_token: newRefreshToken, // New refresh token
+                    refresh_token: newRefreshToken,
                     token_type: 'Bearer',
+                    scope: decoded.scope,
                     expires_in: 3600
                 };
             }
 
-            // Fallback without session tracking — still rotate refresh token
             await TokenBlacklist.revokeToken(refreshToken, user._id, decoded.client_id, 'user_logout');
 
-            const access_token   = this.generateAccessToken(user, decoded.client_id, 'openid profile email');
-            const new_refresh    = this.generateRefreshToken(user, decoded.client_id);
+            const access_token = this.generateAccessToken(
+                user, decoded.client_id, decoded.scope, decoded.grant_id
+            );
+            const new_refresh = this.generateRefreshToken(
+                user, decoded.client_id, decoded.scope, decoded.grant_id
+            );
 
             logger.info('OAuth token refreshed (no-session path)', { userId: user._id });
-
-            return { access_token, refresh_token: new_refresh, token_type: 'Bearer', expires_in: 3600 };
+            return {
+                access_token,
+                refresh_token: new_refresh,
+                token_type: 'Bearer',
+                scope: decoded.scope,
+                expires_in: 3600
+            };
         } catch (error) {
             logger.error('refreshAccessToken failed:', error.message);
             throw error;
@@ -444,8 +542,17 @@ class OAuthService {
             const isBlacklisted = await TokenBlacklist.isBlacklisted(token);
             if (isBlacklisted) throw new Error('Token has been revoked');
 
-            const decoded = jwt.verify(token, config.JWT_SECRET);
+            const baseUrl = config.BASE_URL || 'http://localhost:5000';
+            const decoded = jwt.verify(token, oidcKeys.publicKey, {
+                algorithms: ['RS256'],
+                issuer: baseUrl
+            });
             if (decoded.type !== 'access_token') throw new Error('Invalid token type');
+            if (!decoded.grant_id) throw new Error('OAuth grant is inactive');
+
+            if (!await this.isGrantActive(decoded.sub, decoded.client_id, decoded.grant_id, decoded.scope)) {
+                throw new Error('OAuth grant is inactive');
+            }
 
             return decoded;
         } catch (error) {
@@ -455,29 +562,26 @@ class OAuthService {
 
     async getUserInfo(token) {
         try {
-            let decoded;
-            try {
-                decoded = jwt.verify(token, config.JWT_SECRET);
-            } catch (err) {
-                throw new Error('Invalid or expired token');
+            // UserInfo accepts only a live OAuth access token.
+            const decoded = await this.verifyAccessToken(token);
+            if (!decoded.client_id || typeof decoded.scope !== 'string') {
+                throw new Error('Invalid OAuth access token');
             }
 
-            const userId = decoded.id || decoded.sub;
+            const userId = decoded.sub;
             if (!userId) throw new Error('Token does not contain user ID');
 
             const user = await User.findById(userId);
-            if (!user) throw new Error('User not found');
+            if (!user || !user.isActive) throw new Error('User not found or inactive');
 
-            return {
-                sub:            user._id.toString(),
-                email:          user.email,
-                email_verified: true,
-                username:       user.username,
-                name:           user.username,
-                role:           user.role,
-                created_at:     user.createdAt,
-                updated_at:     user.updatedAt
-            };
+            const scopes = parseScopes(decoded.scope);
+            const userInfo = { sub: user._id.toString() };
+            if (scopes.has('email')) userInfo.email = user.email;
+            if (scopes.has('profile')) {
+                userInfo.username = user.username;
+                userInfo.name = user.username;
+            }
+            return userInfo;
         } catch (error) {
             throw error;
         }

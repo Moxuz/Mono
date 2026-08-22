@@ -20,13 +20,13 @@ async function getUserActivity(req, res) {
 
         const filter = {
             userId,
-            timestamp: { $gte: daysAgo }
+            createdAt: { $gte: daysAgo }
         };
 
         const total = await SecurityAudit.countDocuments(filter);
 
         const activities = await SecurityAudit.find(filter)
-            .sort({ timestamp: -1 })
+            .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limitNum)
             .lean();
@@ -62,7 +62,7 @@ async function getUserActivity(req, res) {
 async function getUserSessions(req, res) {
     try {
         const userId = req.user.id;
-        const currentSessionId = req.session?.sessionId;
+        const currentSessionId = req.authSession?.sessionId;
 
         const sessions = await sessionService.getUserSessions(userId, currentSessionId);
 
@@ -89,7 +89,7 @@ async function revokeSession(req, res) {
     try {
         const userId = req.user.id;
         const { sessionId } = req.params;
-        const currentSessionId = req.session?.sessionId;
+        const currentSessionId = req.authSession?.sessionId;
 
         // Prevent revoking current session via this endpoint
         if (sessionId === currentSessionId) {
@@ -124,7 +124,7 @@ async function revokeSession(req, res) {
 async function revokeAllOtherSessions(req, res) {
     try {
         const userId = req.user.id;
-        const currentSessionId = req.session?.sessionId;
+        const currentSessionId = req.authSession?.sessionId;
 
         if (!currentSessionId) {
             return res.status(400).json({
@@ -169,8 +169,8 @@ async function getSecuritySummary(req, res) {
         const loginHistory = await SecurityAudit.find({
             userId,
             action: { $in: ['login_success', 'login_failed'] },
-            timestamp: { $gte: thirtyDaysAgo }
-        }).sort({ timestamp: -1 }).limit(10).lean();
+            createdAt: { $gte: thirtyDaysAgo }
+        }).sort({ createdAt: -1 }).limit(10).lean();
 
         // Get active sessions count
         const sessionsCount = await Session.countDocuments({
@@ -192,8 +192,8 @@ async function getSecuritySummary(req, res) {
                     'account_locked'
                 ]
             },
-            timestamp: { $gte: thirtyDaysAgo }
-        }).sort({ timestamp: -1 }).limit(5).lean();
+            createdAt: { $gte: thirtyDaysAgo }
+        }).sort({ createdAt: -1 }).limit(5).lean();
 
         res.json({
             success: true,
@@ -235,8 +235,8 @@ async function getLoginHistory(req, res) {
         const logins = await SecurityAudit.find({
             userId,
             action: { $in: ['login_success', 'login_failed'] },
-            timestamp: { $gte: daysAgo }
-        }).sort({ timestamp: -1 }).lean();
+            createdAt: { $gte: daysAgo }
+        }).sort({ createdAt: -1 }).lean();
 
         res.json({
             success: true,
