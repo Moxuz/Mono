@@ -16,21 +16,18 @@
   // Buttons
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
   const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+  const authorizedAppsList = document.getElementById('authorizedAppsList');
 
   // ─── Auth Check ──────────────────────────────────────────────────────────────
-  const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
-  if (!token) {
-    window.location.href = '/login.html';
-    return;
-  }
 
   let hasPassword = true; // safe default until profile loads
+  let authProvider = null;
 
   // ─── Load User Profile ───────────────────────────────────────────────────────
   async function loadUserProfile() {
     try {
       const res = await fetch('/api/auth/profile', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'same-origin'
       });
 
       if (!res.ok) throw new Error('Failed to load profile');
@@ -42,6 +39,7 @@
       userNameSide.textContent = user.username;
       userRoleSide.textContent = user.role.toUpperCase();
       hasPassword = data.data?.hasPassword ?? true;
+      authProvider = data.data?.provider || null;
 
     } catch (error) {
       console.error('Load profile error:', error);
@@ -54,7 +52,7 @@
     try {
       // Load from backend
       const res = await fetch('/api/auth/preferences', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'same-origin'
       });
 
       if (res.ok) {
@@ -75,6 +73,64 @@
     } catch (error) {
       console.error('Load settings error:', error);
       loadSettingsFromLocalStorage();
+    }
+  }
+
+  async function loadAuthorizedApps() {
+    if (!authorizedAppsList) return;
+    try {
+      const res = await fetch('/api/oauth/consents', {
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load applications');
+
+      const consents = data.data?.consents || [];
+      if (consents.length === 0) {
+        authorizedAppsList.innerHTML = `<div class="settings-item"><div class="settings-item-info"><span class="settings-item-label">No authorized applications</span><span class="settings-item-desc">Applications will appear here after you approve a sign-in request.</span></div></div>`;
+        return;
+      }
+
+      authorizedAppsList.innerHTML = consents.map((consent) => {
+        const expires = consent.expires_at ? new Date(consent.expires_at).toLocaleDateString() : 'unknown';
+        const scopes = String(consent.scope || '').split(/\s+/).filter(Boolean).map(escapeHtml).join(', ');
+        return `<div class="settings-item">
+          <div class="settings-item-info">
+            <span class="settings-item-label">${escapeHtml(consent.client_name)}</span>
+            <span class="settings-item-desc">Scopes: ${scopes || 'none'} · Expires: ${expires}</span>
+          </div>
+          <button class="btn btn-danger btn-sm" data-revoke-consent="${escapeHtml(consent.client_id)}">Revoke</button>
+        </div>`;
+      }).join('');
+
+      authorizedAppsList.querySelectorAll('[data-revoke-consent]').forEach((button) => {
+        button.addEventListener('click', () => revokeConsent(button.dataset.revokeConsent));
+      });
+    } catch (error) {
+      console.error('Load authorized applications error:', error);
+      authorizedAppsList.innerHTML = `<div class="settings-item"><div class="settings-item-info"><span class="settings-item-label">Unable to load authorized applications</span></div></div>`;
+    }
+  }
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  async function revokeConsent(clientId) {
+    if (!confirm('Revoke this application\'s access? You will need to approve it again next time.')) return;
+    try {
+      const res = await fetch(`/api/oauth/consents/${encodeURIComponent(clientId)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to revoke access');
+      await loadAuthorizedApps();
+      showAlert('Application access revoked', 'success');
+    } catch (error) {
+      showAlert(error.message, 'error');
     }
   }
 
@@ -131,7 +187,6 @@
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(preferences)
       });
@@ -161,12 +216,8 @@
   }
 
   function getOAuthProvider() {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.provider;
-    } catch { return null; }
+    return authProvider;
   }
-
   function getProviderLabel(provider) {
     if (provider === 'google') return 'Google';
     if (provider === 'github') return 'GitHub';
@@ -387,7 +438,7 @@
       try {
         const res = await fetch('/api/auth/delete-account', {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reauth_token: reauthToken })
         });
         const data = await res.json();
@@ -438,7 +489,6 @@
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ password })
       });
@@ -528,30 +578,25 @@ function applyTheme(theme) {
   deleteAccountBtn.addEventListener('click', deleteAccount);
 
   logoutBtnTop.addEventListener('click', () => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    // Blacklist token on server
     fetch('/api/auth/logout', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token }
-    }).catch(() => {});
-    // Clear all local storage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('user');
-    window.location.href = '/login.html';
+      credentials: 'same-origin'
+    }).catch(() => {}).finally(() => {
+      window.location.href = '/login.html';
+    });
   });
 
   // ─── Init ────────────────────────────────────────────────────────────────────
   async function init() {
     await loadUserProfile();
     loadSettings();
+    loadAuthorizedApps();
     // Handle OAuth re-auth callback for account deletion
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('action') === 'delete_account' && urlParams.get('reauth_token')) {
-      const reauthToken = urlParams.get('reauth_token');
+    if (urlParams.get('action') === 'delete_account' && urlParams.get('verified') === '1') {
       window.history.replaceState({}, document.title, window.location.pathname);
-      deleteAccount(reauthToken);
+      if (hasPassword) deleteAccount();
+      else showDeleteAccountConfirmModal(null);
     }
   }
   init();

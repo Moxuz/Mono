@@ -1,76 +1,56 @@
-// public/js/sessionService.js
-
+/**
+ * Browser session API wrapper.
+ * Authentication is provided by the HttpOnly AuthSys session cookie.
+ */
 class SessionService {
     constructor() {
         this.baseURL = '/api';
     }
 
-    getToken() {
-        const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
-        return token;
-    }
-
     async request(endpoint, options = {}) {
-        const token = this.getToken();
-        
-        if (!token) {
-            throw new Error('No authentication token. Please login again.');
-        }
-        
-        // 🔧 แก้ URL path
-        const url = `${this.baseURL}${endpoint}`;
-        console.log('📡 Request:', url);
-        
+        const url = this.baseURL + endpoint;
         const config = {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
                 ...options.headers
-            }
+            },
+            credentials: options.credentials || 'same-origin'
         };
 
-        try {
-            const response = await fetch(url, config);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                let errorData;
-                try {
-                    errorData = JSON.parse(errorText);
-                } catch {
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
-                throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
+        const response = await fetch(url, config);
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorData;
+            try {
+                errorData = JSON.parse(errorText);
+            } catch {
+                throw new Error('HTTP ' + response.status + ': ' + errorText);
             }
-            
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('❌ API Error:', error);
-            throw error;
+            throw new Error(errorData.error || errorData.message || 'HTTP ' + response.status);
         }
+
+        return response.json();
     }
 
     async getSessions() {
-        // 🔧 ใช้ /sessions แทน /auth/sessions
-        return await this.request('/sessions');
+        return this.request('/sessions');
     }
 
     async revokeSession(sessionId) {
-        return await this.request(`/sessions/${sessionId}`, {
+        return this.request('/sessions/' + encodeURIComponent(sessionId), {
             method: 'DELETE'
         });
     }
 
     async revokeAllOtherSessions() {
-        return await this.request('/sessions/others/all', {
+        return this.request('/sessions/others/all', {
             method: 'DELETE'
         });
     }
 
     async getSessionCount() {
-        return await this.request('/sessions/count');
+        return this.request('/sessions/count');
     }
 }
 

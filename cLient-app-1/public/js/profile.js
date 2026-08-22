@@ -1,7 +1,4 @@
 async function init() {
-    const token = await SilentAuth.ensureValidToken();
-    if (!token) return;
-
     const res  = await fetch('/api/session');
     const data = await res.json();
 
@@ -11,13 +8,10 @@ async function init() {
     }
 
     const u = data.user;
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     document.getElementById('profileCard').innerHTML = `
-        <h2>👤 ${u.username}</h2>
-        <p style="margin-top:12px;"><strong>Email:</strong> ${u.email}</p>
-        <p style="margin-top:8px;">
-            <strong>Email Verified:</strong> ${u.email_verified ? '✅' : '❌'}
-        </p>
-        <p style="margin-top:8px;"><strong>Role:</strong> ${u.role || 'user'}</p>
+        <h2>👤 ${escapeHtml(u.username)}</h2>
+        <p style="margin-top:12px;"><strong>Email:</strong> ${escapeHtml(u.email)}</p>
     `;
 }
 

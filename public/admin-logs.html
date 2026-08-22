@@ -137,19 +137,19 @@
             <div class="col-md-3">
                 <div class="stats-card">
                     <h3 id="totalEvents">-</h3>
-                    <p>Total Events (24h)</p>
+                    <p>Login Attempts (24h)</p>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="stats-card success">
                     <h3 id="successEvents">-</h3>
-                    <p>Successful Events</p>
+                    <p>Successful Logins</p>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="stats-card danger">
                     <h3 id="failedEvents">-</h3>
-                    <p>Failed Events</p>
+                    <p>Failed Logins</p>
                 </div>
             </div>
             <div class="col-md-3">
@@ -172,7 +172,6 @@
                         <option value="logout">Logout</option>
                         <option value="password_changed">Password Changed</option>
                         <option value="account_locked">Account Locked</option>
-                        <option value="email_verified">Email Verified</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -230,13 +229,24 @@
     </div>
 
     <!-- Scripts -->
+    <script src="/js/auth-refresh.js"></script>
+    <script src="/js/admin-page-guard.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <script>
         let dataTable;
-        const token = localStorage.getItem('token') || sessionStorage.getItem('tempToken');
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
         // Load logs on page load
         $(document).ready(function() {
@@ -294,15 +304,15 @@
             logs.forEach(log => {
                 const row = `
                     <tr>
-                        <td>${new Date(log.timestamp).toLocaleString()}</td>
-                        <td><span class="badge bg-info">${log.action}</span></td>
-                        <td><span class="badge badge-${log.status}">${log.status}</span></td>
-                        <td>${log.userInfo ? log.userInfo.username : 'N/A'}<br>
-                            <small class="text-muted">${log.userInfo ? log.userInfo.email : ''}</small>
+                        <td>${escapeHtml(new Date(log.createdAt).toLocaleString())}</td>
+                        <td><span class="badge bg-info">${escapeHtml(log.action)}</span></td>
+                        <td><span class="badge badge-${escapeHtml(log.status)}">${escapeHtml(log.status)}</span></td>
+                        <td>${escapeHtml(log.userInfo ? log.userInfo.username : 'N/A')}<br>
+                            <small class="text-muted">${escapeHtml(log.userInfo ? log.userInfo.email : '')}</small>
                         </td>
-                        <td>${log.ipAddress || 'N/A'}</td>
-                        <td>${log.userAgent ? parseUserAgent(log.userAgent) : 'N/A'}</td>
-                        <td><small>${JSON.stringify(log.metadata || {}).substring(0, 50)}...</small></td>
+                        <td>${escapeHtml(log.ipAddress || 'N/A')}</td>
+                        <td>${escapeHtml(log.userAgent ? parseUserAgent(log.userAgent) : 'N/A')}</td>
+                        <td><small>${escapeHtml(JSON.stringify(log.metadata || {}).substring(0, 50))}...</small></td>
                     </tr>
                 `;
                 tbody.append(row);
@@ -325,7 +335,7 @@
 
         async function loadStats() {
             try {
-                const response = await fetch('/api/dashboard/stats', {
+                const response = await fetch('/api/dashboard/logs/stats', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -335,7 +345,7 @@
 
                 if (result.success) {
                     $('#totalEvents').text(result.data.logins.last24Hours || 0);
-                    $('#successEvents').text((result.data.logins.last24Hours - result.data.logins.failedLast24h) || 0);
+                    $('#successEvents').text(result.data.logins.successfulLast24h || 0);
                     $('#failedEvents').text(result.data.logins.failedLast24h || 0);
                     $('#lockedAccounts').text(result.data.security.accountLockouts24h || 0);
                 }
@@ -356,7 +366,20 @@
             if (startDate) params.append('startDate', startDate);
             if (endDate) params.append('endDate', endDate);
 
-            window.location.href = `/api/dashboard/logs/export?${params}`;
+            const response = await fetch(`/api/dashboard/logs/export?${params}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                alert('Failed to export logs. Please sign in as an administrator.');
+                return;
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'security-logs.csv';
+            link.click();
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>

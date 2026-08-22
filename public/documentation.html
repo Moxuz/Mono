@@ -36,7 +36,7 @@
             <div class="pp-version-left">
                 <span class="pp-badge pp-badge-primary">API v1.0</span>
                 <span class="pp-version-date">
-                    Base URL: <strong>http://localhost:5000/api</strong>
+                    Base URL: <strong>your AuthSys origin + /api</strong>
                 </span>
             </div>
             <span class="pp-badge pp-badge-success">OAuth 2.0</span>
@@ -68,7 +68,8 @@
             </h2>
             <p>
                 AuthSys provides a full identity and access management API.
-                All requests must be made over HTTPS and include a valid authentication token.
+                Browser requests use the Secure, HttpOnly AuthSys session cookie. OAuth/API
+                resource requests use a valid bearer token over HTTPS.
             </p>
             <div class="pp-alert pp-alert-info">
                 <span class="material-symbols-outlined">info</span>
@@ -88,8 +89,9 @@
                 </div>
                 <ul>
                     <li>Register an account at <code>/api/auth/register</code></li>
-                    <li>Login to receive a JWT token at <code>/api/auth/login</code></li>
-                    <li>Pass the token as <code>Authorization: Bearer &lt;token&gt;</code> on every request</li>
+                    <li>Login at <code>/api/auth/login</code> to establish the HttpOnly browser session</li>
+                    <li>Use <code>/api/oauth/token</code> for OAuth client bearer tokens</li>
+                    <li>Send <code>Authorization: Bearer &lt;token&gt;</code> only to protected OAuth/API resources</li>
                 </ul>
             </div>
         </div>
@@ -100,7 +102,7 @@
                 <span class="material-symbols-outlined">lock</span>
                 Authentication
             </h2>
-            <p>AuthSys uses JWT (JSON Web Tokens) for authentication.</p>
+            <p>AuthSys uses an HttpOnly browser session for first-party web pages and OAuth/OIDC bearer tokens for registered client applications.</p>
 
             <div class="pp-table-wrapper">
                 <table class="pp-table">
@@ -120,12 +122,12 @@
                         <tr>
                             <td><span class="pp-badge pp-badge-success">POST</span></td>
                             <td><code>/api/auth/login</code></td>
-                            <td>Login and receive JWT + refresh token</td>
+                            <td>Login and establish a Secure, HttpOnly browser session</td>
                         </tr>
                         <tr>
                             <td><span class="pp-badge pp-badge-success">POST</span></td>
                             <td><code>/api/auth/logout</code></td>
-                            <td>Invalidate current token</td>
+                            <td>End the current browser session (or revoke a compatibility bearer session)</td>
                         </tr>
                         <tr>
                             <td><span class="pp-badge pp-badge-success">POST</span></td>
@@ -144,8 +146,10 @@
             <div class="pp-alert pp-alert-success">
                 <span class="material-symbols-outlined">schedule</span>
                 <div>
-                    <strong>Token expiry:</strong> 1 hour (default) · 30 days (Remember me)
-                    <br>Refresh tokens expire in <strong>30 days</strong>.
+                    <strong>Browser session:</strong> 1 hour by default or 30 days with "Remember me" ·
+                    <strong>OAuth access token:</strong> 1 hour (RS256) ·
+                    <strong>OIDC ID token:</strong> 1 hour (RS256) ·
+                    <strong>Refresh token:</strong> issued only with registered <code>offline_access</code>
                 </div>
             </div>
         </div>
@@ -174,18 +178,28 @@
                     <tbody>
                         <tr>
                             <td><span class="pp-badge pp-badge-primary">GET</span></td>
-                            <td><code>/api/keys</code></td>
-                            <td>List all your API keys</td>
+                            <td><code>/api/oauth/clients</code></td>
+                            <td>List your OAuth client applications</td>
                         </tr>
                         <tr>
                             <td><span class="pp-badge pp-badge-success">POST</span></td>
-                            <td><code>/api/keys</code></td>
-                            <td>Create a new API key</td>
+                            <td><code>/api/oauth/clients</code></td>
+                            <td>Register a new client (returns client_id + client_secret once)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
+                            <td><code>/api/oauth/clients/:id</code></td>
+                            <td>Get client details</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pp-badge pp-badge-warning">PUT</span></td>
+                            <td><code>/api/oauth/clients/:id</code></td>
+                            <td>Update client settings</td>
                         </tr>
                         <tr>
                             <td><span class="pp-badge pp-badge-warning">DELETE</span></td>
-                            <td><code>/api/keys/:id</code></td>
-                            <td>Revoke an API key</td>
+                            <td><code>/api/oauth/clients/:id</code></td>
+                            <td>Deactivate a client</td>
                         </tr>
                     </tbody>
                 </table>
@@ -235,12 +249,12 @@
                         </tr>
                         <tr>
                             <td><span class="pp-badge pp-badge-success">POST</span></td>
-                            <td><code>/api/oauth/token/revoke</code></td>
+                            <td><code>/api/oauth/revoke</code></td>
                             <td>Revoke an access or refresh token</td>
                         </tr>
                         <tr>
                             <td><span class="pp-badge pp-badge-success">POST</span></td>
-                            <td><code>/api/oauth/token/introspect</code></td>
+                            <td><code>/api/oauth/introspect</code></td>
                             <td>Inspect a token's validity and claims</td>
                         </tr>
                     </tbody>
@@ -292,13 +306,6 @@
                             <td>No</td>
                             <td>Reset password with token</td>
                         </tr>
-                        <tr>
-                            <td><span class="pp-badge pp-badge-primary">GET</span></td>
-                            <td><code>/api/auth/verify-email</code></td>
-                            <td>No</td>
-                            <td>Verify email address</td>
-                        </tr>
-                
                    
                         <tr>
                             <td><span class="pp-badge pp-badge-primary">GET</span></td>
@@ -308,7 +315,7 @@
                         </tr>
                         <tr>
                             <td><span class="pp-badge pp-badge-warning">DELETE</span></td>
-                            <td><code>/api/auth/sessions/:id</code></td>
+                            <td><code>/api/sessions/:sessionId</code></td>
                             <td>Yes</td>
                             <td>Revoke a specific session</td>
                         </tr>
@@ -444,11 +451,11 @@
             </h2>
             <p>AuthSys implements the following security measures:</p>
             <ul>
-                <li>🔒 All tokens signed with HS256 (JWT)</li>
+                <li>🔒 First-party pages use HttpOnly sessions; OAuth access/ID tokens use RS256 and JWKS</li>
                 <li>🔑 Passwords hashed with bcrypt (10 rounds)</li>
                 <li>🛡️ PKCE required for OAuth 2.0</li>
-                <li>⏱️ Short-lived authorization codes (10 minutes)</li>
-                <li>🚫 Token blacklist on logout</li>
+                <li>⏱️ Short-lived authorization codes (2 minutes)</li>
+                <li>🚫 Token blacklist plus consent/grant revocation</li>
          
                 <li>📧 Login alert emails on new device sign-in</li>
                 <li>🔄 Session tracking and revocation</li>

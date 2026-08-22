@@ -39,18 +39,17 @@
                     <strong>We use cookies</strong>
                     <p>
                         Essential cookies keep you signed in.
-                        Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank">Privacy Policy</a>.
+                        Read our <a href="/privacy-policy" target="_blank">Privacy Policy</a>.
                     </p>
                 </div>
             </div>
             <div class="cookie-banner-actions">
-                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Essential Only</button>
-                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept All</button>
+                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Reject non-essential</button>
+                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept all</button>
             </div>
         </div>
     </div>
 
-    <script src="/js/silent-auth.js"></script> 
     <script src="/js/dashboard.js"></script>
     <script src="/js/cookie-banner.js"></script>
 </body>

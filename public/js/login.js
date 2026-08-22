@@ -36,7 +36,19 @@ function showAlert(message, type = 'error') {
 
 // Validate email format
 function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,63}$/.test(email);
+}
+
+function safeReturnTo(value) {
+    if (typeof value !== 'string' || value.length > 2048 ||
+        !/^\/(?![\\/])/.test(value) || /[\r\n]/.test(value)) return null;
+    try {
+        const url = new URL(value, window.location.origin);
+        if (url.origin !== window.location.origin) return null;
+        return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+        return null;
+    }
 }
 
 // Handle form submission
@@ -56,6 +68,11 @@ async function handleLogin(event) {
     
     if (!password) {
         showAlert('PASSWORD_REQUIRED', 'error');
+        return;
+    }
+
+    if (password.length > 128) {
+        showAlert('PASSWORD_TOO_LONG', 'error');
         return;
     }
     
@@ -79,62 +96,14 @@ async function handleLogin(event) {
         const data = await response.json();
         
         if (response.ok) {
-            // Store token — use localStorage if "Remember me", sessionStorage otherwise
-            const token = data.data?.token || data.token;
-            const storage = remember ? localStorage : sessionStorage;
-            if (token) {
-                storage.setItem('token', token);
-                // Clear the other storage to avoid stale tokens
-                if (remember) sessionStorage.removeItem('token');
-                else localStorage.removeItem('token');
+            if (typeof window.syncStoredCookieConsent === 'function') {
+                await window.syncStoredCookieConsent();
             }
-
-            // Store user data
-            if (data.data && data.data.user) {
-                const user = {
-                    id: data.data.user._id || data.data.user.id,
-                    username: data.data.user.username,
-                    email: data.data.user.email,
-                    role: data.data.user.role || 'user'
-                };
-                storage.setItem('user', JSON.stringify(user));
-                if (remember) sessionStorage.removeItem('user');
-                else localStorage.removeItem('user');
-            } else {
-                // If API doesn't return user data, fetch profile
-                try {
-                    const profileResponse = await fetch('/api/auth/profile', {
-                        headers: {
-                            'Authorization': 'Bearer ' + token
-                        }
-                    });
-
-                    const profileData = await profileResponse.json();
-
-                    if (profileData.success && profileData.data) {
-                        const user = {
-                            id: profileData.data._id || profileData.data.id,
-                            username: profileData.data.username,
-                            email: profileData.data.email,
-                            role: profileData.data.role || 'user'
-                        };
-                        storage.setItem('user', JSON.stringify(user));
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch profile:', error);
-                }
-            }
-            
             showAlert('AUTH_SUCCESS > REDIRECT_INIT', 'success');
 
-            const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+            const returnTo = safeReturnTo(new URLSearchParams(window.location.search).get('returnTo'));
             setTimeout(() => {
-                if (returnTo) {
-                    // Bridge: set server-side session then continue OAuth flow
-                    window.location.href = `/api/auth/oauth-session?token=${encodeURIComponent(token)}&returnTo=${encodeURIComponent(returnTo)}`;
-                } else {
-                    window.location.href = '/dashboard.html';
-                }
+                window.location.href = returnTo || '/dashboard.html';
             }, 1000);
         } else {
             showAlert(data.message || 'AUTH_FAILED', 'error');
@@ -150,32 +119,22 @@ async function handleLogin(event) {
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('loginForm');
     const alert = document.getElementById('alert');
 
-    // ── Auto-redirect if already authenticated ──────────────────────────────
-    const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (storedToken) {
-        try {
-            const payload = JSON.parse(atob(storedToken.split('.')[1]));
-            if (payload.exp * 1000 > Date.now()) {
-                const returnTo = new URLSearchParams(window.location.search).get('returnTo');
-                if (returnTo) {
-                    window.location.href = '/api/auth/oauth-session?token=' + encodeURIComponent(storedToken) + '&returnTo=' + encodeURIComponent(returnTo);
-                } else {
-                    window.location.href = '/dashboard.html';
-                }
-                return;
-            }
-        } catch (e) {
-            // Malformed token — fall through to login form
+    // ── Auto-redirect for an existing HttpOnly browser session ──────────────
+    try {
+        const sessionResponse = await fetch('/api/auth/session', { credentials: 'same-origin' });
+        const session = await sessionResponse.json();
+        if (session.authenticated) {
+            const returnTo = safeReturnTo(new URLSearchParams(window.location.search).get('returnTo'));
+            window.location.href = returnTo || '/dashboard.html';
+            return;
         }
-        // Token present but expired or malformed — clear it
-        localStorage.removeItem('token');
-        sessionStorage.removeItem('token');
+    } catch (_) {
+        // Keep the login form usable when the API is temporarily unavailable.
     }
-    // ────────────────────────────────────────────────────────────────────────
 
     // Hide alert on page load
     if (alert) {

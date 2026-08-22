@@ -134,6 +134,7 @@
                             type="text" 
                             id="displayName" 
                             class="input" 
+                            maxlength="80"
                             placeholder="John Doe"
                         />
                     </div>
@@ -213,7 +214,14 @@
                         <span class="material-symbols-outlined">chevron_right</span>
                     </button>
 
-          
+                    <button class="quick-action-item" id="manageSessionsBtn">
+                        <span class="material-symbols-outlined">devices</span>
+                        <div>
+                            <div class="quick-action-title" data-i18n="profile.manageSessions">Manage Sessions</div>
+                            <div class="quick-action-desc" data-i18n="profile.manageSessionsDesc">Review and revoke active sessions</div>
+                        </div>
+                        <span class="material-symbols-outlined">chevron_right</span>
+                    </button>
 
                     <button class="quick-action-item" id="deleteAccountBtn">
                         <span class="material-symbols-outlined text-error">delete</span>
@@ -231,6 +239,7 @@
     </main>
 
     <script src="/js/i18n.js"></script>
+    <script src="/js/auth-refresh.js"></script>
     <script src="/js/profile.js"></script>
 </body>
 </html>

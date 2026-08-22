@@ -51,8 +51,22 @@
       return false;
     }
 
+    if (value.length > 128) {
+      showFieldError('password', 'Password must be at most 128 characters');
+      return false;
+    }
+
     if (!/[0-9]/.test(value)) {
       showFieldError('password', 'Password must contain at least 1 number');
+      return false;
+    }
+
+    const lower = value.toLowerCase();
+    const hasSequence = ['abcdefghijklmnopqrstuvwxyz', '0123456789', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm']
+      .some(sequence => Array.from({ length: sequence.length - 2 }, (_, i) => sequence.slice(i, i + 3))
+        .some(part => lower.includes(part)));
+    if (hasSequence || /(.)\1{3,}/.test(value)) {
+      showFieldError('password', 'Password must not contain sequential or repeated characters');
       return false;
     }
 

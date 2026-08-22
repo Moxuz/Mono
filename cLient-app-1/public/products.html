@@ -18,14 +18,14 @@
     </nav>
 
     <div class="container">
-        <h2 style="margin-bottom:20px;">🛍️ Products</h2>
+        <h2 style="margin-bottom:20px;">🛍️ Products <small>(Cart: <span id="cartCount">0</span>)</small></h2>
         <div class="product-grid">
             <div class="product-card">
                 <div class="product-img" style="background:#eff6ff;">📱</div>
                 <div class="product-info">
                     <h3>Smartphone</h3>
                     <p>\$599</p>
-                    <button class="btn">Add to Cart</button>
+                    <button class="btn" type="button" data-product="Smartphone" data-price="599">Add to Cart</button>
                 </div>
             </div>
             <div class="product-card">
@@ -33,7 +33,7 @@
                 <div class="product-info">
                     <h3>Laptop</h3>
                     <p>\$999</p>
-                    <button class="btn">Add to Cart</button>
+                    <button class="btn" type="button" data-product="Laptop" data-price="999">Add to Cart</button>
                 </div>
             </div>
             <div class="product-card">
@@ -41,7 +41,7 @@
                 <div class="product-info">
                     <h3>Headphones</h3>
                     <p>\$199</p>
-                    <button class="btn">Add to Cart</button>
+                    <button class="btn" type="button" data-product="Headphones" data-price="199">Add to Cart</button>
                 </div>
             </div>
         </div>
@@ -56,17 +56,16 @@
                     <strong>We use cookies</strong>
                     <p>
                         Essential cookies keep you signed in.
-                        Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank">Privacy Policy</a>.
+                        Read our <a href="/privacy-policy" target="_blank">Privacy Policy</a>.
                     </p>
                 </div>
             </div>
             <div class="cookie-banner-actions">
-                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Essential Only</button>
-                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept All</button>
+                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Reject non-essential</button>
+                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept all</button>
             </div>
         </div>
     </div>
-    <script src="/js/silent-auth.js"></script> 
     <script src="/js/products.js"></script>
     <script src="/js/cookie-banner.js"></script>
 </body>

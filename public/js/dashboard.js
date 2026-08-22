@@ -1,90 +1,12 @@
-// ✅ Handle token from URL (from social login redirect)
-const urlParams = new URLSearchParams(window.location.search);
-const tokenFromUrl = urlParams.get('token');
-if (tokenFromUrl) {
-    localStorage.setItem('token', tokenFromUrl);
-    const refreshTokenFromUrl = urlParams.get('refreshToken');
-    if (refreshTokenFromUrl) localStorage.setItem('refreshToken', refreshTokenFromUrl);
-    // Cleanup URL
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
-
-// Check authentication
-// const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
-const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
 let user = null;
-try {
-    user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || 'null');
-} catch (e) {
-    localStorage.removeItem('user');
-    sessionStorage.removeItem('user');
-}
 
-if (!token) {
-    window.location.href = '/login.html';
-}
-
-// Update UI
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // Fetch user profile from API
-        await fetchUserProfile();
-        
-        // Update sidebar and topbar
-        updateUserUI();
-        
-        // Update Current User Card
-        updateCurrentUserCard();
-        
-        // Load Recent Events from API
-        await loadRecentEvents();
-        
-        // Export logs button
-        const exportBtn = document.getElementById('exportLogsBtn');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', exportLogs);
-        }
-        
-
-        
-        // Logout button
-        document.getElementById('logoutBtnTop').addEventListener('click', logout);
-        
-    } catch (error) {
-        console.error('Failed to load dashboard:', error);
-        // If API fails, still show cached user data
-        updateUserUI();
-        updateCurrentUserCard();
-        loadRecentEventsFromCache();
-    }
-});
-
-// Fetch user profile from API
-async function fetchUserProfile() {
-    try {
-        const response = await fetch('/api/auth/profile', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.data) {
-                user = data.data;
-                // Update localStorage with fresh data
-                localStorage.setItem('user', JSON.stringify(user));
-            }
-        } else if (response.status === 401) {
-            // Token expired
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login.html';
-        }
-    } catch (error) {
-        console.error('Failed to fetch user profile:', error);
-        // Use cached user data
-    }
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // Update user UI (sidebar and topbar)
@@ -130,16 +52,6 @@ function updateCurrentUserCard() {
     }
 }
 
-// Format time ago
-function formatTimeAgo(timestamp) {
-    const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
-    
-    if (seconds < 60) return 'just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} mins ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
-}
-
 // Load Recent Events from API
 async function loadRecentEvents() {
     const tbody = document.getElementById('recentEventsBody');
@@ -149,7 +61,6 @@ async function loadRecentEvents() {
         // Fetch from API
         const response = await fetch('/api/auth/security-audit', {
             headers: {
-                'Authorization': `Bearer ${token}`
             }
         });
         
@@ -238,11 +149,11 @@ function displayEvents(events, tbody) {
             <td>
                 <div class="event-type">
                     <span class="event-indicator ${isSuccess ? '' : 'error'}"></span>
-                    <span class="event-name">${eventName}</span>
+                    <span class="event-name">${escapeHtml(eventName)}</span>
                 </div>
             </td>
-            <td class="event-ip">${ipAddress}</td>
-            <td class="event-time">${timeAgo}</td>
+            <td class="event-ip">${escapeHtml(ipAddress)}</td>
+            <td class="event-time">${escapeHtml(timeAgo)}</td>
             <td>
                 <span class="status-tag ${isSuccess ? '' : 'status-tag-error'}">${isSuccess ? (typeof t === 'function' ? t('dashboard.status.success') : 'SUCCESS') : (typeof t === 'function' ? t('dashboard.status.failure') : 'FAILURE')}</span>
             </td>
@@ -289,10 +200,12 @@ function showToast(message, type = 'success') {
     
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <span class="material-symbols-outlined">${type === 'success' ? 'check_circle' : 'error'}</span>
-        <span>${message}</span>
-    `;
+    const icon = document.createElement('span');
+    icon.className = 'material-symbols-outlined';
+    icon.textContent = type === 'success' ? 'check_circle' : 'error';
+    const text = document.createElement('span');
+    text.textContent = String(message ?? '');
+    toast.append(icon, text);
     document.body.appendChild(toast);
     
     setTimeout(() => {
@@ -443,11 +356,11 @@ function createSessionCard(session) {
         <div class="session-header">
             <div class="session-device">
                 <div class="session-icon">
-                    <span class="material-symbols-outlined">${deviceIcon}</span>
+                    <span class="material-symbols-outlined">${escapeHtml(deviceIcon)}</span>
                 </div>
                 <div class="session-info">
-                    <h4>${browser} • ${os}</h4>
-                    <p>${device}</p>
+                    <h4>${escapeHtml(browser)} • ${escapeHtml(os)}</h4>
+                    <p>${escapeHtml(device)}</p>
                 </div>
             </div>
             ${session.isCurrent ? `
@@ -461,28 +374,33 @@ function createSessionCard(session) {
         <div class="session-details">
             <div class="session-detail">
                 <span class="material-symbols-outlined">location_on</span>
-                <span><strong>LOCATION:</strong> ${location}</span>
+                <span><strong>LOCATION:</strong> ${escapeHtml(location)}</span>
             </div>
             <div class="session-detail">
                 <span class="material-symbols-outlined">language</span>
-                <span><strong>IP:</strong> ${maskedIP}</span>
+                <span><strong>IP:</strong> ${escapeHtml(maskedIP)}</span>
             </div>
             <div class="session-detail">
                 <span class="material-symbols-outlined">schedule</span>
-                <span><strong>LAST_ACTIVE:</strong> ${timeAgo}</span>
+                <span><strong>LAST_ACTIVE:</strong> ${escapeHtml(timeAgo)}</span>
             </div>
         </div>
         
         <div class="session-footer">
-            <span class="session-time">SESSION_ID: ${sessionIdShort}</span>
+            <span class="session-time">SESSION_ID: ${escapeHtml(sessionIdShort)}</span>
             ${!session.isCurrent ? `
-                <button class="session-revoke-btn" onclick="revokeSessionHandler('${session.id}')">
+                <button class="session-revoke-btn" data-session-id="${escapeHtml(session.id)}">
                     <span class="material-symbols-outlined">delete</span>
                     TERMINATE
                 </button>
             ` : ''}
         </div>
     `;
+
+    if (!session.isCurrent) {
+        const revokeButton = card.querySelector('.session-revoke-btn');
+        revokeButton?.addEventListener('click', () => revokeSessionHandler(session.id));
+    }
     
     return card;
 }
@@ -540,7 +458,6 @@ async function fetchUserProfile() {
     try {
         const response = await fetch('/api/auth/profile', {
             headers: {
-                'Authorization': `Bearer ${token}`
             }
         });
 
@@ -548,11 +465,8 @@ async function fetchUserProfile() {
             const data = await response.json();
             if (data.success && data.data) {
                 user = data.data;
-                localStorage.setItem('user', JSON.stringify(user));
             }
         } else if (response.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
             window.location.href = '/login.html';
         } else {
             console.error('Failed to fetch profile:', response.status);
@@ -575,7 +489,6 @@ async function loadLoginActivity() {
         
         const response = await fetch(`/api/dashboard/login-activity?offset=${timezoneOffset}`, {
             headers: {
-                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
@@ -642,7 +555,7 @@ async function loadLoginActivity() {
                 <div style="text-align: center; padding: 2rem; color: var(--error);">
                     <span class="material-symbols-outlined" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;">error</span>
                     <p style="font-size: 0.75rem;">Failed to load activity</p>
-                    <p style="font-size: 0.625rem; margin-top: 0.5rem; color: var(--on-surface-variant);">${error.message}</p>
+                    <p style="font-size: 0.625rem; margin-top: 0.5rem; color: var(--on-surface-variant);">${escapeHtml(error.message)}</p>
                 </div>
             `;
         }
@@ -743,17 +656,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 function logout() {
     const confirmed = confirm(typeof t === 'function' ? t('dashboard.logoutConfirm') : 'Are you sure you want to logout?');
     if (confirmed) {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        // Blacklist token on server
         fetch('/api/auth/logout', {
             method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + token }
-        }).catch(() => {});
-        // Clear all local storage
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('user');
-        window.location.href = '/login.html';
+            credentials: 'same-origin'
+        }).catch(() => {}).finally(() => {
+            window.location.href = '/login.html';
+        });
     }
 }

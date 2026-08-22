@@ -32,11 +32,21 @@ function showAlert(message, type = 'error') {
 
 // Validate email format
 function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,63}$/.test(email);
 }
 
-// Validate password (simplified - just 8 characters)
+function hasSequentialCharacters(password) {
+    const lower = password.toLowerCase();
+    return ['abcdefghijklmnopqrstuvwxyz', '0123456789', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm']
+        .some(sequence => Array.from({ length: sequence.length - 2 }, (_, i) => sequence.slice(i, i + 3))
+            .some(part => lower.includes(part)));
+}
+
+// Match the server's hard constraints that can be checked locally.
 function validatePassword(password) {
+    if (password.length > 128) {
+        return { isValid: false, missing: ['at most 128 characters'] };
+    }
     if (password.length < 8) {
         return {
             isValid: false,
@@ -49,6 +59,14 @@ function validatePassword(password) {
             isValid: false,
             missing: ['at least 1 number']
         };
+    }
+
+    if (hasSequentialCharacters(password)) {
+        return { isValid: false, missing: ['no sequential characters'] };
+    }
+
+    if (/(.)\1{3,}/.test(password)) {
+        return { isValid: false, missing: ['no repeated characters'] };
     }
 
     return {
@@ -141,6 +159,11 @@ async function handleRegister(event) {
         showAlert('Username must be at least 3 characters long', 'error');
         return;
     }
+
+    if (username.length > 30) {
+        showAlert('Username must be at most 30 characters long', 'error');
+        return;
+    }
     
     if (!email || !isValidEmail(email)) {
         showAlert('Please enter a valid email address', 'error');
@@ -159,7 +182,7 @@ async function handleRegister(event) {
     }
     
     if (!consentEssential) {
-        showAlert('You must agree to the Terms and Privacy Policy', 'error');
+        showAlert('You must agree to the Terms of Service and acknowledge the Privacy Notice', 'error');
         return;
     }
     
@@ -184,12 +207,16 @@ async function handleRegister(event) {
         const data = await response.json();
         
         if (response.ok) {
+            if (typeof window.syncStoredCookieConsent === 'function') {
+                await window.syncStoredCookieConsent();
+            }
             showAlert('ACCOUNT_CREATED > REDIRECT_INIT', 'success');
             setTimeout(() => {
                 window.location.href = '/login.html';
             }, 1500);
         } else {
-            showAlert(data.message || 'Registration failed', 'error');
+            const details = Array.isArray(data.details) ? `: ${data.details.join(', ')}` : '';
+            showAlert((data.message || data.error || 'Registration failed') + details, 'error');
             registerBtn.disabled = false;
             registerBtn.innerHTML = '<span>CREATE_ACCOUNT</span><span class="material-symbols-outlined">person_add</span>';
         }
@@ -202,25 +229,22 @@ async function handleRegister(event) {
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('registerForm');
     const passwordInput = document.getElementById('password');
     const alert = document.getElementById('alert');
 
-    // ── Auto-redirect if already authenticated ──────────────────────────────
-    const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (storedToken) {
-        try {
-            const payload = JSON.parse(atob(storedToken.split('.')[1]));
-            if (payload.exp * 1000 > Date.now()) {
-                window.location.href = '/dashboard.html';
-                return;
-            }
-        } catch (e) {}
-        localStorage.removeItem('token');
-        sessionStorage.removeItem('token');
+    // ── Auto-redirect for an existing HttpOnly browser session ──────────────
+    try {
+        const sessionResponse = await fetch('/api/auth/session', { credentials: 'same-origin' });
+        const session = await sessionResponse.json();
+        if (session.authenticated) {
+            window.location.href = '/dashboard.html';
+            return;
+        }
+    } catch (_) {
+        // Keep the registration form usable when the API is unavailable.
     }
-    // ────────────────────────────────────────────────────────────────────────
 
     // ✅ ซ่อน alert เมื่อโหลดหน้าเสร็จ
     if (alert) {

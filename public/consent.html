@@ -33,7 +33,7 @@
             border: 1px solid var(--outline-variant);
             border-radius: var(--radius-lg);
             padding: 2.5rem;
-            max-width: 28rem;
+            max-width: 34rem;
             width: 100%;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
         }
@@ -82,6 +82,25 @@
             border-radius: var(--radius-default);
             padding: 1.5rem;
             margin: 1.5rem 0;
+        }
+
+        .consent-intro {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+            padding: 0.875rem 1rem;
+            margin-top: 1rem;
+            background: var(--primary/10);
+            border: 1px solid var(--primary/30);
+            border-radius: var(--radius-default);
+            color: var(--on-surface-variant);
+            font-size: 0.8rem;
+            line-height: 1.5;
+            text-align: left;
+        }
+
+        .consent-intro .material-symbols-outlined {
+            color: var(--primary);
         }
         
         .permissions h3 {
@@ -144,6 +163,18 @@
             font-size: 0.75rem;
             color: var(--on-surface-variant);
             line-height: 1.5;
+        }
+
+        .permission-meta {
+            display: inline-block;
+            margin-top: 0.4rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: var(--radius-full);
+            background: var(--surface-container-high);
+            color: var(--on-surface-variant);
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
         }
         
         .pkce-badge {
@@ -249,9 +280,13 @@
                 <p class="app-description">
                     is requesting access to your AuthSys account
                 </p>
+                <div class="consent-intro">
+                    <span class="material-symbols-outlined">info</span>
+                    <span>Your password stays with AuthSys. This application receives only the information listed below.</span>
+                </div>
                 <div class="pkce-badge">
                     <span class="material-symbols-outlined filled">security</span>
-                    <span>PKCE Secured</span>
+                    <span id="pkceStatus">Authorization Code Flow</span>
                 </div>
             </div>
 
@@ -259,38 +294,10 @@
             <div class="permissions">
                 <h3>
                     <span class="material-symbols-outlined">folder_open</span>
-                    This application will be able to
+                    Requested access
                 </h3>
                 
-                <div class="permission-item">
-                    <div class="permission-icon">
-                        <span class="material-symbols-outlined">person</span>
-                    </div>
-                    <div class="permission-text">
-                        <div class="permission-title">View your profile</div>
-                        <div class="permission-description">Access your name, email, and profile information</div>
-                    </div>
-                </div>
-                
-                <div class="permission-item">
-                    <div class="permission-icon">
-                        <span class="material-symbols-outlined">email</span>
-                    </div>
-                    <div class="permission-text">
-                        <div class="permission-title">View your email address</div>
-                        <div class="permission-description">Access your primary email address</div>
-                    </div>
-                </div>
-                
-                <div class="permission-item">
-                    <div class="permission-icon">
-                        <span class="material-symbols-outlined">badge</span>
-                    </div>
-                    <div class="permission-text">
-                        <div class="permission-title">View your role</div>
-                        <div class="permission-description">Access your account role and permissions</div>
-                    </div>
-                </div>
+                <div id="permissionList"></div>
             </div>
 
             <!-- Actions -->
@@ -301,6 +308,7 @@
                 <input type="hidden" name="state" id="state" value="">
                 <input type="hidden" name="code_challenge" id="codeChallenge" value="">
                 <input type="hidden" name="code_challenge_method" id="codeChallengeMethod" value="S256">
+                <input type="hidden" name="nonce" id="nonce" value="">
 
                 <div class="consent-actions">
                     <button type="button" id="btnAllow" class="btn-allow">
@@ -319,11 +327,11 @@
             <div class="consent-footer">
                 <p>
                     By allowing, you agree to our<br>
-                    <a href="/privacy-policy.html" target="_blank">Privacy Policy and Terms of Service</a>
+                    <a href="/privacy-policy.html#terms" target="_blank">Terms of Service and Privacy Notice</a>
                   
                 </p>
                 <p style="font-size: 0.625rem; color: var(--outline);">
-                    You can revoke access at any time from your account settings
+                    Approval is remembered for 30 days. You can revoke access at any time from your account settings.
                 </p>
             </div>
         </div>
@@ -336,7 +344,8 @@
         const scope           = urlParams.get('scope');
         const state           = urlParams.get('state');
         const codeChallenge   = urlParams.get('code_challenge');
-        const challengeMethod = urlParams.get('code_challenge_method') || 'S256';
+        const challengeMethod = urlParams.get('code_challenge_method');
+        const nonce            = urlParams.get('nonce');
         const clientName      = urlParams.get('client_name');
 
         // Populate hidden fields
@@ -346,7 +355,35 @@
         if (state)           document.getElementById('state').value = state;
         if (codeChallenge)   document.getElementById('codeChallenge').value = codeChallenge;
         if (challengeMethod) document.getElementById('codeChallengeMethod').value = challengeMethod;
+        if (nonce)           document.getElementById('nonce').value = nonce;
         if (clientName)      document.getElementById('clientName').textContent = clientName;
+        document.getElementById('pkceStatus').textContent = codeChallenge ? 'PKCE Secured (S256)' : 'PKCE is required';
+
+        const permissionDefinitions = {
+            openid: ['lock', 'Sign you in', 'Use your AuthSys identity to sign in to this application'],
+            profile: ['person', 'View your profile', 'Access your name and profile information'],
+            email: ['email', 'View your email address', 'Access your primary email address'],
+            offline_access: ['schedule', 'Keep access when you are away', 'Allow the application to refresh your session']
+        };
+        const permissionList = document.getElementById('permissionList');
+        (scope || 'openid profile email').split(/\s+/).filter(Boolean).forEach((name) => {
+            const definition = permissionDefinitions[name] || ['verified_user', `Access ${name}`, 'Access requested by this application'];
+            const item = document.createElement('div');
+            item.className = 'permission-item';
+            item.innerHTML = `
+                <div class="permission-icon"><span class="material-symbols-outlined">${definition[0]}</span></div>
+                <div class="permission-text">
+                    <div class="permission-title"></div>
+                    <div class="permission-description"></div>
+                    <span class="permission-meta"></span>
+                </div>`;
+            item.querySelector('.permission-title').textContent = definition[1];
+            item.querySelector('.permission-description').textContent = definition[2];
+            item.querySelector('.permission-meta').textContent = name === 'offline_access'
+                ? 'Additional session access'
+                : 'Identity information';
+            permissionList.appendChild(item);
+        });
 
         async function submitConsent(action) {
             const body = {
@@ -356,16 +393,16 @@
                 state:                 state,
                 code_challenge:        codeChallenge,
                 code_challenge_method: challengeMethod,
+                nonce,
                 action
             };
 
-            if (action === 'deny') {
-                const sep = redirectUri.includes('?') ? '&' : '?';
-                window.location.href = `${redirectUri}${sep}error=access_denied${state ? `&state=${encodeURIComponent(state)}` : ''}`;
-                return;
-            }
-
             try {
+                const csrfRes = await fetch('/api/oauth/csrf', { credentials: 'include' });
+                const csrfData = await csrfRes.json();
+                if (!csrfRes.ok || !csrfData.csrf_token) throw new Error('Authorization session expired');
+                body.csrf_token = csrfData.csrf_token;
+
                 const res = await fetch('/api/oauth/authorize', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

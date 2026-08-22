@@ -126,7 +126,7 @@
         </div>
 
         <!-- Traditional Login Button -->
-        <a href="/login" class="btn" id="loginBtn" onclick="showConsentModal(event)">🚀 Login with AuthSys</a>
+        <a href="/login" class="btn" id="loginBtn">🚀 Login with AuthSys</a>
 
         <!-- Divider -->
         <div class="divider"><span>OR</span></div>
@@ -138,7 +138,7 @@
             </p>
             
             <!-- Google Login -->
-            <a href="http://localhost:5000/api/auth/google?redirect=http://localhost:3001/social-callback" class="btn-social btn-google">
+            <a href="/login?provider=google" class="btn-social btn-google">
                 <svg viewBox="0 0 18 18" aria-hidden="true">
                     <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
                     <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
@@ -149,7 +149,7 @@
             </a>
 
             <!-- GitHub Login -->
-            <a href="http://localhost:5000/api/auth/github?redirect=http://localhost:3001/social-callback" class="btn-social btn-github">
+            <a href="/login?provider=github" class="btn-social btn-github">
                 <svg viewBox="0 0 16 16" aria-hidden="true">
                     <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
                 </svg>
@@ -171,36 +171,19 @@
                     <strong>We use cookies</strong>
                     <p>
                         Essential cookies keep you signed in.
-                        Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank">Privacy Policy</a>.
+                        Read our <a href="/privacy-policy" target="_blank">Privacy Policy</a>.
                     </p>
                 </div>
             </div>
             <div class="cookie-banner-actions">
-                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Essential Only</button>
-                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept All</button>
+                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Reject non-essential</button>
+                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept all</button>
             </div>
         </div>
     </div>
 
-    <script>
-        fetch('/api/session')
-            .then(r => r.json())
-            .then(data => {
-                const status = document.getElementById('status');
-                if (data.authenticated) {
-                    status.innerHTML = `
-                        <p>✅ Logged in as: <strong>${data.user.username}</strong></p>
-                        <p style="margin-top:8px;">
-                            <a href="/dashboard" style="color:#0066cc;">Go to Dashboard →</a>
-                        </p>
-                    `;
-                } else {
-                    status.innerHTML = `<p>📍 Status: Not logged in</p>`;
-                }
-            })
-            .catch(() => {});
-    </script>
     <script src="/js/cookie-banner.js"></script>
+    <script src="/js/index.js"></script>
 
     <!-- Consent Modal -->
     <div id="consentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9998; align-items:center; justify-content:center;">
@@ -212,37 +195,17 @@
             </p>
             <ul style="color:#475569; margin:0 0 1.5rem 1.2rem; line-height:2;">
                 <li>AuthSys will verify your identity</li>
-                <li>Your profile (name, email, role) will be shared with ShopHub</li>
+                <li>Your name and email will be shared with ShopHub</li>
                 <li>ShopHub will store your session securely</li>
             </ul>
             <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:1.5rem;">
-                Read our <a href="http://localhost:5000/privacy-policy.html" target="_blank" style="color:#3b82f6;">Privacy Policy</a> for more details.
+                Read our <a href="/privacy-policy" target="_blank" style="color:#3b82f6;">Privacy Policy</a> for more details.
             </p>
             <div style="display:flex; gap:12px; justify-content:flex-end;">
-                <button class="btn btn-secondary" onclick="closeConsentModal()">Cancel</button>
-                <button class="btn" onclick="acceptConsent()">Accept &amp; Continue</button>
+                <button class="btn btn-secondary" id="cancelConsent">Cancel</button>
+                <button class="btn" id="acceptConsent">Accept &amp; Continue</button>
             </div>
         </div>
     </div>
-
-    <script>
-        function showConsentModal(e) {
-            e.preventDefault();
-            const modal = document.getElementById('consentModal');
-            modal.style.display = 'flex';
-        }
-
-        function closeConsentModal() {
-            document.getElementById('consentModal').style.display = 'none';
-        }
-
-        function acceptConsent() {
-            window.location.href = '/login';
-        }
-
-        document.getElementById('consentModal').addEventListener('click', function(e) {
-            if (e.target === this) closeConsentModal();
-        });
-    </script>
 </body>
 </html>

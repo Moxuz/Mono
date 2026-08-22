@@ -1,12 +1,11 @@
 /**
  * Cookie Banner — Client App
- * Sync consent → Auth Server (port 5000)
+ * Sync consent through the client server-side session.
  */
 (function () {
     const KEY     = 'cookie_consent';
     const EXPIRY  = 365 * 24 * 60 * 60 * 1000;
     const VERSION = '1.0.0';
-    const AUTH_SERVER = 'http://localhost:5000';
 
     function getConsent() {
         try {
@@ -36,26 +35,26 @@
         const data = setConsent(accepted);
         removeBanner();
 
-        // Sync ไป Auth Server ถ้ามี token
-        const token = localStorage.getItem('accessToken');
-        if (token) syncToServer(accepted, token);
+        // The client server holds the access token in its HttpOnly session.
+        // Do not read or send bearer tokens from browser storage.
+        syncToServer(data);
 
         window.dispatchEvent(new CustomEvent('cookieConsent', {
             detail: { accepted, data }
         }));
     };
 
-    async function syncToServer(accepted, token) {
+    async function syncToServer(data) {
         try {
-            await fetch(`${AUTH_SERVER}/api/auth/cookie-consent`, {
+            await fetch('/api/cookie-consent', {
                 method:  'POST',
                 headers: {
-                    'Content-Type':  'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type':  'application/json'
                 },
                 body: JSON.stringify({
-                    cookieConsentAccepted: accepted,
-                    version: VERSION
+                    cookieConsentAccepted: data.accepted,
+                    analyticsAccepted: data.accepted,
+                    version: data.version
                 })
             });
         } catch (e) {

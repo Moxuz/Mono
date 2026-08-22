@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Keys — AuthSys</title>
+    <title>OAuth Applications — AuthSys</title>
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link id="lighttheme-css" rel="stylesheet" href="/css/lighttheme.css" disabled>
@@ -44,7 +44,7 @@
             </a>
             <a href="/api-keys.html" class="sidebar-link active flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">key</span>
-                <span class="text-sm tracking-tight" data-i18n="nav.apikeys">API Keys</span>
+                <span class="text-sm tracking-tight" data-i18n="nav.apikeys">Applications</span>
             </a>
             <a href="/profile.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
                 <span class="material-symbols-outlined">person</span>
@@ -76,13 +76,13 @@
             <div class="mb-10">
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h2 class="text-3xl font-bold tracking-tighter text-on-surface mb-2" data-i18n="apikeys.title">API Credentials</h2>
-                        <p class="text-on-surface-variant text-sm italic" data-i18n="apikeys.subtitle">Manage authentication keys for your applications and services.</p>
+                        <h2 class="text-3xl font-bold tracking-tighter text-on-surface mb-2" data-i18n="apikeys.title">OAuth Applications</h2>
+                        <p class="text-on-surface-variant text-sm italic" data-i18n="apikeys.subtitle">Register applications that can sign users in with AuthSys.</p>
                     </div>
                 <!-- Create New Key Button -->
                 <button class="btn btn-primary" id="createKeyBtn">
                     <span class="material-symbols-outlined">add</span>
-                    <span data-i18n="apikeys.createBtn">Create New Key</span>
+                    <span data-i18n="apikeys.createBtn">Create Application</span>
                 </button>
                 </div>
 
@@ -132,8 +132,8 @@
                     <div class="api-docs-step">
                         <div class="api-docs-step-number">1</div>
                         <div>
-                            <h4 data-i18n="apikeys.step1Title">Create API Key</h4>
-                            <p data-i18n="apikeys.step1Desc">Click "Create New Key" and select your environment (development/production)</p>
+                        <h4 data-i18n="apikeys.step1Title">Register Application</h4>
+                        <p data-i18n="apikeys.step1Desc">Set an application name, environment, and exact HTTPS callback URL.</p>
                         </div>
                     </div>
                     <div class="api-docs-step">
@@ -148,7 +148,7 @@
                         <div>
                             <h4 data-i18n="apikeys.step3Title">Authenticate Requests</h4>
                             <p data-i18n="apikeys.step3Desc">Include your credentials in the Authorization header:</p>
-                            <pre class="code-snippet">Authorization: Bearer YOUR_CLIENT_SECRET</pre>
+                            <pre class="code-snippet">Authorization Code + PKCE</pre>
                         </div>
                     </div>
                     <div class="api-docs-links">
@@ -167,15 +167,15 @@
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h3 class="modal-title" data-i18n="apikeys.modalTitle">Create New API Key</h3>
+            <h3 class="modal-title" data-i18n="apikeys.modalTitle">Create OAuth Application</h3>
             <button class="modal-close" id="closeCreateModalBtn">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label class="input-label" data-i18n="apikeys.keyName">Key Name</label>
-                <input type="text" class="input" id="keyName" placeholder="e.g., Production App, Development Key">
+                <label class="input-label" data-i18n="apikeys.keyName">Application Name</label>
+                <input type="text" class="input" id="keyName" placeholder="e.g., ShopHub Web App" minlength="1" maxlength="100">
             </div>
             <div class="form-group">
                 <label class="input-label" data-i18n="apikeys.environment">Environment</label>
@@ -186,25 +186,11 @@
                 </select>
             </div>
             <div class="form-group">
-                <label class="input-label" data-i18n="apikeys.scopes">Scopes</label>
-                <div class="scopes-grid">
-                    <label class="scope-checkbox">
-                        <input type="checkbox" value="read" checked>
-                        <span>Read</span>
-                    </label>
-                    <label class="scope-checkbox">
-                        <input type="checkbox" value="write" checked>
-                        <span>Write</span>
-                    </label>
-                    <label class="scope-checkbox">
-                        <input type="checkbox" value="delete">
-                        <span>Delete</span>
-                    </label>
-                    <label class="scope-checkbox">
-                        <input type="checkbox" value="admin">
-                        <span>Admin</span>
-                    </label>
-                </div>
+                <label class="input-label" for="redirectUris">Redirect URI</label>
+                <input type="url" class="input" id="redirectUris"
+                       placeholder="https://your-app.example/callback"
+                       autocomplete="url" maxlength="4096" required>
+                <small class="input-help">Use the exact callback URL your app will use. Separate multiple URLs with commas.</small>
             </div>
         </div>
         <div class="modal-footer">
@@ -262,6 +248,7 @@
     </div>
 </div>
     <script src="/js/i18n.js"></script>
+    <script src="/js/auth-refresh.js"></script>
     <script src="/js/api-keys.js"></script>
 </body>
 </html>

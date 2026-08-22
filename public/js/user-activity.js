@@ -1,11 +1,15 @@
 // public/js/user-activity.js
 
-// Check authentication
-const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
-const user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || '{}');
+const user = {};
 
-if (!token) {
-    window.location.href = '/login.html';
+async function loadBrowserUser() {
+    try {
+        const response = await fetch('/api/auth/session', { credentials: 'same-origin' });
+        const session = await response.json();
+        if (session.authenticated && session.user) Object.assign(user, session.user);
+    } catch (_) {
+        // Protected API calls below provide the authoritative auth result.
+    }
 }
 
 // ============================================
@@ -59,10 +63,12 @@ function showToast(message, type = 'success') {
     
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <span class="material-symbols-outlined">${type === 'success' ? 'check_circle' : 'error'}</span>
-        <span>${message}</span>
-    `;
+    const icon = document.createElement('span');
+    icon.className = 'material-symbols-outlined';
+    icon.textContent = type === 'success' ? 'check_circle' : 'error';
+    const text = document.createElement('span');
+    text.textContent = String(message ?? '');
+    toast.append(icon, text);
     document.body.appendChild(toast);
     
     setTimeout(() => {
@@ -154,11 +160,11 @@ function createSessionCard(session) {
         <div class="session-header">
             <div class="session-device">
                 <div class="session-icon">
-                    <span class="material-symbols-outlined">${deviceIcon}</span>
+                    <span class="material-symbols-outlined">${escapeHtml(deviceIcon)}</span>
                 </div>
                 <div class="session-info">
-                    <h4>${browser} • ${os}</h4>
-                    <p>${device}</p>
+                    <h4>${escapeHtml(browser)} • ${escapeHtml(os)}</h4>
+                    <p>${escapeHtml(device)}</p>
                 </div>
             </div>
             ${session.isCurrent ? `
@@ -172,22 +178,22 @@ function createSessionCard(session) {
         <div class="session-details">
             <div class="session-detail">
                 <span class="material-symbols-outlined">location_on</span>
-                <span><strong>LOCATION:</strong> ${location}</span>
+                <span><strong>LOCATION:</strong> ${escapeHtml(location)}</span>
             </div>
             <div class="session-detail">
                 <span class="material-symbols-outlined">language</span>
-                <span><strong>IP:</strong> ${maskedIP}</span>
+                <span><strong>IP:</strong> ${escapeHtml(maskedIP)}</span>
             </div>
             <div class="session-detail">
                 <span class="material-symbols-outlined">schedule</span>
-                <span><strong>LAST_ACTIVE:</strong> ${timeAgo}</span>
+                <span><strong>LAST_ACTIVE:</strong> ${escapeHtml(timeAgo)}</span>
             </div>
         </div>
         
         <div class="session-footer">
-            <span class="session-time">SESSION_ID: ${sessionIdShort}</span>
+            <span class="session-time">SESSION_ID: ${escapeHtml(sessionIdShort)}</span>
             ${!session.isCurrent ? `
-                <button class="session-revoke-btn" data-session-id="${session.id}">
+                <button class="session-revoke-btn" data-session-id="${escapeHtml(session.id)}">
                     <span class="material-symbols-outlined">delete</span>
                     TERMINATE
                 </button>
@@ -253,8 +259,6 @@ async function revokeAllOtherSessionsHandler() {
             );
             
             if (shouldRelogin) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
                 window.location.href = '/login.html';
             }
         } else {
@@ -286,7 +290,6 @@ async function loadAuditLogs() {
         
         const response = await fetch('/api/auth/security-audit', {
             headers: { 
-                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
@@ -341,16 +344,16 @@ async function loadAuditLogs() {
             row.dataset.logId = log._id || index; // เก็บ ID สำหรับ reference
             
             row.innerHTML = `
-                <td class="audit-timestamp">${date}</td>
+                <td class="audit-timestamp">${escapeHtml(date)}</td>
                 <td>
                     <span class="audit-status ${isSuccess ? 'success' : 'failed'}">
                         ${isSuccess ? 'SUCCESS' : 'FAILED'}
                     </span>
                 </td>
-                <td class="audit-ip">${displayIP}</td>
-                <td class="audit-message">
-                    <span class="${isSuccess ? 'audit-event-type' : 'text-error'}">${log.action}</span>
-                    ${log.details ? '<br><span style="font-size: 0.7rem; opacity: 0.7;">' + log.details + '</span>' : ''}
+            <td class="audit-ip">${escapeHtml(displayIP)}</td>
+            <td class="audit-message">
+                    <span class="${isSuccess ? 'audit-event-type' : 'text-error'}">${escapeHtml(log.action)}</span>
+                    ${log.details ? '<br><span style="font-size: 0.7rem; opacity: 0.7;">' + escapeHtml(log.details) + '</span>' : ''}
                 </td>
                 <td style="text-align: right;">
                     <button class="view-trace-btn" data-log-index="${index}">
@@ -380,7 +383,7 @@ async function loadAuditLogs() {
                 <td colspan="5" style="text-align: center; padding: 3rem; color: var(--error);">
                     <span class="material-symbols-outlined" style="font-size: 3rem; display: block; margin-bottom: 1rem;">error</span>
                     <p style="font-family: var(--font-mono); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">FAILED_TO_LOAD_AUDIT_LOGS</p>
-                    <span style="font-size: 0.75rem; color: var(--on-surface-variant);">${error.message}</span>
+                    <span style="font-size: 0.75rem; color: var(--on-surface-variant);">${escapeHtml(error.message)}</span>
                     <br><br>
                     <button class="action-btn" style="font-size: 0.75rem; padding: 0.5rem 1rem;" onclick="loadAuditLogs()">
                         <span class="material-symbols-outlined" style="font-size: 0.875rem;">refresh</span>
@@ -396,7 +399,7 @@ function exportLogs() {
     showToast(typeof t === 'function' ? t('activity.exportingLogs') : 'Exporting logs...', 'success');
     
     fetch('/api/auth/security-audit', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'same-origin'
     })
     .then(res => res.json())
     .then(data => {
@@ -489,7 +492,9 @@ function viewTrace(logData) {
         
         // Special formatting for status
         if (key === 'Status') {
-            displayValue = `<span class="trace-status-badge ${!isSuccess ? 'failed' : ''}">${value.toUpperCase()}</span>`;
+            displayValue = `<span class="trace-status-badge ${!isSuccess ? 'failed' : ''}">${escapeHtml(String(value).toUpperCase())}</span>`;
+        } else {
+            displayValue = escapeHtml(String(displayValue));
         }
         
         infoHTML += `
@@ -653,6 +658,7 @@ async function refreshDataWithFeedback() {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadBrowserUser();
     // Update UI
     if (user.username) {
         document.getElementById('userNameSide').textContent = user.username;
@@ -706,9 +712,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function logout() {
     if (confirm(typeof t === 'function' ? t('activity.logoutConfirm') : 'Are you sure you want to logout?')) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login.html';
+        fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'same-origin'
+        }).catch(() => {}).finally(() => {
+            window.location.href = '/login.html';
+        });
     }
 }
 

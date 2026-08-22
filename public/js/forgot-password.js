@@ -43,13 +43,13 @@
   // ─── Validate ───────────────────────────────────────────────────────────────
   const validateEmail = () => {
     const value = emailInput.value.trim();
-    const regex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,63}$/;
     
     if (!value) {
       showFieldError('Please enter your email address.');
       return false;
     }
-    if (!regex.test(value)) {
+    if (value.length > 254 || !regex.test(value)) {
       showFieldError('Please enter a valid email address.');
       return false;
     }
@@ -96,6 +96,10 @@
       
       if (res.status >= 500) {
         throw new Error('Server error. Please try again later.');
+      }
+
+      if (!res.ok) {
+        throw new Error(data.message || data.error || 'Unable to process the request.');
       }
 
       // แสดง success message

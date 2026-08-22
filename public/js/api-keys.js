@@ -1,9 +1,13 @@
-// Check authentication
-const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
-const user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || '{}');
+const user = {};
 
-if (!token) {
-    window.location.href = '/login.html';
+async function loadBrowserUser() {
+    try {
+        const response = await fetch('/api/auth/session', { credentials: 'same-origin' });
+        const session = await response.json();
+        if (session.authenticated && session.user) Object.assign(user, session.user);
+    } catch (_) {
+        // The protected clients request below remains the source of truth.
+    }
 }
 
 // Load API keys from backend
@@ -11,6 +15,7 @@ let apiKeys = [];
 
 // Update UI with user info
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadBrowserUser();
     if (user.username) {
         document.getElementById('userNameSide').textContent = user.username;
     }
@@ -33,10 +38,13 @@ async function fetchApiKeys() {
     try {
         const response = await fetch('/api/oauth/clients', {
             headers: {
-                'Authorization': `Bearer ${token}`
             }
         });
         const result = await response.json();
+        if (response.status === 401) {
+            window.location.href = '/login.html?returnTo=%2Fapi-keys.html';
+            return;
+        }
         if (result.success) {
             // Map backend client data to frontend apiKeys format
             apiKeys = result.data.clients.map(client => ({
@@ -137,13 +145,13 @@ function loadApiKeys() {
                 <div class="api-key-info">
                     <h3 class="api-key-name">${escapeHtml(key.name)}</h3>
                     <div class="api-key-meta">
-                        <span class="api-key-env env-${key.environment}">${key.environment}</span>
+                        <span class="api-key-env env-${escapeHtml(key.environment)}">${escapeHtml(key.environment)}</span>
                         <span class="api-key-date">Created ${new Date(key.createdAt).toLocaleDateString()}</span>
-                        <span class="api-key-date">Last used ${key.lastUsed || 'Never'}</span>
+                        <span class="api-key-date">Last used ${escapeHtml(key.lastUsed || 'Never')}</span>
                     </div>
                 </div>
                 <div class="api-key-actions">
-                    <button class="api-key-action-btn danger" data-action="revoke" data-key-id="${key.id}" title="Revoke">
+                    <button class="api-key-action-btn danger" data-action="revoke" data-key-id="${escapeHtml(key.id)}" title="Revoke">
                         <span class="material-symbols-outlined">delete</span>
                     </button>
                 </div>
@@ -152,8 +160,8 @@ function loadApiKeys() {
                 <div class="api-key-credential">
                     <span class="api-key-credential-label">${typeof t === 'function' ? t('apikeys.clientId') : 'Client ID'}</span>
                     <div class="api-key-credential-value">
-                        <span class="api-key-credential-text">${key.clientId}</span>
-                        <button class="api-key-credential-btn" data-copy-direct="${key.clientId}">
+                        <span class="api-key-credential-text">${escapeHtml(key.clientId)}</span>
+                        <button class="api-key-credential-btn" data-copy-direct="${escapeHtml(key.clientId)}">
                             <span class="material-symbols-outlined">content_copy</span>
                         </button>
                     </div>
@@ -168,7 +176,7 @@ function loadApiKeys() {
                 <div class="api-key-credential">
                     <span class="api-key-credential-label">${typeof t === 'function' ? t('apikeys.scopes') : 'Scopes'}</span>
                     <div class="api-key-scopes">
-                        ${key.scopes.map(scope => `<span class="api-key-scope">${scope}</span>`).join('')}
+                        ${key.scopes.map(scope => `<span class="api-key-scope">${escapeHtml(scope)}</span>`).join('')}
                     </div>
                 </div>
                 <div class="api-key-usage">
@@ -265,26 +273,44 @@ function closeCreateModal() {
     
     // Reset form
     document.getElementById('keyName').value = '';
+    document.getElementById('redirectUris').value = '';
     document.getElementById('keyEnvironment').value = 'development';
-    document.querySelectorAll('.scope-checkbox input').forEach(input => {
-        input.checked = ['read', 'write'].includes(input.value);
-    });
 }
 
 // Create API key
 async function createApiKey() {
     const name = document.getElementById('keyName').value.trim();
     const environment = document.getElementById('keyEnvironment').value;
-    const scopeInputs = document.querySelectorAll('.scope-checkbox input:checked');
-    const scopes = Array.from(scopeInputs).map(input => input.value);
+    const redirectUris = document.getElementById('redirectUris').value
+        .split(',')
+        .map(uri => uri.trim())
+        .filter(Boolean);
+    // Identity scopes are fixed for the current global-auth product.
+    // Resource/API scopes should be added only when the API enforces them.
+    const scopes = ['openid', 'profile', 'email'];
 
     if (!name) {
         showToast(typeof t === 'function' ? t('apikeys.needName') : 'Please enter a key name', 'error');
         return;
     }
 
-    if (scopes.length === 0) {
-        showToast(typeof t === 'function' ? t('apikeys.needScope') : 'Please select at least one scope', 'error');
+    if (name.length > 100) {
+        showToast('Application name must be at most 100 characters', 'error');
+        return;
+    }
+
+    if (redirectUris.length === 0 || redirectUris.some(uri => {
+        try {
+            const url = new URL(uri);
+            const isLocalhost = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+            const authServerIsLocal = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+            return uri.length > 2048 || url.hash !== '' || url.username !== '' || url.password !== '' ||
+                (url.protocol !== 'https:' && !(authServerIsLocal && environment !== 'production' && url.protocol === 'http:' && isLocalhost));
+        } catch {
+            return true;
+        }
+    }) || redirectUris.length > 10) {
+        showToast('Enter a valid HTTPS redirect URI (localhost is allowed only outside production)', 'error');
         return;
     }
 
@@ -297,12 +323,11 @@ async function createApiKey() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 client_name: name,
                 description: `Managed API key for ${environment}`,
-                redirect_uris: ['http://localhost:3000/callback'], // Default placeholder
+                redirect_uris: redirectUris,
                 application_type: environment === 'production' ? 'web' : 'native',
                 contact_email: user.email,
                 scope: scopes.join(' ')
@@ -424,7 +449,6 @@ async function revokeKey(keyId) {
         const response = await fetch(`/api/oauth/clients/${keyId}`, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${token}`
             }
         });
 
@@ -452,10 +476,12 @@ function showToast(message, type = 'success') {
     
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <span class="material-symbols-outlined">${type === 'success' ? 'check_circle' : 'error'}</span>
-        <span>${message}</span>
-    `;
+    const icon = document.createElement('span');
+    icon.className = 'material-symbols-outlined';
+    icon.textContent = type === 'success' ? 'check_circle' : 'error';
+    const text = document.createElement('span');
+    text.textContent = String(message ?? '');
+    toast.append(icon, text);
     document.body.appendChild(toast);
     
     setTimeout(() => {
@@ -467,9 +493,12 @@ function showToast(message, type = 'success') {
 // Logout
 function logout() {
     if (confirm(typeof t === 'function' ? t('apikeys.logoutConfirm') : 'Are you sure you want to logout?')) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login.html';
+        fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'same-origin'
+        }).catch(() => {}).finally(() => {
+            window.location.href = '/login.html';
+        });
     }
 }
 

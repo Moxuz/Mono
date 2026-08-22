@@ -156,6 +156,24 @@
                     </div>
                 </div>
 
+                <!-- Authorized Applications Section -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <span class="material-symbols-outlined">apps</span>
+                        <div>
+                            <h3 class="settings-section-title" data-i18n="settings.appsTitle">Authorized Applications</h3>
+                            <p class="settings-section-desc" data-i18n="settings.appsDesc">Review and revoke applications that can sign you in.</p>
+                        </div>
+                    </div>
+                    <div class="settings-section-body" id="authorizedAppsList">
+                        <div class="settings-item">
+                            <div class="settings-item-info">
+                                <span class="settings-item-label" data-i18n="settings.appsLoading">Loading applications...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Account Management Section -->
                 <div class="settings-section">
                     <div class="settings-section-header">
@@ -192,6 +210,7 @@
     </main>
 
     <script src="/js/i18n.js"></script>
+    <script src="/js/auth-refresh.js"></script>
     <script src="/js/settings.js"></script>
 </body>
 </html>

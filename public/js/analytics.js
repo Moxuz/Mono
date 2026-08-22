@@ -7,7 +7,15 @@ let loginTrendChart, loginMethodsChart;
 let refreshInterval;
 
 // Get token from storage
-const token = localStorage.getItem('token') || sessionStorage.getItem('tempToken');
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -35,7 +43,7 @@ async function loadAllData() {
 async function loadUserStats() {
     try {
         const response = await fetch('/api/dashboard/analytics/users', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'same-origin'
         });
         const result = await response.json();
 
@@ -46,10 +54,6 @@ async function loadUserStats() {
             document.getElementById('totalUsers').textContent = data.total.toLocaleString();
             document.getElementById('activeUsers').textContent = data.active.toLocaleString();
             document.getElementById('newUsers24h').textContent = data.newUsers.last24h.toLocaleString();
-            document.getElementById('twoFAPercentage').textContent = data.twoFA.percentage + '%';
-            document.getElementById('twoFACount').textContent = data.twoFA.enabled.toLocaleString();
-            document.getElementById('emailPercentage').textContent = data.emailVerification.percentage + '%';
-            document.getElementById('verifiedCount').textContent = data.emailVerification.verified.toLocaleString();
         }
     } catch (error) {
         console.error('Failed to load user stats:', error);
@@ -62,7 +66,7 @@ async function loadUserStats() {
 async function loadLoginStats() {
     try {
         const response = await fetch('/api/dashboard/analytics/logins', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'same-origin'
         });
         const result = await response.json();
 
@@ -92,7 +96,7 @@ async function loadLoginStats() {
 async function loadSecurityStats() {
     try {
         const response = await fetch('/api/dashboard/analytics/security', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'same-origin'
         });
         const result = await response.json();
 
@@ -118,7 +122,7 @@ async function loadSecurityStats() {
 async function loadActivity() {
     try {
         const response = await fetch('/api/dashboard/analytics/activity?limit=20', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'same-origin'
         });
         const result = await response.json();
 
@@ -131,12 +135,12 @@ async function loadActivity() {
                     <div class="activity-item">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <span class="badge ${badgeClass} me-2">${activity.action.replace(/_/g, ' ')}</span>
-                                <small class="text-muted">${new Date(activity.timestamp).toLocaleString()}</small>
+                                <span class="badge ${escapeHtml(badgeClass)} me-2">${escapeHtml(activity.action.replace(/_/g, ' '))}</span>
+                                <small class="text-muted">${escapeHtml(new Date(activity.createdAt).toLocaleString())}</small>
                             </div>
                             <div>
                                 <i class="bi ${icon}"></i>
-                                <small class="text-muted">${activity.ipAddress || 'Unknown IP'}</small>
+                                <small class="text-muted">${escapeHtml(activity.ipAddress || 'Unknown IP')}</small>
                             </div>
                         </div>
                     </div>

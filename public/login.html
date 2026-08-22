@@ -49,13 +49,13 @@
             <form id="loginForm" class="auth-form" novalidate>
                 <div class="form-group">
                     <label for="email" class="input-label">Email Address</label>
-                    <input type="email" id="email" name="email" class="input" placeholder="you@authsys.io" autocomplete="email" autofocus required />
+                    <input type="email" id="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" maxlength="254" autofocus required />
                 </div>
 
                 <div class="form-group">
                     <label for="password" class="input-label">Password</label>
                     <div class="password-input-wrapper">
-                        <input type="password" id="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" required />
+                        <input type="password" id="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" maxlength="128" required />
                         <button type="button" class="password-toggle" data-input="password" data-icon="passwordIcon" aria-label="Toggle password visibility">
                             <span class="material-symbols-outlined" id="passwordIcon">visibility</span>
                         </button>
@@ -89,17 +89,18 @@
                 <span class="cookie-icon">🍪</span>
                 <div>
                     <strong>COOKIE_LEDGER_NOTICE</strong>
-                    <p>Essential identity tracking enabled. <a href="/privacy-policy.html" target="_blank">POL_PRIVACY</a>.</p>
+                    <p>Essential cookies keep sign-in and security working. Analytics is optional. <a href="/privacy-policy.html" target="_blank">Read Terms & Privacy</a>.</p>
                 </div>
             </div>
             <div class="cookie-banner-actions">
-                <button class="btn-cookie-decline" type="button">ESSENTIAL_ONLY</button>
-                <button class="btn-cookie-accept" type="button">ACCEPT_ALL</button>
+                <button class="btn-cookie-decline" type="button">Reject non-essential</button>
+                <button class="btn-cookie-accept" type="button">Accept all</button>
             </div>
         </div>
     </div>
 
     <!-- ✅ Scripts -->
+    <script src="/js/auth-refresh.js"></script>
     <script src="/js/login.js"></script>
     <script src="/js/cookie-banner.js"></script>
     <!-- ✅ เพิ่ม OAuth Status Check -->

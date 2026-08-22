@@ -1,28 +1,40 @@
-// Check authentication
-const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
-const user = JSON.parse((localStorage.getItem('user') || sessionStorage.getItem('user')) || '{}');
+const user = {};
 let hasPassword = true; // safe default until profile API responds
-
-if (!token) {
-    window.location.href = '/login.html';
-}
+let serverProfile = {};
+let authProvider = null;
 
 async function loadServerProfile() {
     try {
-        const res = await fetch('/api/auth/profile', { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch('/api/auth/profile', { credentials: 'same-origin' });
         if (!res.ok) return;
         const data = await res.json();
-        hasPassword = data.data?.hasPassword ?? true;
+        serverProfile = data.data || {};
+        hasPassword = serverProfile.hasPassword ?? true;
+        authProvider = serverProfile.provider || null;
+        Object.assign(user, serverProfile);
     } catch (e) { /* keep default true — safe */ }
 }
 
-function getOAuthProvider() {
+async function loadActiveSessionCount() {
+    const countEl = document.getElementById('activeSessions');
+    if (!countEl) return;
+
     try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        return payload.provider; // 'google', 'github', or 'local'
-    } catch { return null; }
+        const res = await fetch('/api/sessions/count', {
+            credentials: 'same-origin'
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load sessions');
+        countEl.textContent = String(data.data?.count ?? 0);
+    } catch (error) {
+        console.warn('Failed to load active session count:', error.message);
+        countEl.textContent = '—';
+    }
 }
 
+function getOAuthProvider() {
+    return authProvider;
+}
 function getProviderLabel(provider) {
     if (provider === 'google') return 'Google';
     if (provider === 'github') return 'GitHub';
@@ -45,6 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load profile data
     loadProfileData();
+    await loadActiveSessionCount();
 
     // Form submission
     document.getElementById('profileForm').addEventListener('submit', handleProfileUpdate);
@@ -73,10 +86,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Handle OAuth re-auth callback for account deletion
     const _urlParams = new URLSearchParams(window.location.search);
-    if (_urlParams.get('action') === 'delete_account' && _urlParams.get('reauth_token')) {
-        const reauthToken = _urlParams.get('reauth_token');
+    if (_urlParams.get('action') === 'delete_account' && _urlParams.get('verified') === '1') {
         window.history.replaceState({}, document.title, window.location.pathname);
-        deleteAccount(reauthToken);
+        if (hasPassword) deleteAccount();
+        else showDeleteAccountConfirmModal(null);
     }
 });
 
@@ -89,15 +102,19 @@ function loadProfileData() {
     document.getElementById('email').value = user.email || '';
     
     // Display Name
-    const savedProfile = JSON.parse(localStorage.getItem('userProfile') || '{}');
-    document.getElementById('displayName').value = savedProfile.displayName || user.username || '';
+    let savedProfile = {};
+    try { savedProfile = JSON.parse(localStorage.getItem('userProfile') || '{}'); }
+    catch { localStorage.removeItem('userProfile'); }
+    const displayName = serverProfile.displayName ?? user.displayName ?? savedProfile.displayName ?? user.username ?? '';
+    document.getElementById('displayName').value = displayName;
     
     // Bio
-    document.getElementById('bio').value = savedProfile.bio || '';
+    document.getElementById('bio').value = serverProfile.bio ?? user.bio ?? savedProfile.bio ?? '';
     
     // Member Since
-    if (user.createdAt) {
-        const date = new Date(user.createdAt);
+    const createdAt = serverProfile.createdAt || user.createdAt;
+    if (createdAt) {
+        const date = new Date(createdAt);
         document.getElementById('memberSince').textContent = date.toLocaleDateString('en-US', { 
             month: 'short', 
             year: 'numeric' 
@@ -105,7 +122,7 @@ function loadProfileData() {
     }
     
     // Last Login
-    const lastLogin = localStorage.getItem('lastLogin');
+    const lastLogin = serverProfile.lastLogin || localStorage.getItem('lastLogin');
     if (lastLogin) {
         const date = new Date(lastLogin);
         document.getElementById('lastLogin').textContent = formatRelativeTime(date);
@@ -113,8 +130,6 @@ function loadProfileData() {
         document.getElementById('lastLogin').textContent = typeof t === 'function' ? t('profile.justNow') : 'Just now';
     }
     
-    // Active Sessions
-    document.getElementById('activeSessions').textContent = '1';
 }
 
 // Handle profile update
@@ -130,18 +145,26 @@ async function handleProfileUpdate(e) {
         return;
     }
     
-    // Save to localStorage (in real app, would call API)
-    const profileData = {
-        displayName,
-        bio,
-        updatedAt: new Date().toISOString()
-    };
-    
-    localStorage.setItem('userProfile', JSON.stringify(profileData));
-    
-    // Update user object
-    user.displayName = displayName;
-    localStorage.setItem('user', JSON.stringify(user));
+    try {
+        const response = await fetch('/api/users/profile', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ displayName, bio })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to update profile');
+        }
+
+        serverProfile = { ...serverProfile, ...(result.data || {}), displayName, bio };
+        Object.assign(user, { displayName, bio });
+        localStorage.removeItem('userProfile');
+    } catch (error) {
+        showAlert(`${typeof t === 'function' ? t('profile.updateFailed') : 'Failed to update profile'}: ${error.message}`, 'error');
+        return;
+    }
     
     // Update sidebar if display name changed
     if (displayName) {
@@ -192,17 +215,17 @@ function openChangePasswordModal() {
             <div class="delete-form-group">
                 <label for="currentPassword" class="delete-form-label">${_t('profile.currentPassLabel')}</label>
                 <input type="password" id="currentPassword" class="delete-form-input"
-                    placeholder="${_t('profile.currentPassPlaceholder')}" autocomplete="current-password" required />
+                    placeholder="${_t('profile.currentPassPlaceholder')}" autocomplete="current-password" maxlength="128" required />
             </div>` : ''}
             <div class="delete-form-group">
                 <label for="newPassword" class="delete-form-label">${_t('profile.newPassLabel')}</label>
                 <input type="password" id="newPassword" class="delete-form-input"
-                    placeholder="${_t('profile.newPassPlaceholder')}" autocomplete="new-password" required />
+                    placeholder="${_t('profile.newPassPlaceholder')}" autocomplete="new-password" minlength="8" maxlength="128" required />
             </div>
             <div class="delete-form-group">
                 <label for="confirmPassword" class="delete-form-label">${_t('profile.confirmPassLabel')}</label>
                 <input type="password" id="confirmPassword" class="delete-form-input"
-                    placeholder="${_t('profile.confirmPassPlaceholder')}" autocomplete="new-password" required />
+                    placeholder="${_t('profile.confirmPassPlaceholder')}" autocomplete="new-password" minlength="8" maxlength="128" required />
             </div>
         </form>
     `;
@@ -217,7 +240,7 @@ function openChangePasswordModal() {
         </button>
         <button class="delete-modal-btn delete-modal-btn-delete" id="confirmChangePassBtn" type="button" style="background: var(--primary);">
             <span class="material-symbols-outlined">lock_reset</span>
-            ${_t('profile.changePassBtn')}
+            ${hasPassword ? _t('profile.changePassBtn') : 'Set Password'}
         </button>
     `;
 
@@ -257,26 +280,34 @@ function openChangePasswordModal() {
     document.addEventListener('keydown', escHandler);
 
     confirmBtn.addEventListener('click', async () => {
-        const currentPassword = document.getElementById('currentPassword').value;
+        const currentPassword = document.getElementById('currentPassword')?.value || '';
         const newPassword = document.getElementById('newPassword').value;
         const confirmPasswordVal = document.getElementById('confirmPassword').value;
 
         if (hasPassword && !currentPassword) { showModalAlert(_t('profile.currentPassRequired'), 'error'); return; }
         if (!newPassword) { showModalAlert(_t('profile.newPassRequired'), 'error'); return; }
         if (newPassword.length < 8) { showModalAlert(_t('profile.newPassShort'), 'error'); return; }
+        if (newPassword.length > 128) { showModalAlert('Password must be at most 128 characters', 'error'); return; }
+        const lowerPassword = newPassword.toLowerCase();
+        const hasSequence = ['abcdefghijklmnopqrstuvwxyz', '0123456789', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm']
+            .some(sequence => Array.from({ length: sequence.length - 2 }, (_, i) => sequence.slice(i, i + 3))
+                .some(part => lowerPassword.includes(part)));
+        if (hasSequence || /(.)\1{3,}/.test(newPassword)) {
+            showModalAlert('Password must not contain sequential or repeated characters', 'error');
+            return;
+        }
         if (newPassword !== confirmPasswordVal) { showModalAlert(_t('profile.passNoMatch'), 'error'); return; }
 
         confirmBtn.disabled = true;
         confirmBtn.innerHTML = `<span class="material-symbols-outlined">hourglass_empty</span> ${_t('profile.changing')}`;
 
         try {
-            const response = await fetch('/api/auth/change-password', {
+            const response = await fetch(hasPassword ? '/api/auth/change-password' : '/api/auth/set-password', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ currentPassword, newPassword })
+                body: JSON.stringify(hasPassword ? { currentPassword, newPassword } : { newPassword })
             });
 
             const data = await response.json();
@@ -291,7 +322,7 @@ function openChangePasswordModal() {
         } catch (error) {
             showModalAlert(_t('profile.changePassFailed') + ': ' + error.message, 'error');
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = `<span class="material-symbols-outlined">lock_reset</span> ${_t('profile.changePassBtn')}`;
+            confirmBtn.innerHTML = `<span class="material-symbols-outlined">lock_reset</span> ${hasPassword ? _t('profile.changePassBtn') : 'Set Password'}`;
         }
     });
 
@@ -310,7 +341,7 @@ if (urlParams.get('action') === 'changePassword') {
 
 // Manage Sessions
 function manageSessions() {
-    showAlert('Session management coming soon', 'warning');
+    window.location.href = '/user-activity.html#sessions';
 }
 
 
@@ -350,10 +381,13 @@ function formatRelativeTime(date) {
 // Logout
 function logout() {
     if (confirm(typeof t === 'function' ? t('profile.logoutConfirm') : 'Are you sure you want to logout?')) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('userProfile');
-        window.location.href = '/login.html';
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+            .catch(() => {})
+            .finally(() => {
+                localStorage.removeItem('userProfile');
+                sessionStorage.removeItem('userProfile');
+                window.location.href = '/login.html';
+            });
     }
 }
 
@@ -554,7 +588,6 @@ function showDeleteAccountModal(reauthToken = null) {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ password })
             });
@@ -755,7 +788,7 @@ function showDeleteAccountConfirmModal(reauthToken) {
         try {
             const response = await fetch('/api/auth/delete-account', {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reauth_token: reauthToken })
             });
 

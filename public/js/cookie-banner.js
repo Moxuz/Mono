@@ -9,7 +9,8 @@ const CookieManager = {
         const date = new Date();
         date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
         const expires = `expires=${date.toUTCString()}`;
-        document.cookie = `${name}=${value};${expires};path=/;SameSite=Strict`;
+        const secure = window.location.protocol === 'https:' ? ';Secure' : '';
+        document.cookie = `${name}=${encodeURIComponent(value)};${expires};path=/;SameSite=Strict${secure}`;
     },
 
     // Get cookie
@@ -22,7 +23,7 @@ const CookieManager = {
                 cookie = cookie.substring(1, cookie.length);
             }
             if (cookie.indexOf(nameEQ) === 0) {
-                return cookie.substring(nameEQ.length, cookie.length);
+                return decodeURIComponent(cookie.substring(nameEQ.length, cookie.length));
             }
         }
         return null;
@@ -76,40 +77,60 @@ function handleCookieConsent(accepted) {
     hideCookieBanner();
 
     // Send consent to backend (optional)
-    sendConsentToBackend(accepted);
+    sendConsentToBackend(accepted, accepted);
 }
 
-// Send consent to backend
-async function sendConsentToBackend(analyticsAccepted) {
-    try {
-        const token = (localStorage.getItem('token') || sessionStorage.getItem('token'));
-        
-        if (!token) {
-            console.log('No token found - skipping backend sync');
-            return;
-        }
+// Read the browser choice without treating a missing choice as consent.
+function getStoredCookieConsent() {
+    const choice = CookieManager.get('cookieConsent');
+    if (choice !== 'all' && choice !== 'essential') return null;
 
-        const response = await fetch('/api/auth/cookie-consent', {
+    return {
+        cookieConsentAccepted: choice === 'all',
+        analyticsAccepted: CookieManager.get('analyticsConsent') === 'true'
+    };
+}
+
+// Send consent to the account when a session exists. Anonymous choices remain
+// in the browser until a later authenticated page can sync them.
+async function sendConsentToBackend(cookieConsentAccepted, analyticsAccepted) {
+    try {
+        const response = await fetch('/api/auth/update-cookie-consent', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
             },
+            credentials: 'same-origin',
             body: JSON.stringify({
-                cookieConsentAccepted: true,
+                cookieConsentAccepted,
                 analyticsAccepted,
-                version: '1.0.0'
+                version: '1.1.0'
             })
         });
 
         if (response.ok) {
-            console.log('Cookie consent synced to backend');
-        } else {
-            console.warn('Failed to sync cookie consent to backend');
+            CookieManager.delete('cookieConsentPending');
+            return true;
         }
+
+        if (response.status === 401) {
+            CookieManager.set('cookieConsentPending', 'true', 30);
+            return false;
+        }
+
+        console.warn('Failed to sync cookie consent to backend');
+        return false;
     } catch (error) {
+        CookieManager.set('cookieConsentPending', 'true', 30);
         console.error('Error syncing cookie consent:', error);
+        return false;
     }
+}
+
+async function syncStoredCookieConsent() {
+    const stored = getStoredCookieConsent();
+    if (!stored) return false;
+    return sendConsentToBackend(stored.cookieConsentAccepted, stored.analyticsAccepted);
 }
 
 // Check and show banner on page load
@@ -128,6 +149,7 @@ function initCookieBanner() {
         }, 1000);
     } else {
         console.log('User already gave consent:', CookieManager.get('cookieConsent'));
+        void syncStoredCookieConsent();
     }
 }
 
@@ -163,3 +185,4 @@ document.addEventListener('DOMContentLoaded', function() {
 // Make functions globally accessible
 window.handleCookieConsent = handleCookieConsent;
 window.CookieManager = CookieManager;
+window.syncStoredCookieConsent = syncStoredCookieConsent;

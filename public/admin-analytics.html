@@ -142,20 +142,6 @@
                             <small class="text-muted"><i class="bi bi-check-circle"></i> Last 7 days</small>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="stat-card warning">
-                            <div class="stat-label">2FA Enabled</div>
-                            <div class="stat-value" id="twoFAPercentage">-</div>
-                            <small class="text-muted"><i class="bi bi-shield-check"></i> <span id="twoFACount">0</span> users</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card info">
-                            <div class="stat-label">Email Verified</div>
-                            <div class="stat-value" id="emailPercentage">-</div>
-                            <small class="text-muted"><i class="bi bi-envelope-check"></i> <span id="verifiedCount">0</span> users</small>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Login Stats Cards -->
@@ -248,6 +234,8 @@
         </div>
     </div>
 
+    <script src="/js/auth-refresh.js"></script>
+    <script src="/js/admin-page-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/analytics.js"></script>
 </body>

@@ -1,376 +1,59 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enterprise Admin — AuthSys</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL,GRAD,opsz@20..48,100..700,0..1,-50..200" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AuthSys Admin</title>
     <style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
-            font-size: 20px;
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        /* Sidebar Fixes */
-        .sidebar {
-            background-color: #000000;
-            border-right: 1px solid var(--outline-variant);
-        }
-
-        .sidebar-link {
-            transition: all var(--transition-fast) ease;
-            gap: 0.75rem !important;
-            padding: 0.5rem 0.75rem !important;
-            color: var(--on-surface-variant);
-        }
-
-        .sidebar-link:hover {
-            background-color: var(--surface-container-low);
-            color: var(--on-surface);
-        }
-
-        .sidebar-link.active {
-            color: var(--primary);
-            background-color: var(--surface-container-low);
-            border-right: 2px solid var(--primary);
-        }
-
-        /* Bento Grid Metrics */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(1, minmax(0, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        @media (min-width: 768px) {
-            .metrics-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-            }
-            .metric-large {
-                grid-column: span 2;
-            }
-        }
-
-        .metric-card {
-            background-color: var(--surface-container-low);
-            border: 1px solid var(--outline-variant);
-            padding: 1.5rem;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .metric-label {
-            font-family: var(--font-mono);
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--on-surface-variant);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .metric-value {
-            font-size: 2.25rem;
-            font-weight: 900;
-            letter-spacing: -0.05em;
-            line-height: 1;
-            font-family: var(--font-mono);
-        }
-
-        /* Deployment Table */
-        .admin-section {
-            background-color: #000000;
-            border: 1px solid var(--outline-variant);
-            margin-top: 2rem;
-        }
-
-        .admin-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--outline-variant);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .admin-header h3 {
-            font-size: 0.75rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--on-surface-variant);
-        }
-
-        .admin-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .admin-table th {
-            font-family: var(--font-mono);
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--on-surface-variant);
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--outline-variant);
-            text-align: left;
-            font-weight: normal;
-        }
-
-        .admin-table td {
-            padding: 1rem 1.5rem;
-            font-size: 0.8125rem;
-            border-bottom: 1px solid rgba(72, 72, 72, 0.3);
-        }
-
-        .status-tag {
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            padding: 0.125rem 0.5rem;
-            border-radius: var(--radius-sm);
-            background-color: rgba(173, 198, 255, 0.1);
-            color: var(--primary);
-        }
-
-        .timeline {
-            position: relative;
-            padding-left: 1.5rem;
-            margin-top: 1rem;
-        }
-        
-        .timeline::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 1px;
-            background-color: var(--outline-variant);
-        }
-        
-        .timeline-item {
-            position: relative;
-            padding-bottom: 1.5rem;
-        }
-        
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: -1.5rem;
-            top: 0.25rem;
-            width: 0.5rem;
-            height: 0.5rem;
-            border-radius: var(--radius-full);
-            background-color: var(--primary);
-            transform: translateX(-50%);
-        }
+        :root { color-scheme: dark; --bg:#0b1020; --panel:#151d32; --line:#2b3958; --text:#f8fafc; --muted:#9aa8c2; --accent:#67e8f9; }
+        * { box-sizing:border-box; }
+        body { margin:0; min-height:100vh; color:var(--text); font:15px/1.5 Inter,system-ui,sans-serif; background:radial-gradient(circle at 20% 0%,#233b70 0,transparent 38%),var(--bg); }
+        a { color:inherit; text-decoration:none; }
+        .shell { width:min(1000px,calc(100% - 32px)); margin:auto; }
+        header { display:flex; justify-content:space-between; align-items:center; padding:24px 0; border-bottom:1px solid var(--line); }
+        .brand { display:flex; gap:10px; align-items:center; font-weight:800; }
+        .mark { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; color:#07101c; background:linear-gradient(135deg,var(--accent),#a78bfa); }
+        button, .button { border:1px solid var(--line); border-radius:10px; padding:9px 14px; color:var(--text); background:#1d2945; cursor:pointer; }
+        main { padding:42px 0 70px; }
+        .eyebrow { color:var(--accent); font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+        h1 { margin:8px 0; font-size:clamp(2rem,5vw,3.4rem); letter-spacing:-.05em; }
+        p { color:var(--muted); }
+        .user { margin:22px 0 28px; color:var(--muted); }
+        .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+        .card { display:block; min-height:150px; padding:22px; border:1px solid var(--line); border-radius:18px; background:rgba(21,29,50,.9); }
+        .card:hover { border-color:var(--accent); transform:translateY(-1px); }
+        .card strong { display:block; margin:14px 0 4px; font-size:1.1rem; }
+        .card span { color:var(--muted); font-size:14px; }
+        .status { margin-top:20px; padding:14px 16px; border:1px solid var(--line); border-radius:12px; color:var(--muted); }
+        .status.ok { color:#86efac; border-color:#256d4b; }
+        .status.error { color:#fda4af; border-color:#7f3042; }
+        #app { display:none; }
+        #loading { padding:50px 0; color:var(--muted); }
+        @media (max-width:620px) { .grid { grid-template-columns:1fr; } header { align-items:flex-start; gap:14px; } }
     </style>
 </head>
-<body class="font-body selection:bg-primary selection:text-on-primary">
-    <!-- Top Navigation -->
-    <header class="topbar fixed top-0 left-64 right-0 h-14 bg-surface-dim border-b border-outline-variant z-30 flex items-center justify-between px-6">
-        <div class="system-status">
-            <span class="status-pulse"></span>
-            <span class="text-[11px] font-mono text-primary uppercase tracking-[0.2em]">System Normal</span>
-        </div>
-        <div class="flex items-center gap-6">
-            <div class="flex items-center gap-4 border-l border-outline-variant pl-6">
-                <span id="userEmailTop" class="text-xs font-mono text-on-surface-variant"></span>
-                <button class="text-[10px] bg-primary text-on-primary font-bold px-3 py-1.5 rounded uppercase tracking-widest hover:bg-primary-dim transition-colors" id="logoutBtnTop">Logout</button>
+<body>
+    <div class="shell">
+        <header>
+            <a class="brand" href="/"><span class="mark">A</span> AuthSys Admin</a>
+            <button id="logout" type="button">Sign out</button>
+        </header>
+        <div id="loading">Checking administrator access…</div>
+        <main id="app">
+            <div class="eyebrow">System operations</div>
+            <h1>Admin console</h1>
+            <div class="user" id="user">Authenticated administrator</div>
+            <div class="grid">
+                <a class="card" href="/api-keys.html"><span>OAuth</span><strong>OAuth applications</strong><span>Create and manage client credentials and redirect URIs.</span></a>
+                <a class="card" href="/admin-logs.html"><span>Security</span><strong>Audit logs</strong><span>Review login, consent, session, and security events.</span></a>
+                <a class="card" href="/admin-monitoring.html"><span>Operations</span><strong>System monitoring</strong><span>Check service health and authentication metrics.</span></a>
+                <a class="card" href="/admin-analytics.html"><span>Insights</span><strong>Analytics</strong><span>View high-level usage and activity summaries.</span></a>
+                <a class="card" href="/admin-users.html"><span>Directory</span><strong>User database</strong><span>Browse registered users and account status.</span></a>
             </div>
-        </div>
-    </header>
-
-    <!-- Side Navigation -->
-    <aside class="sidebar fixed left-0 top-0 h-full w-64 border-r border-outline-variant bg-[#000000] flex flex-col py-8 px-4 z-40">
-        <div class="mb-10 px-2">
-            <h2 class="sidebar-brand text-lg font-black tracking-tighter text-[#e7e5e4]">AuthSys</h2>
-            <p class="text-[10px] font-mono text-on-surface-variant uppercase tracking-widest mt-1">v1.0.0-stable</p>
-        </div>
-        
-        <nav class="flex-1 space-y-1">
-            <a href="/dashboard.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
-                <span class="material-symbols-outlined">insights</span>
-                <span class="text-sm tracking-tight">Console</span>
-            </a>
-            <a href="/admin.html" class="sidebar-link active flex items-center gap-3 px-3 py-2">
-                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
-                <span class="text-sm tracking-tight">Analytics</span>
-            </a>
-            <a href="/user-activity.html" class="sidebar-link flex items-center gap-3 px-3 py-2">
-                <span class="material-symbols-outlined">receipt_long</span>
-                <span class="text-sm tracking-tight">Security Logs</span>
-            </a>
-            <a href="#" class="sidebar-link flex items-center gap-3 px-3 py-2">
-                <span class="material-symbols-outlined">database</span>
-                <span class="text-sm tracking-tight">Resources</span>
-            </a>
-            <a href="#" class="sidebar-link flex items-center gap-3 px-3 py-2">
-                <span class="material-symbols-outlined">settings</span>
-                <span class="text-sm tracking-tight">Settings</span>
-            </a>
-        </nav>
-        
-        <div class="pt-8 mt-auto border-t border-outline-variant">
-            <div class="flex items-center gap-3 px-2">
-                <div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center overflow-hidden">
-                    <span class="material-symbols-outlined text-primary">person</span>
-                </div>
-                <div class="overflow-hidden">
-                    <p id="userNameSide" class="text-xs font-bold truncate">auth_admin</p>
-                    <p class="text-[10px] text-on-surface-variant uppercase tracking-widest">Enterprise Tier</p>
-                </div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="pl-64 pt-14 min-h-screen bg-[#000000]">
-        <div class="p-8 max-w-[1600px] mx-auto">
-            <!-- Page Header -->
-            <div class="mb-10">
-                <h2 class="text-3xl font-bold tracking-tighter text-on-surface">Enterprise Analytics</h2>
-                <p class="text-on-surface-variant mt-2 text-sm italic">Visualizing identity throughput and infrastructure resilience across 12 global regions.</p>
-            </div>
-
-            <!-- Bento Grid Metrics -->
-            <div class="metrics-grid">
-                <div class="metric-card metric-large">
-                    <div class="metric-label">
-                        <span>Global Active Sessions</span>
-                        <span class="material-symbols-outlined text-primary">groups</span>
-                    </div>
-                    <div class="metric-value">42.8k</div>
-                    <p class="text-[10px] text-primary font-mono mt-2">+12.4% FROM PREVIOUS_CYCLE</p>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-label">
-                        <span>Token Churn</span>
-                        <span class="material-symbols-outlined text-primary">key_visualizer</span>
-                    </div>
-                    <div class="metric-value">0.02%</div>
-                    <p class="text-[10px] text-on-surface-variant font-mono mt-2">NOMINAL_OPERATING_RANGE</p>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-label">
-                        <span>Global Error Rate</span>
-                        <span class="material-symbols-outlined text-error">report</span>
-                    </div>
-                    <div class="metric-value text-error">404</div>
-                    <p class="text-[10px] text-error font-mono mt-2">CRITICAL_THRESHOLD_EXCEEDED</p>
-                </div>
-            </div>
-
-            <!-- Table Section -->
-            <div class="admin-section">
-                <div class="admin-header">
-                    <h3>Recent Deployments</h3>
-                    <div class="relative">
-                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
-                        <input class="bg-[#131313] border border-[#484848] text-[11px] pl-9 pr-4 py-1.5 focus:border-primary focus:ring-0 w-64 transition-all" placeholder="Filter deployments..." type="text"/>
-                    </div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Environment</th>
-                                <th>Commit</th>
-                                <th>Status</th>
-                                <th>Latency</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                                        <span class="font-bold">production-main</span>
-                                    </div>
-                                </td>
-                                <td class="font-mono text-[10px] text-on-surface-variant">8f2a4c1...</td>
-                                <td><span class="status-tag">DEPLOYED</span></td>
-                                <td class="font-mono text-xs">142ms</td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                                        <span class="font-bold">staging-edge</span>
-                                    </div>
-                                </td>
-                                <td class="font-mono text-[10px] text-on-surface-variant">4e9b7d2...</td>
-                                <td><span class="status-tag">DEPLOYED</span></td>
-                                <td class="font-mono text-xs">89ms</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Timeline Section -->
-            <div class="admin-section" style="margin-top: 2rem; padding: 1.5rem;">
-                <h3 style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--on-surface-variant); margin-bottom: 1rem;">Deployment Ledger</h3>
-                <div class="timeline">
-                    <div class="timeline-item">
-                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--on-surface-variant);">15:02:14</div>
-                        <div style="font-weight: 600; color: var(--primary);">V1.0.0-STABLE DEPLOYED</div>
-                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--on-surface-variant);">SHA: a7f892c // Commit: Update core-engine libs</div>
-                    </div>
-                    <div class="timeline-item">
-                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--on-surface-variant);">14:45:00</div>
-                        <div style="font-weight: 600;">IDENTITY_ENGINE_RESTART</div>
-                        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--on-surface-variant);">Manual intervention by admin_01</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <script>
-        // Check authentication
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-        if (!token) {
-            window.location.href = '/login.html';
-        }
-
-        // Update UI
-        document.addEventListener('DOMContentLoaded', () => {
-            if (user.username) {
-                document.getElementById('userNameSide').textContent = user.username;
-            }
-            if (user.email) {
-                document.getElementById('userEmailTop').textContent = user.email;
-            }
-        });
-
-        // Logout
-        function logout() {
-            if (confirm('Are you sure you want to logout?')) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                window.location.href = '/login.html';
-            }
-        }
-        document.getElementById('logoutBtnTop').addEventListener('click', logout);
-    </script>
+            <div id="status" class="status">Loading system status…</div>
+        </main>
+    </div>
+    <script src="/js/auth-refresh.js"></script>
+    <script src="/js/admin-simple.js"></script>
 </body>
 </html>
