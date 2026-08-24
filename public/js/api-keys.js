@@ -50,7 +50,7 @@ async function fetchApiKeys() {
             apiKeys = result.data.clients.map(client => ({
                 id: client.client_id,
                 name: client.client_name,
-                environment: client.application_type === 'web' ? 'production' : 'development',
+                environment: 'production',
                 clientId: client.client_id,
                 scopes: (client.scope || 'openid profile email').split(' '),
                 createdAt: client.createdAt,
@@ -274,7 +274,7 @@ function closeCreateModal() {
     // Reset form
     document.getElementById('keyName').value = '';
     document.getElementById('redirectUris').value = '';
-    document.getElementById('keyEnvironment').value = 'development';
+    document.getElementById('keyEnvironment').value = 'production';
 }
 
 // Create API key
@@ -305,12 +305,12 @@ async function createApiKey() {
             const isLocalhost = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
             const authServerIsLocal = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
             return uri.length > 2048 || url.hash !== '' || url.username !== '' || url.password !== '' ||
-                (url.protocol !== 'https:' && !(authServerIsLocal && environment !== 'production' && url.protocol === 'http:' && isLocalhost));
+                (url.protocol !== 'https:' && !(authServerIsLocal && url.protocol === 'http:' && isLocalhost));
         } catch {
             return true;
         }
     }) || redirectUris.length > 10) {
-        showToast('Enter a valid HTTPS redirect URI (localhost is allowed only outside production)', 'error');
+        showToast('Enter a valid HTTPS redirect URI (localhost is allowed for local development)', 'error');
         return;
     }
 
@@ -328,7 +328,7 @@ async function createApiKey() {
                 client_name: name,
                 description: `Managed API key for ${environment}`,
                 redirect_uris: redirectUris,
-                application_type: environment === 'production' ? 'web' : 'native',
+                application_type: 'web',
                 contact_email: user.email,
                 scope: scopes.join(' ')
             })

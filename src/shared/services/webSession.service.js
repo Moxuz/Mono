@@ -1,5 +1,8 @@
 'use strict';
 
+const crypto = require('crypto');
+const sessionService = require('./session.service');
+
 function normalizeUser(user, sessionId = null) {
     return {
         id: (user.id || user._id).toString(),
@@ -26,6 +29,20 @@ const REMEMBERED_SESSION_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
  */
 async function establishWebSession(req, user, sessionId = null, preserve = [], options = {}) {
     if (!req?.session || !user) return false;
+
+    // Social callbacks need a persistent Session row for revoke/logout.
+    if (!sessionId) {
+        const browserAccessToken = crypto.randomBytes(32).toString('hex');
+        const browserRefreshToken = crypto.randomBytes(32).toString('hex');
+        const created = await sessionService.createSession(
+            user._id || user.id,
+            browserAccessToken,
+            browserRefreshToken,
+            req,
+            Boolean(options.remember)
+        );
+        sessionId = created.sessionId;
+    }
 
     const preservedValues = Object.fromEntries(
         preserve.filter((key) => req.session[key] !== undefined)

@@ -6,6 +6,10 @@ let authProvider = null;
 async function loadServerProfile() {
     try {
         const res = await fetch('/api/auth/profile', { credentials: 'same-origin' });
+        if (res.status === 401) {
+            window.location.href = '/login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+            return;
+        }
         if (!res.ok) return;
         const data = await res.json();
         serverProfile = data.data || {};

@@ -1,6 +1,7 @@
 const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
 const Consent = require('../../../shared/models/Consent');
+const Client = require('../../../shared/models/Client');
 const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const logger = require('../../../shared/utils/logger');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
@@ -82,7 +83,8 @@ async function deleteUser(userId, reason = 'user_request') {
             throw new Error('User not found');
         }
 
-        logger.warn(`User deletion requested: ${user.email} (reason: ${reason})`);
+        const originalEmail = user.email;
+        logger.warn(`User deletion requested: ${originalEmail} (reason: ${reason})`);
 
         // Blacklist token hashes before deactivating sessions so old access
         // and refresh tokens cannot become usable if account state changes.
@@ -99,6 +101,11 @@ async function deleteUser(userId, reason = 'user_request') {
         // Revoke all sessions first
         await Session.revokeAllSessions(userId, 'account_deleted');
         await Consent.revokeAllForUser(userId, 'account_deleted');
+        await Client.updateMany({ owner: userId, isActive: true }, {
+            $set: { isActive: false }
+        });
+
+        const deletedAt = new Date();
 
         // Log security event before deletion
         await securityAuditService.logSecurityEvent({
@@ -106,32 +113,38 @@ async function deleteUser(userId, reason = 'user_request') {
             action: 'account_deactivated',
             status: 'success',
             metadata: {
-                email: user.email,
                 reason,
-                deletedAt: new Date().toISOString()
+                deletedAt: deletedAt.toISOString()
             }
         });
 
-        // Soft delete: Mark as inactive instead of hard delete
-        // This preserves audit trail while preventing access
+        // Soft delete: retain only the minimum audit-safe tombstone.
         user.isActive = false;
-        user.email = `deleted_${Date.now()}_${user.email}`; // Anonymize email
-        user.username = `Deleted User ${user._id.toString().slice(-6)}`; // Anonymize username
-        
-        // Clear personal data but keep audit-relevant info
+        user.email = `deleted_${user._id.toString()}@invalid.local`;
+        user.username = `deleted_${user._id.toString().slice(-16)}`;
+        user.googleId = undefined;
+        user.githubId = undefined;
+        user.avatar = undefined;
+        user.displayName = '';
+        user.bio = '';
+
+        // Clear credentials and keep the compliance tombstone.
         user.password = undefined;
         user.passwordResetToken = undefined;
         user.passwordResetExpires = undefined;
-        // Keep PDPA consent record for compliance
         user.pdpaConsent = {
-            ...user.pdpaConsent,
-            accountDeletedAt: new Date(),
+            accountDeletedAt: deletedAt,
             accountDeleteReason: reason
         };
 
         await user.save();
 
-        logger.info(`User account deactivated and anonymized: ${user.email}`);
+        // Remove raw identity values from historical audit rows immediately;
+        // the user tombstone keeps the userId relation until the retention job
+        // permanently removes the deleted account.
+        await securityAuditService.redactUserIdentity(userId, originalEmail);
+
+        logger.info(`User account deactivated and anonymized: ${user._id}`);
 
         return {
             success: true,
@@ -157,6 +170,18 @@ async function exportUserData(userId) {
 
         logger.info(`User data export requested: ${user.email}`);
 
+        const [ownedClients, consentRecords, sessionRecords] = await Promise.all([
+            Client.find({ owner: userId })
+                .select('client_id client_name description logo_uri redirect_uris scope application_type contact_email isActive totalRequests lastUsed createdAt updatedAt')
+                .lean(),
+            Consent.find({ userId })
+                .select('clientId grantId scope grantedAt revokedAt revokeReason expiresAt createdAt updatedAt')
+                .lean(),
+            Session.find({ userId })
+                .select('deviceInfo userAgent ipAddress isActive lastActiveAt revokedAt revokeReason expiresAt createdAt updatedAt')
+                .lean()
+        ]);
+
         // Export all user data in portable format
         const exportData = {
             // Personal Information
@@ -167,10 +192,19 @@ async function exportUserData(userId) {
                 role: user.role,
                 createdAt: user.createdAt,
                 updatedAt: user.updatedAt,
-                lastLogin: user.lastLogin
+                lastLogin: user.lastLogin,
+                displayName: user.displayName || '',
+                bio: user.bio || '',
+                linkedProviders: {
+                    google: Boolean(user.googleId),
+                    github: Boolean(user.githubId)
+                }
             },
             // Consent Records
             pdpaConsent: user.pdpaConsent,
+            oauthClients: ownedClients,
+            oauthConsents: consentRecords,
+            sessions: sessionRecords,
             // Account Status
             accountStatus: {
                 isActive: user.isActive,

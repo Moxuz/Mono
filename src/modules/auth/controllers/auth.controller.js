@@ -12,6 +12,8 @@ const jwt = require('jsonwebtoken');
 const config = require('../../../shared/config/config');
 const { recordLoginAttempt, recordActiveUser } = require('../../dashboard/services/realtimeMetrics.service');
 const { establishWebSession, destroyWebSession } = require('../../../shared/services/webSession.service');
+const { parsePagination } = require('../../../shared/utils/pagination');
+const { sanitizeAuditMetadata } = require('../../../shared/utils/auditIdentity');
 
 function safeWebAuthResponse(result, remember = false) {
     return {
@@ -280,11 +282,11 @@ exports.getSecurityAudit = async (req, res) => {
         
         // Format response — build a human-readable details string from metadata
         const formattedLogs = logs.map(log => {
-            const meta = log.metadata || {};
+            const meta = sanitizeAuditMetadata(log.metadata || {});
             let details = '';
             if (meta.reason)       details = meta.reason;
             else if (meta.method)  details = `via ${meta.method}`;
-            else if (meta.email)   details = meta.email;
+            else if (meta.emailHash) details = `identity ${String(meta.emailHash).slice(0, 12)}`;
             else if (meta.action)  details = meta.action;
             else if (meta.sessionId) details = `session ${String(meta.sessionId).slice(0, 8)}`;
 
@@ -687,8 +689,9 @@ exports.setPassword = async (req, res, next) => {
 exports.getAuditLogs = async (req, res, next) => {
     try {
         const userId = req.user?.id;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const pagination = parsePagination(req.query.page, req.query.limit, 20, 100);
+        const page = pagination.page;
+        const limit = pagination.limit;
 
         if (!userId) {
             return res.status(401).json({

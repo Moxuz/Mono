@@ -36,8 +36,40 @@ exports.authenticate = async (req, res, next) => {
                 });
             }
 
+            if (!sessionUser.sessionId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Session expired or requires sign-in again'
+                });
+            }
+
+            const browserSession = await Session.findOne({
+                _id: sessionUser.sessionId,
+                userId: sessionAccount._id,
+                isActive: true
+            });
+            if (!browserSession) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Session expired or revoked'
+                });
+            }
+            if (browserSession.isExpired()) {
+                await browserSession.revoke('expired');
+                return res.status(401).json({
+                    success: false,
+                    message: 'Session expired'
+                });
+            }
+
+            try {
+                await browserSession.updateLastActive();
+            } catch (error) {
+                logger.warn('Failed to update browser session activity:', error.message);
+            }
+
             req.authSession = {
-                sessionId: sessionUser.sessionId || null,
+                sessionId: browserSession._id.toString(),
                 sessionToken: null,
                 cookieSession: true
             };

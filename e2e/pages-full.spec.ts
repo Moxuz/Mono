@@ -7,7 +7,6 @@
  *   29 — User pages (require JWT token): dashboard, profile, settings,
  *        api-keys, user-activity
  *   30 — Admin pages (require admin JWT): admin, admin-logs,
- *        admin-monitoring, admin-analytics
  *
  * Strategy for authenticated pages:
  *   1. Login via API → get JWT token + user object
@@ -317,55 +316,9 @@ test.describe('30 — Auth-App Pages — Admin (requires admin token)', () => {
     await expect(page.locator('#totalEvents, [id*="totalEvent" i]').first()).toBeVisible({ timeout: 8000 });
   });
 
-  test('/admin/monitoring → 200, has health indicator', async ({ page }) => {
-    await seedAuth(page, adminToken, adminUser);
-    const res = await page.goto('/admin/monitoring');
-    expect(res?.status()).toBe(200);
-    await expect(page.locator('#healthIndicator, [id*="health" i]').first()).toBeVisible({ timeout: 8000 });
-  });
-
-  test('/admin/monitoring — has realtime stats (activeUsers, activeSessions)', async ({ page }) => {
-    await seedAuth(page, adminToken, adminUser);
-    await page.goto('/admin/monitoring');
-    await expect(page.locator(
-      '#activeUsers, #activeSessions, [id*="activeUser" i]'
-    ).first()).toBeVisible({ timeout: 8000 });
-  });
-
-  test('/admin/monitoring — has login chart canvas', async ({ page }) => {
-    await seedAuth(page, adminToken, adminUser);
-    await page.goto('/admin/monitoring');
-    await expect(page.locator('#loginChart, canvas').first()).toBeVisible({ timeout: 8000 });
-  });
-
-  test('/admin/analytics → 200, has analytics stats cards', async ({ page }) => {
-    await seedAuth(page, adminToken, adminUser);
-    const res = await page.goto('/admin/analytics');
-    expect(res?.status()).toBe(200);
-    await expect(page.locator(
-      '#totalUsers, #activeUsers, [id*="totalUser" i]'
-    ).first()).toBeVisible({ timeout: 8000 });
-  });
-
-  test('/admin/analytics — has login stats (loginsToday, successRate)', async ({ page }) => {
-    await seedAuth(page, adminToken, adminUser);
-    await page.goto('/admin/analytics');
-    await expect(page.locator(
-      '#loginsToday, #successRate, [id*="loginToday" i]'
-    ).first()).toBeVisible({ timeout: 8000 });
-  });
-
-  test('/admin/analytics — has security stats (lockouts24h)', async ({ page }) => {
-    await seedAuth(page, adminToken, adminUser);
-    await page.goto('/admin/analytics');
-    await expect(page.locator(
-      '#lockouts24h, [id*="lockout" i]'
-    ).first()).toBeVisible({ timeout: 8000 });
-  });
-
   test('admin pages all return 200 (not 404/500)', async ({ page }) => {
     await seedAuth(page, adminToken, adminUser);
-    const adminPages = ['/admin', '/admin/logs', '/admin/monitoring', '/admin/analytics'];
+    const adminPages = ['/admin', '/admin/logs', '/admin/users'];
     for (const p of adminPages) {
       const res = await page.goto(p, { waitUntil: 'commit' });
       expect((res?.status() ?? 500), `${p} returned error`).toBe(200);

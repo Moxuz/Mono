@@ -1,4 +1,6 @@
 const SecurityAudit = require('../models/SecurityAudit');
+const { parsePagination } = require('../utils/pagination');
+const { sanitizeAuditMetadata } = require('../utils/auditIdentity');
 const logger = require('../utils/logger');
 
 
@@ -85,17 +87,27 @@ async function getUserAuditLogs(userId, limitOrPage = 50, limit = null) {
     try {
         // ถ้าส่ง 2 parameters = pagination mode
         if (limit !== null) {
-            const page = limitOrPage;
-            return await SecurityAudit.getUserLogs(userId, page, limit);
+            const pagination = parsePagination(limitOrPage, limit, 20, 100);
+            const result = await SecurityAudit.getUserLogs(userId, pagination.page, pagination.limit);
+            result.logs = result.logs.map(log => {
+                const plain = log.toObject ? log.toObject() : log;
+                return { ...plain, metadata: sanitizeAuditMetadata(plain.metadata || {}) };
+            });
+            return result;
         }
         
         // ถ้าส่ง 1 parameter = simple limit mode (สำหรับ API)
+        const parsedLimit = Number.parseInt(limitOrPage, 10);
+        const safeLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 100) : 50;
         const logs = await SecurityAudit.find({ userId })
             .sort({ createdAt: -1 })
-            .limit(limitOrPage)
+            .limit(safeLimit)
             .lean();
         
-        return logs;
+        return logs.map(log => ({
+            ...log,
+            metadata: sanitizeAuditMetadata(log.metadata || {})
+        }));
     } catch (error) {
         logger.error('Get user audit logs error:', error);
         throw error;
@@ -171,6 +183,18 @@ async function getRecentFailedLogins(userId, minutes = 30) {
     return await SecurityAudit.getRecentFailedLogins(userId, minutes);
 }
 
+/**
+ * Remove historical raw identity values for a user after account deletion.
+ */
+async function redactUserIdentity(userId, email = null) {
+    try {
+        return await SecurityAudit.redactUserIdentity(userId, email);
+    } catch (error) {
+        logger.error('Failed to redact deleted user identity from audit logs:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     logSecurityEvent,
     logLoginSuccess,
@@ -182,5 +206,6 @@ module.exports = {
     logAccountLocked,
     getUserAuditLogs,
     getRecentFailedLogins,
+    redactUserIdentity,
    
 };

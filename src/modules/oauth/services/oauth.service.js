@@ -72,6 +72,16 @@ class OAuthService {
             return false;
         }
 
+        // RFC 7636 requires a high-entropy unreserved-string verifier. Keep
+        // this check in the service as well as the HTTP controller so direct
+        // service callers cannot bypass the PKCE constraint.
+        if (typeof codeVerifier !== 'string' ||
+            !/^[A-Za-z0-9._~-]{43,128}$/.test(codeVerifier) ||
+            typeof codeChallenge !== 'string' ||
+            !/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) {
+            return false;
+        }
+
         const hash = crypto
             .createHash('sha256')
             .update(codeVerifier)
@@ -79,7 +89,9 @@ class OAuthService {
             .replace(/\+/g, '-')
             .replace(/\//g, '_')
             .replace(/=/g, '');
-        return hash === codeChallenge;
+        const expected = Buffer.from(hash, 'ascii');
+        const actual = Buffer.from(codeChallenge, 'ascii');
+        return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
     }
 
     // ─────────────────────────────────────────

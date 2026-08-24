@@ -7,6 +7,8 @@ const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
 const SecurityAudit = require('../../../shared/models/SecurityAudit');
 const logger = require('../../../shared/utils/logger');
+const { parsePagination } = require('../../../shared/utils/pagination');
+const { sanitizeAuditMetadata } = require('../../../shared/utils/auditIdentity');
 
 /**
  * Get user statistics
@@ -236,7 +238,9 @@ async function getSecurityStats(req, res) {
                 $group: {
                     _id: '$ipAddress',
                     count: { $sum: 1 },
-                    emails: { $addToSet: '$metadata.email' }
+                    emailHashes: {
+                        $addToSet: { $ifNull: ['$emailHash', '$metadata.emailHash'] }
+                    }
                 }
             },
             { $sort: { count: -1 } },
@@ -335,8 +339,9 @@ async function getAPIStats(req, res) {
  */
 async function getActivity(req, res) {
     try {
-        const limit = parseInt(req.query.limit) || 50;
-        const page = parseInt(req.query.page) || 1;
+        const pagination = parsePagination(req.query.page, req.query.limit, 50, 100);
+        const limit = pagination.limit;
+        const page = pagination.page;
         const skip = (page - 1) * limit;
 
         const activities = await SecurityAudit.find()
@@ -352,7 +357,10 @@ async function getActivity(req, res) {
         res.json({
             success: true,
             data: {
-                activities,
+                activities: activities.map(activity => ({
+                    ...activity,
+                    metadata: sanitizeAuditMetadata(activity.metadata || {})
+                })),
                 pagination: {
                     total,
                     page,

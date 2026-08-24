@@ -13,7 +13,7 @@
             <a href="/dashboard">Dashboard</a>
             <a href="/products">Products</a>
             <a href="/profile">Profile</a>
-            <a href="/logout">Logout</a>
+            <form method="post" action="/logout"><button type="submit">Logout</button></form>
         </div>
     </nav>
 
@@ -38,8 +38,8 @@
                 </div>
             </div>
             <div class="cookie-banner-actions">
-                <button class="btn-cookie-decline" onclick="handleCookieConsent(false)">Reject non-essential</button>
-                <button class="btn-cookie-accept"  onclick="handleCookieConsent(true)">Accept all</button>
+                <button class="btn-cookie-decline" data-cookie-consent="reject">Reject non-essential</button>
+                <button class="btn-cookie-accept"  data-cookie-consent="accept">Accept all</button>
             </div>
         </div>
     </div>

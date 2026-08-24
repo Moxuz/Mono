@@ -6,12 +6,14 @@ const clientSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        index: true
+        index: true,
+        maxlength: 128
     },
     client_secret: {
         type: String,
         required: true,
-        select: false // Don't include in queries by default
+        select: false, // Don't include in queries by default
+        maxlength: 256
     },
     client_name: {
         type: String,
@@ -25,7 +27,8 @@ const clientSchema = new mongoose.Schema({
         maxlength: 500
     },
     logo_uri: {
-        type: String
+        type: String,
+        maxlength: 2048
     },
     redirect_uris: [{
         type: String,
@@ -47,7 +50,8 @@ const clientSchema = new mongoose.Schema({
     },
     scope: {
         type: String,
-        default: 'openid profile email'
+        default: 'openid profile email',
+        maxlength: 500
     },
     owner: {
         type: mongoose.Schema.Types.ObjectId,

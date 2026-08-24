@@ -22,6 +22,7 @@
     "kafka:up": "docker-compose -f docker-compose.kafka.yml up -d",
     "kafka:down": "docker-compose -f docker-compose.kafka.yml down",
     "kafka:logs": "node scripts/check-kafka-logs.js",
+    "maintenance:scrub-audit": "node scripts/scrub-audit-pii.js",
     "test:functions": "node scripts/test-functions.js",
     "test:session": "node tests/session-expiry.test.js",
     "client:up": "docker-compose -f docker-compose.client.yml up -d",

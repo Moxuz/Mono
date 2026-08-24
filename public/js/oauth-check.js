@@ -3,6 +3,27 @@
 (() => {
   'use strict';
 
+  function bindRememberToSocialLogin() {
+    const remember = document.getElementById('remember');
+    if (!remember) return;
+
+    ['googleLoginBtn', 'githubLoginBtn'].forEach((id) => {
+      const button = document.getElementById(id);
+      if (!button) return;
+
+      const update = () => {
+        const target = new URL(button.href, window.location.origin);
+        if (target.origin !== window.location.origin) return;
+        if (remember.checked) target.searchParams.set('remember', '1');
+        else target.searchParams.delete('remember');
+        button.href = `${target.pathname}${target.search}${target.hash}`;
+      };
+
+      remember.addEventListener('change', update);
+      update();
+    });
+  }
+
   /**
    * เช็คว่า OAuth providers ไหนเปิดใช้งานอยู่
    * และซ่อนปุ่มที่ไม่ได้เปิด
@@ -64,9 +85,12 @@
           }
         }
       }
+
+      bindRememberToSocialLogin();
     } catch (error) {
       console.error('Failed to check OAuth status:', error);
       // ถ้า API ไม่ทำงาน ให้แสดงปุ่มทั้งหมดไว้
+      bindRememberToSocialLogin();
     }
   }
 

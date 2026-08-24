@@ -84,7 +84,7 @@ router.get('/stats', authorizeRole('admin'), getDashboardStats);
  *       200:
  *         description: Security logs with pagination
  */
-router.get('/logs/security', authorizeRole('admin'), getSecurityLogs);
+router.get('/security', authorizeRole('admin'), getSecurityLogs);
 
 /**
  * @swagger
@@ -115,7 +115,7 @@ router.get('/logs/security', authorizeRole('admin'), getSecurityLogs);
  *       200:
  *         description: Login history
  */
-router.get('/logs/logins', authorizeRole('admin'), getLoginHistory);
+router.get('/logins', authorizeRole('admin'), getLoginHistory);
 
 /**
  * @swagger
@@ -141,7 +141,7 @@ router.get('/logs/logins', authorizeRole('admin'), getLoginHistory);
  *       200:
  *         description: Failed login attempts
  */
-router.get('/logs/failed-logins', authorizeRole('admin'), getFailedLogins);
+router.get('/failed-logins', authorizeRole('admin'), getFailedLogins);
 
 /**
  * @swagger
@@ -166,7 +166,7 @@ router.get('/logs/failed-logins', authorizeRole('admin'), getFailedLogins);
  *       200:
  *         description: Active sessions
  */
-router.get('/logs/sessions', authorizeRole('admin'), getActiveSessions);
+router.get('/sessions', authorizeRole('admin'), getActiveSessions);
 
 /**
  * @swagger
@@ -203,7 +203,7 @@ router.get('/logs/sessions', authorizeRole('admin'), getActiveSessions);
  *             schema:
  *               type: string
  */
-router.get('/logs/export', authorizeRole('admin'), exportLogs);
+router.get('/export', authorizeRole('admin'), exportLogs);
 
 /**
  * @swagger
@@ -228,6 +228,6 @@ router.get('/logs/export', authorizeRole('admin'), exportLogs);
  *       200:
  *         description: User activity timeline
  */
-router.get('/logs/user/:userId/activity', authorizeRole('admin'), getUserActivity);
+router.get('/user/:userId/activity', authorizeRole('admin'), getUserActivity);
 
 module.exports = router;

@@ -48,6 +48,9 @@ services:
       - client-network
       - auth-network
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
+    pids_limit: 128
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/session"]
       interval: 30s
@@ -73,7 +76,6 @@ services:
       APP_NAME: ${CLIENT2_APP_NAME:-Workspace Client 2}
       OAUTH_PROVIDER: ${CLIENT2_OAUTH_PROVIDER_INTERNAL:-http://nginx}
       OAUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost}
-      SESSION_SECRET: ${CLIENT2_SESSION_SECRET:-}
       COOKIE_SECURE: ${CLIENT2_COOKIE_SECURE:-false}
       MONGODB_URI: ${CLIENT2_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-change_me}@mongodb:27017/authdb?authSource=admin}
     extra_hosts:
@@ -82,6 +84,9 @@ services:
       - client-network
       - auth-network
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
+    pids_limit: 128
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/api/health"]
       interval: 30s

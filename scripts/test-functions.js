@@ -139,6 +139,30 @@ test('Object.prototype not polluted after strip', () => {
     assert.strictEqual(({}).polluted, undefined, 'Object.prototype should not be polluted');
 });
 
+test('deep request body is rejected by the sanitizer', () => {
+    const body = {};
+    let cursor = body;
+    for (let i = 0; i < 25; i++) {
+        cursor.next = {};
+        cursor = cursor.next;
+    }
+    const req = { body };
+    const res = {
+        statusCode: 0,
+        status(code) { this.statusCode = code; return this; },
+        json(payload) { this.payload = payload; return payload; }
+    };
+    sanitizeBody(req, res, () => {});
+    assert.strictEqual(res.statusCode, 400);
+});
+
+const { parsePagination } = require('../src/shared/utils/pagination');
+
+test('pagination caps oversized page and limit values', () => {
+    const result = parsePagination('999999999999999999999', '999', 20, 100);
+    assert.deepStrictEqual(result, { page: 1, limit: 100 });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 section('Session Model — Hash & Token Generation');
@@ -269,6 +293,13 @@ test('verifyPKCE: missing verifier → false', () => {
 test('verifyPKCE: missing challenge → false', () => {
     const v = makeVerifier();
     assert.strictEqual(oauthService.verifyPKCE(v, '', 'S256'), false);
+});
+
+test('verifyPKCE: short verifier → false', () => {
+    const v = 'short-verifier';
+    const c = makeChallenge(v);
+    assert.strictEqual(oauthService.verifyPKCE(v, c, 'S256'), false);
+});
 
 section('OAuth policy');
 
@@ -322,8 +353,6 @@ test('OAuth refresh tokens require offline_access', () => {
     assert.strictEqual(complete.header.alg, 'HS256');
 });
 
-});
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 section('User Model — Lockout Methods');
@@ -370,6 +399,76 @@ test('appendToFile creates dated log file', () => {
     const files = fs.readdirSync(logsDir);
     const hasToday = files.some(f => f.includes(today));
     assert.ok(hasToday, `Expected a log file with today's date (${today}), found: ${files.join(', ')}`);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+section('Audit Privacy and Data Lifecycle');
+
+const {
+    hashIdentity,
+    sanitizeAuditMetadata,
+    redactText,
+    redactLogMetadata
+} = require('../src/shared/utils/auditIdentity');
+const SecurityAudit = require('../src/shared/models/SecurityAudit');
+
+test('audit metadata removes raw email and stores a stable hash', () => {
+    const email = 'audit-user@example.com';
+    const sanitized = sanitizeAuditMetadata({ email, reason: 'invalid_credentials' });
+    assert.strictEqual(sanitized.email, undefined);
+    assert.strictEqual(sanitized.emailHash, hashIdentity(email));
+});
+
+test('audit metadata removes raw username', () => {
+    const sanitized = sanitizeAuditMetadata({ username: 'private-user' });
+    assert.strictEqual(sanitized.username, undefined);
+    assert.ok(/^[0-9a-f]{64}$/.test(sanitized.usernameHash));
+});
+
+test('log text redacts email-shaped values', () => {
+    const redacted = redactText('Login failed for audit-user@example.com');
+    assert.ok(!redacted.includes('audit-user@example.com'));
+    assert.ok(redacted.includes('[email:'));
+});
+
+test('structured logs redact credentials and email values', () => {
+    const redacted = redactLogMetadata({
+        email: 'audit-user@example.com',
+        password: 'not-a-log-value',
+        nested: { client_secret: 'not-a-log-value' }
+    });
+    assert.ok(!JSON.stringify(redacted).includes('audit-user@example.com'));
+    assert.ok(!JSON.stringify(redacted).includes('not-a-log-value'));
+});
+
+test('SecurityAudit schema exposes pseudonymous identity and cleanup methods', () => {
+    assert.ok(SecurityAudit.schema.path('emailHash'));
+    assert.strictEqual(SecurityAudit.schema.path('email').options.select, false);
+    assert.strictEqual(typeof SecurityAudit.scrubLegacyIdentityFields, 'function');
+    assert.strictEqual(typeof SecurityAudit.redactUserIdentity, 'function');
+});
+
+testAsync('SecurityAudit document hook removes raw identity before persistence', async () => {
+    const document = new SecurityAudit({
+        action: 'login_failed',
+        email: 'audit-user@example.com',
+        metadata: {
+            email: 'audit-user@example.com',
+            username: 'private-user'
+        }
+    });
+    await document.validate();
+    assert.strictEqual(document.email, null);
+    assert.strictEqual(document.metadata.email, undefined);
+    assert.strictEqual(document.metadata.emailHash, hashIdentity('audit-user@example.com'));
+    assert.strictEqual(document.metadata.username, undefined);
+});
+
+test('client-1 exposes an unauthenticated health endpoint', () => {
+    const fs = require('fs');
+    const clientOneCode = fs.readFileSync('cLient-app-1/server.js', 'utf8');
+    assert.ok(clientOneCode.includes("app.get('/api/health'"));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

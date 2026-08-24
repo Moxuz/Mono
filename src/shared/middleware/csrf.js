@@ -119,6 +119,7 @@ function csrfProtection(req, res, next) {
     }
 
     const token = req.body?._csrf || req.body?.csrf_token || req.get('x-csrf-token');
+    const userId = req.user?.id || req.session?.user?.id;
 
     if (!validateCSRFToken(token, userId)) {
         return res.status(403).json({

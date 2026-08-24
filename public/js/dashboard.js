@@ -323,9 +323,10 @@ async function loadActiveSessions() {
             <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--error);">
                 <span class="material-symbols-outlined" style="font-size: 4rem; display: block; margin-bottom: 1rem;">error</span>
                 <p style="font-family: var(--font-mono); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.1em;">FAILED_TO_LOAD_SESSIONS</p>
-                <button onclick="loadActiveSessions()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: var(--primary); color: var(--on-primary); border: none; border-radius: 4px; cursor: pointer; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase;">RETRY</button>
+                <button id="retrySessionsBtn" style="margin-top: 1rem; padding: 0.5rem 1rem; background: var(--primary); color: var(--on-primary); border: none; border-radius: 4px; cursor: pointer; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase;">RETRY</button>
             </div>
         `;
+        document.getElementById('retrySessionsBtn')?.addEventListener('click', loadActiveSessions);
     }
 }
 

@@ -5,6 +5,8 @@
 
   Development website:  http://localhost:5000
   VPS test website:     https://testmono-user.duckdns.org
+  Client 1 website:     https://client-1.duckdns.org
+  Client 2 website:     https://client-2.duckdns.org
   Source:   src/server.js
   Version:  1.1.0
   Language: English / Thai
@@ -198,7 +200,7 @@ GUIDE CONVENTIONS
   4. (Optional) Check "Remember me".
 
      --> Checked: your session persists after closing the browser.
-         Unchecked: session clears when you close the tab.
+         Unchecked: the default session expires after 1 hour.
 
      IMPORTANT: The web app uses a Secure, HttpOnly session cookie.
      "Remember me" sets the browser session lifetime to 30 days;
@@ -227,6 +229,9 @@ GUIDE CONVENTIONS
      --> You are taken to Google's sign-in page.
 
   2. Sign in to your Google account and grant permission.
+
+     TIP: The same "Remember me" checkbox applies to Google and GitHub login.
+     When checked, the AuthSys browser session lasts up to 30 days.
 
      --> You are redirected back to http://localhost:5000/dashboard.
 
@@ -539,6 +544,19 @@ GUIDE CONVENTIONS
 ------------------------------------------------------------------------------
 
   The authorization code flow with PKCE is used for third-party apps.
+
+  Optional silent authentication:
+
+    A client may start the flow with /login?silent=1 (equivalent to
+    prompt=none on /api/oauth/authorize). AuthSys never shows a login or
+    consent page in this mode:
+
+      - Existing AuthSys session + active consent  -> authorization code
+      - No AuthSys session                         -> error=login_required
+      - Session exists but consent is missing      -> error=consent_required
+
+    The normal /login flow remains interactive. No access or refresh token is
+    placed in a URL during either flow.
 
   Step 1 — Generate PKCE values (on your client side):
 

@@ -1,8 +1,18 @@
 const SecurityAudit = require('../../../shared/models/SecurityAudit');
 const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
+const config = require('../../../shared/config/config');
 const logger = require('../../../shared/utils/logger');
+const { hashIdentity, sanitizeAuditMetadata } = require('../../../shared/utils/auditIdentity');
 const { authorizeRole } = require('../../auth/middleware/authorization');
+const {
+    parsePagination,
+    escapeRegExp,
+    startOfUtcDay,
+    endOfUtcDayExclusive
+} = require('../../../shared/utils/pagination');
+
+const SECURITY_LOG_SORT_FIELDS = new Set(['createdAt', 'action', 'status', 'ipAddress']);
 
 /**
  * Get all security audit logs with filtering and pagination
@@ -27,24 +37,27 @@ async function getSecurityLogs(req, res) {
         const filter = {};
 
         if (userId) filter.userId = userId;
-        if (action) filter.action = new RegExp(action, 'i');
+        if (action) filter.action = new RegExp(escapeRegExp(action), 'i');
         if (status) filter.status = status;
-        if (ipAddress) filter.ipAddress = new RegExp(ipAddress, 'i');
+        if (ipAddress) filter.ipAddress = new RegExp(escapeRegExp(ipAddress), 'i');
 
         // Date range filter
         if (startDate || endDate) {
             filter.createdAt = {};
-            if (startDate) filter.createdAt.$gte = new Date(startDate);
-            if (endDate) filter.createdAt.$lte = new Date(endDate);
+            const start = startOfUtcDay(startDate);
+            const end = endOfUtcDayExclusive(endDate);
+            if (start) filter.createdAt.$gte = start;
+            if (end) filter.createdAt.$lt = end;
         }
 
         // Sort order
         const sortOptions = {};
-        sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        sortOptions[SECURITY_LOG_SORT_FIELDS.has(sortBy) ? sortBy : 'createdAt'] = sortOrder === 'asc' ? 1 : -1;
 
         // Pagination
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
+        const pagination = parsePagination(page, limit, 50, 100);
+        const pageNum = pagination.page;
+        const limitNum = pagination.limit;
         const skip = (pageNum - 1) * limitNum;
 
         // Get total count
@@ -59,17 +72,18 @@ async function getSecurityLogs(req, res) {
 
         // Enrich with user data if userId exists
         const enrichedLogs = await Promise.all(logs.map(async (log) => {
+            const safeLog = { ...log, metadata: sanitizeAuditMetadata(log.metadata || {}) };
             if (log.userId) {
                 const user = await User.findById(log.userId).select('username email');
                 return {
-                    ...log,
+                    ...safeLog,
                     userInfo: user ? {
                         username: user.username,
                         email: user.email
                     } : null
                 };
             }
-            return log;
+            return safeLog;
         }));
 
         logger.info('Security logs retrieved', {
@@ -124,12 +138,15 @@ async function getLoginHistory(req, res) {
 
         if (startDate || endDate) {
             filter.createdAt = {};
-            if (startDate) filter.createdAt.$gte = new Date(startDate);
-            if (endDate) filter.createdAt.$lte = new Date(endDate);
+            const start = startOfUtcDay(startDate);
+            const end = endOfUtcDayExclusive(endDate);
+            if (start) filter.createdAt.$gte = start;
+            if (end) filter.createdAt.$lt = end;
         }
 
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
+        const pagination = parsePagination(page, limit, 50, 100);
+        const pageNum = pagination.page;
+        const limitNum = pagination.limit;
         const skip = (pageNum - 1) * limitNum;
 
         const total = await SecurityAudit.countDocuments(filter);
@@ -142,17 +159,18 @@ async function getLoginHistory(req, res) {
 
         // Enrich with user data
         const enrichedLogins = await Promise.all(logins.map(async (login) => {
+            const safeLogin = { ...login, metadata: sanitizeAuditMetadata(login.metadata || {}) };
             if (login.userId) {
                 const user = await User.findById(login.userId).select('username email');
                 return {
-                    ...login,
+                    ...safeLogin,
                     userInfo: user ? {
                         username: user.username,
                         email: user.email
                     } : null
                 };
             }
-            return login;
+            return safeLogin;
         }));
 
         res.json({
@@ -184,20 +202,29 @@ async function getFailedLogins(req, res) {
     try {
         const { hours = 24, groupBy = 'ip' } = req.query;
 
-        const hoursAgo = new Date(Date.now() - (parseInt(hours) * 60 * 60 * 1000));
+        const parsedHours = Number.parseInt(hours, 10);
+        const safeHours = Number.isFinite(parsedHours) && parsedHours > 0 ? Math.min(parsedHours, 24 * 30) : 24;
+        const hoursAgo = new Date(Date.now() - (safeHours * 60 * 60 * 1000));
 
         const filter = {
             action: 'login_failed',
             createdAt: { $gte: hoursAgo }
         };
 
-        const logins = await SecurityAudit.find(filter).lean();
+        const scanLimit = config.ADMIN_QUERY_LIMIT;
+        const logins = await SecurityAudit.find(filter)
+            .sort({ createdAt: 1 })
+            .limit(scanLimit)
+            .lean();
 
         // Group by IP or email
         const grouped = {};
         logins.forEach(login => {
+            const emailHash = login.emailHash ||
+                login.metadata?.emailHash ||
+                hashIdentity(login.metadata?.email);
             const key = groupBy === 'email'
-                ? login.metadata?.email || 'unknown'
+                ? emailHash || 'unknown'
                 : login.ipAddress || 'unknown';
 
             if (!grouped[key]) {
@@ -206,7 +233,7 @@ async function getFailedLogins(req, res) {
                     count: 0,
                     firstAttempt: login.createdAt,
                     lastAttempt: login.createdAt,
-                    emails: new Set(),
+                    emailHashes: new Set(),
                     userAgents: new Set()
                 };
             }
@@ -218,8 +245,8 @@ async function getFailedLogins(req, res) {
             if (login.createdAt > grouped[key].lastAttempt) {
                 grouped[key].lastAttempt = login.createdAt;
             }
-            if (login.metadata?.email) {
-                grouped[key].emails.add(login.metadata.email);
+            if (emailHash) {
+                grouped[key].emailHashes.add(emailHash);
             }
             if (login.userAgent) {
                 grouped[key].userAgents.add(login.userAgent);
@@ -229,7 +256,7 @@ async function getFailedLogins(req, res) {
         // Convert sets to arrays for JSON serialization
         const result = Object.values(grouped).map(item => ({
             ...item,
-            emails: Array.from(item.emails),
+            emailHashes: Array.from(item.emailHashes),
             userAgents: Array.from(item.userAgents)
         })).sort((a, b) => b.count - a.count);
 
@@ -239,7 +266,9 @@ async function getFailedLogins(req, res) {
                 failedLogins: result,
                 totalAttempts: logins.length,
                 uniqueSources: result.length,
-                period: `${hours} hours`
+                period: `${safeHours} hours`,
+                truncated: logins.length >= scanLimit,
+                scanLimit
             }
         });
     } catch (error) {
@@ -262,8 +291,9 @@ async function getActiveSessions(req, res) {
         const filter = { isActive: true };
         if (userId) filter.userId = userId;
 
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
+        const pagination = parsePagination(page, limit, 50, 100);
+        const pageNum = pagination.page;
+        const limitNum = pagination.limit;
         const skip = (pageNum - 1) * limitNum;
 
         const total = await Session.countDocuments(filter);
@@ -320,8 +350,10 @@ async function exportLogs(req, res) {
         if (status) filter.status = status;
         if (startDate || endDate) {
             filter.createdAt = {};
-            if (startDate) filter.createdAt.$gte = new Date(startDate);
-            if (endDate) filter.createdAt.$lte = new Date(endDate);
+            const start = startOfUtcDay(startDate);
+            const end = endOfUtcDayExclusive(endDate);
+            if (start) filter.createdAt.$gte = start;
+            if (end) filter.createdAt.$lt = end;
         }
 
         const logs = await SecurityAudit.find(filter).sort({ createdAt: -1 }).limit(1000).lean();
@@ -345,7 +377,7 @@ async function exportLogs(req, res) {
                 emailVal,
                 log.ipAddress || '',
                 `"${(log.userAgent || '').replace(/"/g, '""')}"`,
-                `"${JSON.stringify(log.metadata || {}).replace(/"/g, '""')}"`
+                `"${JSON.stringify(sanitizeAuditMetadata(log.metadata || {})).replace(/"/g, '""')}"`
             ];
             csvRows.push(row.join(','));
         }
@@ -460,19 +492,42 @@ async function getUserActivity(req, res) {
         const { userId } = req.params;
         const { days = 30 } = req.query;
 
-        const daysAgo = new Date(Date.now() - (parseInt(days) * 24 * 60 * 60 * 1000));
+        const parsedDays = Number.parseInt(days, 10);
+        const safeDays = Number.isFinite(parsedDays) && parsedDays > 0 ? Math.min(parsedDays, 365) : 30;
+        const pagination = parsePagination(req.query.page, req.query.limit, 50, 100);
+        const pageNum = pagination.page;
+        const limitNum = pagination.limit;
+        const skip = (pageNum - 1) * limitNum;
+        const daysAgo = new Date(Date.now() - (safeDays * 24 * 60 * 60 * 1000));
 
-        const activities = await SecurityAudit.find({
+        const filter = {
             userId,
             createdAt: { $gte: daysAgo }
-        }).sort({ createdAt: -1 }).lean();
+        };
+        const [total, activities] = await Promise.all([
+            SecurityAudit.countDocuments(filter),
+            SecurityAudit.find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum)
+                .lean()
+        ]);
 
         res.json({
             success: true,
             data: {
-                activities,
-                period: `${days} days`,
-                totalActivities: activities.length
+                activities: activities.map(activity => ({
+                    ...activity,
+                    metadata: sanitizeAuditMetadata(activity.metadata || {})
+                })),
+                period: `${safeDays} days`,
+                totalActivities: total,
+                pagination: {
+                    total,
+                    page: pageNum,
+                    limit: limitNum,
+                    pages: Math.ceil(total / limitNum)
+                }
             }
         });
     } catch (error) {

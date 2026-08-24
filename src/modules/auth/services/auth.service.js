@@ -597,33 +597,9 @@ class AuthService {
     }
 
     // ตรวจสอบว่า session เกินจำนวนที่กำหนดหรือไม่ ถ้าเกินให้ลบ session เก่าสุด
-    async checkSessionLimit(userId, maxSessions = 5) {
+    async checkSessionLimit(userId, maxSessions = config.MAX_ACTIVE_SESSIONS) {
         try {
-            const Session = require('../../../shared/models/Session');
-            
-            const activeSessionCount = await Session.countDocuments({
-                userId,
-                isActive: true
-            });
-
-            if (activeSessionCount >= maxSessions) {
-                logger.warn(`Session limit reached for user ${userId} (${activeSessionCount}/${maxSessions})`);
-                
-                const oldestSession = await Session.findOne(
-                    { userId, isActive: true },
-                    null,
-                    { sort: { lastActiveAt: 1 } }
-                );
-
-                if (oldestSession) {
-                    await this.revokeSession(userId, oldestSession._id);
-                    logger.info(`Revoked oldest session for user ${userId} to maintain limit`);
-                }
-
-                return { limitReached: true, action: 'revoked_oldest' };
-            }
-
-            return { limitReached: false, activeSessions: activeSessionCount };
+            return await sessionService.enforceSessionLimit(userId, maxSessions);
         } catch (error) {
             logger.error('Check session limit failed:', error.message);
             throw error;

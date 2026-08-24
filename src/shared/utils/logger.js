@@ -10,6 +10,7 @@ if (!fs.existsSync(logsDir)) {
 
 // Kafka logger (optional)
 const kafkaLogger = require('./kafkaLogger');
+const { redactText, redactLogMetadata } = require('./auditIdentity');
 
 // Configuration
 const USE_KAFKA = process.env.USE_KAFKA_LOGGING === 'true';
@@ -25,10 +26,28 @@ if (USE_KAFKA) {
 }
 
 // Simple logger without winston
+function safeMessage(message) {
+    return typeof message === 'string' ? redactText(message) : message;
+}
+
+function safeMetadata(metadata) {
+    return redactLogMetadata(metadata || {});
+}
+
+function safeJson(value) {
+    try {
+        return JSON.stringify(value);
+    } catch (_) {
+        return JSON.stringify({ error: 'unserializable_log_metadata' });
+    }
+}
+
 const logger = {
     info: (message, meta = {}) => {
         const timestamp = new Date().toISOString();
-        const logMessage = `${timestamp} [INFO]: ${message} ${JSON.stringify(meta)}`;
+        const redactedMessage = safeMessage(message);
+        const redactedMeta = safeMetadata(meta);
+        const logMessage = `${timestamp} [INFO]: ${redactedMessage} ${safeJson(redactedMeta)}`;
         console.log('\x1b[36m%s\x1b[0m', logMessage); // Cyan
         appendToFile('combined.log', logMessage);
 
@@ -37,15 +56,17 @@ const logger = {
             kafkaLogger.logToKafka(
                 kafkaLogger.TOPICS.AUTH,
                 'INFO',
-                message,
-                { ...meta, hostname: HOSTNAME, pid: PID }
+                redactedMessage,
+                { ...redactedMeta, hostname: HOSTNAME, pid: PID }
             ).catch(() => {}); // Ignore Kafka errors
         }
     },
 
     error: (message, meta = {}) => {
         const timestamp = new Date().toISOString();
-        const logMessage = `${timestamp} [ERROR]: ${message} ${JSON.stringify(meta)}`;
+        const redactedMessage = safeMessage(message);
+        const redactedMeta = safeMetadata(meta);
+        const logMessage = `${timestamp} [ERROR]: ${redactedMessage} ${safeJson(redactedMeta)}`;
         console.error('\x1b[31m%s\x1b[0m', logMessage); // Red
         appendToFile('error.log', logMessage);
         appendToFile('combined.log', logMessage);
@@ -55,15 +76,17 @@ const logger = {
             kafkaLogger.logToKafka(
                 kafkaLogger.TOPICS.ERROR,
                 'ERROR',
-                message,
-                { ...meta, hostname: HOSTNAME, pid: PID }
+                redactedMessage,
+                { ...redactedMeta, hostname: HOSTNAME, pid: PID }
             ).catch(() => {}); // Ignore Kafka errors
         }
     },
 
     warn: (message, meta = {}) => {
         const timestamp = new Date().toISOString();
-        const logMessage = `${timestamp} [WARN]: ${message} ${JSON.stringify(meta)}`;
+        const redactedMessage = safeMessage(message);
+        const redactedMeta = safeMetadata(meta);
+        const logMessage = `${timestamp} [WARN]: ${redactedMessage} ${safeJson(redactedMeta)}`;
         console.warn('\x1b[33m%s\x1b[0m', logMessage); // Yellow
         appendToFile('combined.log', logMessage);
 
@@ -72,8 +95,8 @@ const logger = {
             kafkaLogger.logToKafka(
                 kafkaLogger.TOPICS.ALL,
                 'WARN',
-                message,
-                { ...meta, hostname: HOSTNAME, pid: PID }
+                redactedMessage,
+                { ...redactedMeta, hostname: HOSTNAME, pid: PID }
             ).catch(() => {}); // Ignore Kafka errors
         }
     },
@@ -81,7 +104,9 @@ const logger = {
     debug: (message, meta = {}) => {
         if (NODE_ENV === 'production') return; // suppress debug logs in production
         const timestamp = new Date().toISOString();
-        const logMessage = `${timestamp} [DEBUG]: ${message} ${JSON.stringify(meta)}`;
+        const redactedMessage = safeMessage(message);
+        const redactedMeta = safeMetadata(meta);
+        const logMessage = `${timestamp} [DEBUG]: ${redactedMessage} ${safeJson(redactedMeta)}`;
         console.debug('\x1b[35m%s\x1b[0m', logMessage); // Magenta
         appendToFile('combined.log', logMessage);
 
@@ -90,8 +115,8 @@ const logger = {
             kafkaLogger.logToKafka(
                 kafkaLogger.TOPICS.ALL,
                 'DEBUG',
-                message,
-                { ...meta, hostname: HOSTNAME, pid: PID }
+                redactedMessage,
+                { ...redactedMeta, hostname: HOSTNAME, pid: PID }
             ).catch(() => {}); // Ignore Kafka errors
         }
     },
@@ -99,7 +124,9 @@ const logger = {
     // Security event logging (sends to security topic)
     security: (message, meta = {}) => {
         const timestamp = new Date().toISOString();
-        const logMessage = `${timestamp} [SECURITY]: ${message} ${JSON.stringify(meta)}`;
+        const redactedMessage = safeMessage(message);
+        const redactedMeta = safeMetadata(meta);
+        const logMessage = `${timestamp} [SECURITY]: ${redactedMessage} ${safeJson(redactedMeta)}`;
         console.warn('\x1b[33m%s\x1b[0m', logMessage); // Yellow
         appendToFile('error.log', logMessage);
         appendToFile('combined.log', logMessage);
@@ -109,8 +136,8 @@ const logger = {
             kafkaLogger.logToKafka(
                 kafkaLogger.TOPICS.SECURITY,
                 'SECURITY',
-                message,
-                { ...meta, hostname: HOSTNAME, pid: PID }
+                redactedMessage,
+                { ...redactedMeta, hostname: HOSTNAME, pid: PID }
             ).catch(() => {}); // Ignore Kafka errors
         }
     },
@@ -119,7 +146,8 @@ const logger = {
     stream: {
         write: (message) => {
             const timestamp = new Date().toISOString();
-            const logMessage = `${timestamp} [HTTP]: ${message.trim()}`;
+            const redactedMessage = redactText(message.trim());
+            const logMessage = `${timestamp} [HTTP]: ${redactedMessage}`;
             console.log(logMessage);
             appendToFile('combined.log', logMessage);
 
@@ -128,7 +156,7 @@ const logger = {
                 kafkaLogger.logToKafka(
                     kafkaLogger.TOPICS.USER_ACTIVITY,
                     'HTTP',
-                    message.trim(),
+                    redactedMessage,
                     { hostname: HOSTNAME, pid: PID }
                 ).catch(() => {}); // Ignore Kafka errors
             }

@@ -304,6 +304,7 @@
             <form id="consentForm">
                 <input type="hidden" name="client_id" id="clientId" value="">
                 <input type="hidden" name="redirect_uri" id="redirectUri" value="">
+                <input type="hidden" name="response_type" id="responseType" value="code">
                 <input type="hidden" name="scope" id="scope" value="">
                 <input type="hidden" name="state" id="state" value="">
                 <input type="hidden" name="code_challenge" id="codeChallenge" value="">
@@ -341,6 +342,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const clientId        = urlParams.get('client_id');
         const redirectUri     = urlParams.get('redirect_uri');
+        const responseType    = urlParams.get('response_type') || 'code';
         const scope           = urlParams.get('scope');
         const state           = urlParams.get('state');
         const codeChallenge   = urlParams.get('code_challenge');
@@ -351,6 +353,7 @@
         // Populate hidden fields
         if (clientId)        document.getElementById('clientId').value = clientId;
         if (redirectUri)     document.getElementById('redirectUri').value = redirectUri;
+        document.getElementById('responseType').value = responseType;
         if (scope)           document.getElementById('scope').value = scope;
         if (state)           document.getElementById('state').value = state;
         if (codeChallenge)   document.getElementById('codeChallenge').value = codeChallenge;
@@ -389,6 +392,7 @@
             const body = {
                 client_id:             clientId,
                 redirect_uri:          redirectUri,
+                response_type:         responseType,
                 scope:                 scope,
                 state:                 state,
                 code_challenge:        codeChallenge,

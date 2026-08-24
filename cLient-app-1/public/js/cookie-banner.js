@@ -71,6 +71,12 @@
     }
 
     function init() {
+        document.querySelectorAll('[data-cookie-consent]').forEach((button) => {
+            button.addEventListener('click', () => {
+                window.handleCookieConsent(button.dataset.cookieConsent === 'accept');
+            });
+        });
+
         if (getConsent()) {
             // มี consent แล้ว → ลบ banner ทิ้ง
             const banner = document.getElementById('cookieBanner');

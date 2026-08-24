@@ -5,7 +5,9 @@ services:
     environment:
       AUTH_HOST: ${AUTH_HOST:?Set AUTH_HOST}
       CLIENT_HOST: ${CLIENT_HOST:?Set CLIENT_HOST}
+      CLIENT2_HOST: ${CLIENT2_HOST:?Set CLIENT2_HOST}
       CERT_NAME: ${CERT_NAME:?Set CERT_NAME}
+      CLIENT2_CERT_NAME: ${CLIENT2_CERT_NAME:-client-2.duckdns.org}
     ports: !override
       - "${HTTP_BIND_IP:-0.0.0.0}:80:80"
       - "${HTTPS_BIND_IP:-0.0.0.0}:443:443"
@@ -24,6 +26,10 @@ services:
       GITHUB_CALLBACK_URL: https://${AUTH_HOST:?Set AUTH_HOST}/api/auth/github/callback
 
   client-app-1:
+    environment:
+      OAUTH_PROVIDER: http://nginx:8080
+
+  client-app-2:
     environment:
       OAUTH_PROVIDER: http://nginx:8080
 

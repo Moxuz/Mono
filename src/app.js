@@ -33,9 +33,16 @@ const oauthRoutes = require('./modules/oauth/routes/oauth.routes');
 const userRoutes  = require('./modules/user/routes/user.routes');
 const sessionRoutes = require('./modules/auth/routes/session.routes');
 const socialRoutes = require('./modules/auth/routes/social.routes');
+const { authenticate } = require('./modules/auth/middleware/authenticate');
+const { authorizeRole } = require('./modules/auth/middleware/authorization');
 
 const AuthorizationCode = require('./shared/models/AuthorizationCode');
 const TokenBlacklist = require('./shared/models/TokenBlacklist');
+const SecurityAudit = require('./shared/models/SecurityAudit');
+const Session = require('./shared/models/Session');
+const Consent = require('./shared/models/Consent');
+const Client = require('./shared/models/Client');
+const User = require('./shared/models/User');
 
 const app = express();
 
@@ -44,9 +51,9 @@ const app = express();
 app.set('trust proxy', config.TRUST_PROXY);
 
 // ── Session store ─────────────────────────────────────────────────────────────
-// Local development must remain usable without Docker. Production/Docker can
-// opt into Redis with USE_REDIS_SESSIONS=true; until it is ready, requests use
-// the built-in MemoryStore instead of failing or hanging during startup.
+// Local development must remain usable without Docker. Production/Docker uses
+// Redis; if Redis disappears after startup, fail session operations closed
+// instead of silently creating a second, process-local session store.
 const memorySessionStore = new session.MemoryStore();
 let sessionRedisClient = null;
 let redisSessionStore = null;
@@ -61,18 +68,25 @@ class FallbackSessionStore extends session.Store {
     }
 
     activeStore() {
-        return this.redisStore && this.redisClient?.isReady
-            ? this.redisStore
-            : this.memoryStore;
+        if (this.redisStore && this.redisClient?.isReady) return this.redisStore;
+        if (config.NODE_ENV === 'production' && config.USE_REDIS_SESSIONS) return null;
+        return this.memoryStore;
     }
 
-    get(sid, cb) { return this.activeStore().get(sid, cb); }
-    set(sid, sess, cb) { return this.activeStore().set(sid, sess, cb); }
-    destroy(sid, cb) { return this.activeStore().destroy(sid, cb); }
-    touch(sid, sess, cb) { return this.activeStore().touch(sid, sess, cb); }
-    all(cb) { return this.activeStore().all(cb); }
-    length(cb) { return this.activeStore().length(cb); }
-    clear(cb) { return this.activeStore().clear(cb); }
+    unavailable(cb) {
+        const error = new Error('Session store unavailable');
+        error.code = 'SESSION_STORE_UNAVAILABLE';
+        if (typeof cb === 'function') return process.nextTick(() => cb(error));
+        throw error;
+    }
+
+    get(sid, cb) { const store = this.activeStore(); return store ? store.get(sid, cb) : this.unavailable(cb); }
+    set(sid, sess, cb) { const store = this.activeStore(); return store ? store.set(sid, sess, cb) : this.unavailable(cb); }
+    destroy(sid, cb) { const store = this.activeStore(); return store ? store.destroy(sid, cb) : this.unavailable(cb); }
+    touch(sid, sess, cb) { const store = this.activeStore(); return store ? store.touch(sid, sess, cb) : this.unavailable(cb); }
+    all(cb) { const store = this.activeStore(); return store ? store.all(cb) : this.unavailable(cb); }
+    length(cb) { const store = this.activeStore(); return store ? store.length(cb) : this.unavailable(cb); }
+    clear(cb) { const store = this.activeStore(); return store ? store.clear(cb) : this.unavailable(cb); }
 }
 
 if (config.USE_REDIS_SESSIONS) {
@@ -114,10 +128,10 @@ app.locals.closeSessionRedis = async () => {
 
 const helmetDirectives = {
     defaultSrc:  ["'self'"],
-    scriptSrc:   ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net'],
+    scriptSrc:   ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net', 'https://code.jquery.com'],
     scriptSrcAttr: ["'unsafe-hashes'"],
     styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net'],
-    styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net'],
     fontSrc:     ["'self'", 'https://fonts.gstatic.com', 'data:'],
     imgSrc:      ["'self'", "data:", "https:", "blob:"],
     connectSrc:  ["'self'", "ws:", "http:", "https:", "wss:"],
@@ -148,14 +162,44 @@ app.use(cors({
     credentials: true
 }));
 
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({ limit: config.REQUEST_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: config.REQUEST_BODY_LIMIT }));
 app.use(sanitizeBody);
 
+function sanitizedRequestUrl(req) {
+    try {
+        const parsed = new URL(req.originalUrl || req.url, 'http://localhost');
+        const sensitiveParameters = [
+            'code',
+            'state',
+            'token',
+            'access_token',
+            'refresh_token',
+            'id_token',
+            'client_secret',
+            'password',
+            'nonce',
+            'code_verifier'
+        ];
+
+        for (const parameter of sensitiveParameters) {
+            if (parsed.searchParams.has(parameter)) parsed.searchParams.set(parameter, '[REDACTED]');
+        }
+
+        const query = parsed.searchParams.toString();
+        return `${parsed.pathname}${query ? `?${query}` : ''}`;
+    } catch (_) {
+        return String(req.originalUrl || req.url || '').split('?')[0];
+    }
+}
+
+morgan.token('safe-url', sanitizedRequestUrl);
+
 if (logger.stream) {
-    app.use(morgan('combined', { stream: logger.stream }));
+    const safeAccessLogFormat = ':remote-addr - :remote-user [:date[iso]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"';
+    app.use(morgan(safeAccessLogFormat, { stream: logger.stream }));
 } else {
-    app.use(morgan('dev'));
+    app.use(morgan(':method :safe-url :status :response-time ms', { stream: process.stdout }));
 }
 
 
@@ -186,6 +230,10 @@ app.use((req, res, next) => {
     next();
 });
 
+app.get('/admin.html', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin.html')));
+app.get('/admin-logs.html', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-logs.html')));
+app.get('/admin-users.html', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-users.html')));
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ใช้ CSRF protection สำหรับ web routes เท่านั้น (ข้าม API routes)
@@ -209,11 +257,56 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
     customSiteTitle: 'Auth API Docs'
 }));
 
-// ใช้ rate limit ทั่วไปกับทุก request
+// Apply the general budget to API requests; static/page GETs are skipped by
+// the limiter so normal browser navigation does not consume it.
 app.use(generalLimiter);
 app.use('/.well-known', wellKnownRoutes);
 
 // ─── Cleanup Job for Expired Data ─────────────────────────────────────────────
+// Keep one lifecycle policy for one-time codes, revoked sessions/consents,
+// deactivated clients, anonymized user tombstones, and legacy audit PII.
+async function runDataCleanup() {
+    const retentionCutoff = new Date(
+        Date.now() - config.DATA_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    );
+
+    const tasks = [
+        ['used authorization codes', () => AuthorizationCode.deleteMany({ usedAt: { $ne: null } })],
+        ['expired blacklisted tokens', () => TokenBlacklist.deleteMany({ expiresAt: { $lt: new Date() } })],
+        ['inactive sessions', () => Session.cleanupSessions()],
+        ['legacy audit identity fields', () => SecurityAudit.scrubLegacyIdentityFields()],
+        ['old revoked consents', () => Consent.deleteMany({
+            revokedAt: { $ne: null, $lt: retentionCutoff },
+            updatedAt: { $lt: retentionCutoff }
+        })],
+        ['old inactive OAuth clients', () => Client.deleteMany({
+            isActive: false,
+            updatedAt: { $lt: retentionCutoff }
+        })],
+        ['expired deleted-user tombstones', () => User.deleteMany({
+            isActive: false,
+            'pdpaConsent.accountDeletedAt': { $lt: retentionCutoff }
+        })]
+    ];
+
+    const results = await Promise.allSettled(tasks.map(([, task]) => task()));
+    results.forEach((result, index) => {
+        const [label] = tasks[index];
+        if (result.status === 'fulfilled') {
+            const value = typeof result.value === 'number'
+                ? result.value
+                : result.value?.deletedCount ?? result.value?.modifiedCount ?? 0;
+            logger.info(`Cleanup completed: ${label}`, { count: value });
+        } else {
+            logger.error(`Cleanup failed: ${label}`, result.reason?.message || result.reason);
+        }
+    });
+
+    return results;
+}
+
+app.locals.runDataCleanup = runDataCleanup;
+
 // ตั้งเวลาลบข้อมูลที่หมดอายุทุกคืนเที่ยงคืน
 const scheduleCleanup = () => {
     const now = new Date();
@@ -222,25 +315,8 @@ const scheduleCleanup = () => {
     midnight.setHours(0, 0, 0, 0);
     const timeUntilMidnight = midnight.getTime() - now.getTime();
 
-    setTimeout(() => {
-        // ลบ authorization codes ที่ถูกใช้แล้ว
-        AuthorizationCode.deleteMany({ usedAt: { $ne: null } })
-            .then(result => {
-                logger.info(`Cleaned up ${result.deletedCount} used authorization codes`);
-            })
-            .catch(err => {
-                logger.error('Failed to cleanup authorization codes:', err);
-            });
-
-        // ลบ blacklisted tokens ที่หมดอายุแล้ว
-        TokenBlacklist.deleteMany({ expiresAt: { $lt: new Date() } })
-            .then(result => {
-                logger.info(`Cleaned up ${result.deletedCount} expired blacklisted tokens`);
-            })
-            .catch(err => {
-                logger.error('Failed to cleanup blacklisted tokens:', err);
-            });
-
+    setTimeout(async () => {
+        await runDataCleanup();
         scheduleCleanup();
     }, timeUntilMidnight);
 
@@ -266,12 +342,10 @@ app.get('/',          (req, res) => res.sendFile(path.join(__dirname, '../public
 app.get('/login',     (req, res) => res.sendFile(path.join(__dirname, '../public', 'login.html')));
 app.get('/register',  (req, res) => res.sendFile(path.join(__dirname, '../public', 'register.html')));
 app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, '../public', 'dashboard.html')));
-app.get('/admin',     (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin.html')));
-app.get('/admin/logs',(req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-logs.html')));
-app.get('/admin/monitoring',(req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-monitoring.html')));
-app.get('/admin/analytics',(req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-analytics.html')));
-app.get('/admin/users',(req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-users.html')));
-app.get('/user-activity',(req, res) => res.sendFile(path.join(__dirname, '../public', 'user-activity.html')));
+app.get('/admin', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin.html')));
+app.get('/admin/logs', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-logs.html')));
+app.get('/admin/users', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-users.html')));
+app.get('/user-activity', authenticate, (req, res) => res.sendFile(path.join(__dirname, '../public', 'user-activity.html')));
 
 // จัดการ route ที่ไม่พบ
 app.use((req, res) => {

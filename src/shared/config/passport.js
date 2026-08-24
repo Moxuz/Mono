@@ -6,6 +6,7 @@ const GitHubStrategy = require('./passport/github.strategy.js');
 const User           = require('../models/User');
 const logger         = require('../utils/logger');
 const config         = require('./config');
+const { uniqueExternalUsername } = require('../utils/externalUsername');
 
 // ตรวจสอบว่ามี credentials ของ OAuth providers หรือไม่
 const GOOGLE_ENABLED =
@@ -32,7 +33,6 @@ if (GOOGLE_ENABLED) {
           const email = emailEntry?.value?.trim().toLowerCase();
           const emailVerified = profile._json?.email_verified === true || emailEntry?.verified === true;
           const googleId = profile.id;
-          const username = profile.displayName || email?.split('@')[0];
 
           if (!email || !emailVerified) return done(new Error('A verified Google email is required'), null);
 
@@ -57,6 +57,7 @@ if (GOOGLE_ENABLED) {
           }
 
           const now = new Date();
+          const username = await uniqueExternalUsername(User, profile.displayName || email?.split('@')[0], 'google_user');
           user = await User.create({
             username,
             email,

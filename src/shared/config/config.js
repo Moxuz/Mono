@@ -1,5 +1,11 @@
 require('dotenv').config();
 
+function boundedInt(value, fallback, min, max) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < min) return fallback;
+    return Math.min(parsed, max);
+}
+
 const requiredEnv = ['JWT_SECRET', 'SESSION_SECRET'];
 if (process.env.NODE_ENV === 'production' && !process.env.OIDC_PRIVATE_KEY) {
     requiredEnv.push('OIDC_PRIVATE_KEY');
@@ -41,14 +47,27 @@ module.exports = {
     // Session
     SESSION_SECRET: process.env.SESSION_SECRET,
     USE_REDIS_SESSIONS: process.env.USE_REDIS_SESSIONS === 'true' || process.env.NODE_ENV === 'production',
+    MAX_ACTIVE_SESSIONS: boundedInt(process.env.MAX_ACTIVE_SESSIONS, 5, 1, 50),
+
+    // Request/resource limits
+    REQUEST_BODY_LIMIT: process.env.REQUEST_BODY_LIMIT || '10kb',
+    ADMIN_QUERY_LIMIT: boundedInt(process.env.ADMIN_QUERY_LIMIT, 1000, 100, 10000),
 
     // CORS
     CORS_ORIGIN: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:4000'],
 
     // Rate Limiting
     RATE_LIMIT_WINDOW: 15 * 60 * 1000, // 15 minutes
-    RATE_LIMIT_MAX: 100,
-    RATE_LIMIT_WHITELIST: process.env.RATE_LIMIT_WHITELIST ? process.env.RATE_LIMIT_WHITELIST.split(',') : ['127.0.0.1', '::1', '::ffff:127.0.0.1'],
+    RATE_LIMIT_MAX: boundedInt(process.env.GENERAL_RATE_LIMIT_MAX, 500, 1, 10000),
+    // General API budget. Static/page GET requests are skipped by the
+    // general limiter; sensitive endpoints keep their smaller dedicated caps.
+    GENERAL_RATE_LIMIT_MAX: boundedInt(process.env.GENERAL_RATE_LIMIT_MAX, 500, 1, 10000),
+    RATE_LIMIT_WHITELIST: process.env.RATE_LIMIT_WHITELIST
+        ? process.env.RATE_LIMIT_WHITELIST.split(',').map(ip => ip.trim()).filter(Boolean)
+        : ['127.0.0.1', '::1', '::ffff:127.0.0.1'],
+
+    // Data lifecycle
+    DATA_RETENTION_DAYS: Math.max(30, parseInt(process.env.DATA_RETENTION_DAYS, 10) || 90),
 
     // Redis
     REDIS_HOST: process.env.REDIS_HOST || 'localhost',

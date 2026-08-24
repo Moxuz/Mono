@@ -9,6 +9,8 @@ const kafkaLogger = require('../../../shared/utils/kafkaLogger');
 const { isRedisReady } = require('../../../shared/middleware/rateLimiter');
 const config = require('../../../shared/config/config');
 const { recordLoginAttempt, recordActiveUser, getSnapshot } = require('../services/realtimeMetrics.service');
+const { parsePagination } = require('../../../shared/utils/pagination');
+const { sanitizeAuditMetadata } = require('../../../shared/utils/auditIdentity');
 
 /**
  * Get real-time monitoring data
@@ -198,7 +200,9 @@ async function getSystemHealth(req, res) {
 async function getLoginChartData(req, res) {
     try {
         const { hours = 24 } = req.query;
-        const hoursAgo = new Date(Date.now() - (parseInt(hours) * 60 * 60 * 1000));
+        const parsedHours = Number.parseInt(hours, 10);
+        const safeHours = Number.isFinite(parsedHours) && parsedHours > 0 ? Math.min(parsedHours, 24 * 30) : 24;
+        const hoursAgo = new Date(Date.now() - (safeHours * 60 * 60 * 1000));
 
         // Get login attempts grouped by hour
         const loginStats = await SecurityAudit.aggregate([
@@ -231,7 +235,7 @@ async function getLoginChartData(req, res) {
             success: true,
             data: {
                 stats: loginStats,
-                period: `${hours} hours`
+                period: `${safeHours} hours`
             }
         });
     } catch (error) {
@@ -250,13 +254,16 @@ async function getLoginChartData(req, res) {
 async function getSecurityEvents(req, res) {
     try {
         const { hours = 24, limit = 50 } = req.query;
-        const hoursAgo = new Date(Date.now() - (parseInt(hours) * 60 * 60 * 1000));
+        const parsedHours = Number.parseInt(hours, 10);
+        const safeHours = Number.isFinite(parsedHours) && parsedHours > 0 ? Math.min(parsedHours, 24 * 30) : 24;
+        const safeLimit = parsePagination(1, limit, 50, 200).limit;
+        const hoursAgo = new Date(Date.now() - (safeHours * 60 * 60 * 1000));
 
         const events = await SecurityAudit.find({
             createdAt: { $gte: hoursAgo }
         })
             .sort({ createdAt: -1 })
-            .limit(parseInt(limit))
+            .limit(safeLimit)
             .lean();
 
         // Group by action type
@@ -268,10 +275,13 @@ async function getSecurityEvents(req, res) {
         res.json({
             success: true,
             data: {
-                events,
+                events: events.map(event => ({
+                    ...event,
+                    metadata: sanitizeAuditMetadata(event.metadata || {})
+                })),
                 eventCounts,
                 totalEvents: events.length,
-                period: `${hours} hours`
+                period: `${safeHours} hours`
             }
         });
     } catch (error) {

@@ -5,7 +5,9 @@ services:
     environment:
       AUTH_HOST: ${AUTH_HOST:?Set AUTH_HOST}
       CLIENT_HOST: ${CLIENT_HOST:?Set CLIENT_HOST}
+      CLIENT2_HOST: ${CLIENT2_HOST:?Set CLIENT2_HOST}
       CERT_NAME: ${CERT_NAME:?Set CERT_NAME}
+      CLIENT2_CERT_NAME: ${CLIENT2_CERT_NAME:-client-2.duckdns.org}
     ports: !override
       - "80:80"
       - "443:443"

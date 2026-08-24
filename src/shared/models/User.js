@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const USERNAME_RE = /^[\p{L}\p{N}][\p{L}\p{N}._-]{2,63}$/u;
 
 const userSchema = new mongoose.Schema({
     username: {
@@ -8,7 +9,9 @@ const userSchema = new mongoose.Schema({
         unique: true,
         sparse: true,
         trim: true,
-        maxlength: [64, 'Username must be at most 64 characters']
+        minlength: [3, 'Username must be at least 3 characters'],
+        maxlength: [64, 'Username must be at most 64 characters'],
+        match: [USERNAME_RE, 'Username contains unsupported characters']
     },
     email: {
         type: String,
@@ -128,6 +131,13 @@ const userSchema = new mongoose.Schema({
         },
         consentIp: {
             type: String
+        },
+        accountDeletedAt: {
+            type: Date
+        },
+        accountDeleteReason: {
+            type: String,
+            maxlength: 120
         }
     }
 }, {

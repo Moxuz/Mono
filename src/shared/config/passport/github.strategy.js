@@ -7,6 +7,7 @@ const GitHubStrategy = require('passport-github2').Strategy;
 const User = require('../../models/User');
 const config = require('../config.js');
 const logger = require('../../utils/logger');
+const { uniqueExternalUsername } = require('../../utils/externalUsername');
 
 // Check if GitHub OAuth is enabled
 const GITHUB_ENABLED = config.GITHUB_CLIENT_ID && config.GITHUB_CLIENT_SECRET;
@@ -64,7 +65,7 @@ if (!GITHUB_ENABLED) {
         }
 
         // Create new user
-        const username = profile.username || `github_${profile.id}`;
+        const username = await uniqueExternalUsername(User, profile.username || `github_${profile.id}`, `github_${profile.id}`);
 
         user = new User({
             username,

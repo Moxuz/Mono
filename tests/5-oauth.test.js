@@ -4,7 +4,7 @@
  */
 
 const crypto = require('crypto');
-const { post, get, put, del } = require('./helpers/request');
+const { post, get, put, del, BASE_URL } = require('./helpers/request');
 const { createTestUser, cleanupUser } = require('./helpers/users');
 
 // ─── PKCE Helpers ─────────────────────────────────────────────────────────────
@@ -26,7 +26,8 @@ function generateCodeChallenge(verifier) {
 
 let user;
 let clientId, clientSecret, redirectUri;
-const REDIRECT_URI = process.env.TEST_REDIRECT_URI || 'http://localhost:3001/callback';
+const REDIRECT_URI = process.env.TEST_REDIRECT_URI ||
+    (BASE_URL.startsWith('https://') ? 'https://oauth-test-client.example/callback' : 'http://localhost:3001/callback');
 let browserCookie;
 
 function cookieHeader(response) {
@@ -395,5 +396,127 @@ describe('Scope Enforcement', () => {
         const res = (await authorizeWithSession({ scope: 'openid profile email' })).res;
         expect(res.status).toBe(200);
         expect(res.data.success).toBe(true);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Social OAuth state/cookie coverage. These tests do not use provider
+// credentials; they simulate provider denial after AuthSys validates state.
+
+const SOCIAL_PROVIDERS = [
+    { name: 'google', host: 'accounts.google.com' },
+    { name: 'github', host: 'github.com' },
+];
+
+const socialProviderEnabled = {};
+
+function socialCookieHeader(response) {
+    return (response.headers['set-cookie'] || [])
+        .map(value => value.split(';')[0])
+        .join('; ');
+}
+
+function socialRedirectLocation(response) {
+    return response.headers.location || response.headers.Location || '';
+}
+
+async function startSocialLogin(provider, cookie = '') {
+    const extra = cookie ? { headers: { Cookie: cookie } } : undefined;
+    const response = await get(`/api/auth/${provider}`, null, extra);
+    const location = socialRedirectLocation(response);
+    const locationUrl = location ? new URL(location, BASE_URL) : null;
+    return {
+        response,
+        locationUrl,
+        state: locationUrl?.searchParams.get('state') || '',
+        cookie: socialCookieHeader(response) || cookie,
+    };
+}
+
+function socialCallbackPath(provider, state = '') {
+    const query = state
+        ? `?state=${encodeURIComponent(state)}&error=access_denied`
+        : '?error=access_denied';
+    return `/api/auth/${provider}/callback${query}`;
+}
+
+function expectSocialError(response, error) {
+    expect(response.status).toBe(302);
+    expect(socialRedirectLocation(response)).toBe(`/login.html?error=${error}`);
+}
+
+beforeAll(async () => {
+    const response = await get('/api/auth/oauth/status');
+    expect(response.status).toBe(200);
+    const data = response.data?.data || response.data || {};
+    expect(data).toHaveProperty('google');
+    expect(data).toHaveProperty('github');
+    for (const provider of SOCIAL_PROVIDERS) {
+        socialProviderEnabled[provider.name] = data[provider.name] === true;
+    }
+});
+
+describe.each(SOCIAL_PROVIDERS)('Social OAuth state — $name', ({ name, host }) => {
+    function skipIfDisabled() {
+        if (!socialProviderEnabled[name]) {
+            console.warn(`Skipping ${name} social OAuth tests: provider is disabled`);
+            return true;
+        }
+        return false;
+    }
+
+    it('starts with a fresh state, session cookie, and correct callback path', async () => {
+        if (skipIfDisabled()) return;
+        const flow = await startSocialLogin(name);
+        expect(flow.response.status).toBe(302);
+        expect(flow.locationUrl?.hostname).toBe(host);
+        expect(flow.state).toMatch(/^[a-f0-9]{48}$/);
+        expect(flow.cookie).toMatch(/^connect\.sid=/);
+
+        const callback = flow.locationUrl.searchParams.get('redirect_uri');
+        expect(callback).toBeTruthy();
+        expect(new URL(callback).pathname).toBe(`/api/auth/${name}/callback`);
+
+        const setCookie = (flow.response.headers['set-cookie'] || []).join('; ');
+        expect(setCookie).toMatch(/HttpOnly/i);
+        expect(setCookie).toMatch(/SameSite=Lax/i);
+        if (BASE_URL.startsWith('https://')) expect(setCookie).toMatch(/Secure/i);
+    });
+
+    it('accepts matching state and reaches provider failure handling', async () => {
+        if (skipIfDisabled()) return;
+        const flow = await startSocialLogin(name);
+        const response = await get(socialCallbackPath(name, flow.state), null, {
+            headers: { Cookie: flow.cookie },
+        });
+        // access_denied is simulated; reaching provider failure proves state matched.
+        expectSocialError(response, `${name}_failed`);
+    });
+
+    it('rejects mismatched state before provider authentication', async () => {
+        if (skipIfDisabled()) return;
+        const flow = await startSocialLogin(name);
+        const wrongState = `${flow.state.slice(0, -1)}${flow.state.endsWith('0') ? '1' : '0'}`;
+        const response = await get(socialCallbackPath(name, wrongState), null, {
+            headers: { Cookie: flow.cookie },
+        });
+        expectSocialError(response, 'invalid_oauth_state');
+    });
+
+    it('rejects callback when session cookie is missing', async () => {
+        if (skipIfDisabled()) return;
+        const flow = await startSocialLogin(name);
+        const response = await get(socialCallbackPath(name, flow.state));
+        expectSocialError(response, 'invalid_oauth_state');
+    });
+
+    it('rejects replay of a previously consumed state', async () => {
+        if (skipIfDisabled()) return;
+        const flow = await startSocialLogin(name);
+        const extra = { headers: { Cookie: flow.cookie } };
+        const first = await get(socialCallbackPath(name, flow.state), null, extra);
+        expectSocialError(first, `${name}_failed`);
+        const replay = await get(socialCallbackPath(name, flow.state), null, extra);
+        expectSocialError(replay, 'invalid_oauth_state');
     });
 });

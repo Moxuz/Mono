@@ -6,9 +6,9 @@
 x-auth-env: &auth-env
   NODE_ENV: ${NODE_ENV:-development}
   PORT: 5000
-  JWT_SECRET: \
-  SESSION_SECRET: \
-  CSRF_SECRET: \
+  JWT_SECRET: ${JWT_SECRET:-local-only-jwt-secret-change-me-32-chars}
+  SESSION_SECRET: ${SESSION_SECRET:-local-only-session-secret-change-me-32}
+  CSRF_SECRET: ${CSRF_SECRET:-local-only-csrf-secret-change-me-32-chars}
   MONGODB_URI: "mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-local_mongo_password}@mongodb:27017/authdb?authSource=admin"
   REDIS_HOST: redis
   REDIS_PORT: 6379
@@ -16,6 +16,9 @@ x-auth-env: &auth-env
   REDIS_CONNECT_TIMEOUT_MS: ${REDIS_CONNECT_TIMEOUT_MS:-1500}
   REDIS_REQUIRED: ${REDIS_REQUIRED:-true}
   USE_REDIS_SESSIONS: ${USE_REDIS_SESSIONS:-true}
+  MAX_ACTIVE_SESSIONS: ${MAX_ACTIVE_SESSIONS:-5}
+  GENERAL_RATE_LIMIT_MAX: ${GENERAL_RATE_LIMIT_MAX:-500}
+  REQUEST_BODY_LIMIT: ${REQUEST_BODY_LIMIT:-10kb}
   BASE_URL: ${BASE_URL:-http://localhost:8080}
   AUTH_SERVER_URL: ${AUTH_SERVER_URL:-http://localhost:8080}
   GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:8080/api/auth/google/callback}
@@ -46,7 +49,16 @@ services:
         condition: service_healthy
     networks:
       - auth-local
+    healthcheck:
+      test: ["CMD", "node", "-e", "require(\"http\").get(\"http://localhost:5000/health\", r => process.exit(r.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
+    pids_limit: 256
 
   proxy:
     image: nginx:alpine
@@ -60,6 +72,9 @@ services:
     networks:
       - auth-local
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
+    pids_limit: 128
 
   mongodb:
     image: mongo:8.2
@@ -72,6 +87,9 @@ services:
     networks:
       - auth-local
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.00"
+    pids_limit: 512
     healthcheck:
       test:
         - CMD-SHELL
@@ -104,6 +122,9 @@ services:
     networks:
       - auth-local
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
+    pids_limit: 128
     healthcheck:
       test:
         - CMD-SHELL
@@ -146,6 +167,9 @@ services:
     networks:
       - auth-local
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
+    pids_limit: 128
 
   client2:
     build:
@@ -176,6 +200,9 @@ services:
     networks:
       - auth-local
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
+    pids_limit: 128
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/api/health"]
       interval: 30s
@@ -195,6 +222,9 @@ services:
     networks:
       - auth-local
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.25"
+    pids_limit: 256
 
   kafka:
     profiles: ["kafka"]
@@ -223,6 +253,9 @@ services:
     networks:
       - auth-local
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.50"
+    pids_limit: 512
 
 networks:
   auth-local:

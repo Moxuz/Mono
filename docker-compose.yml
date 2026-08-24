@@ -29,6 +29,9 @@ x-app-env: &app-env
   TRUST_PROXY: "1"
   USE_REDIS_SESSIONS: ${USE_REDIS_SESSIONS:-true}
   REDIS_REQUIRED: ${REDIS_REQUIRED:-true}
+  MAX_ACTIVE_SESSIONS: ${MAX_ACTIVE_SESSIONS:-5}
+  GENERAL_RATE_LIMIT_MAX: ${GENERAL_RATE_LIMIT_MAX:-500}
+  REQUEST_BODY_LIMIT: ${REQUEST_BODY_LIMIT:-10kb}
   # Kafka
   USE_KAFKA_LOGGING: ${USE_KAFKA_LOGGING:-false}
   KAFKA_BROKER: kafka:29092
@@ -36,7 +39,7 @@ x-app-env: &app-env
   KAFKA_CONNECT_TIMEOUT_MS: ${KAFKA_CONNECT_TIMEOUT_MS:-3000}
   KAFKA_RETRIES: ${KAFKA_RETRIES:-3}
   # Rate limit whitelist — includes Nginx container IPs so health probes are not throttled
-  RATE_LIMIT_WHITELIST: "127.0.0.1,::ffff:127.0.0.1,::1,172.19.0.1,::ffff:172.19.0.1,172.22.0.1,::ffff:172.22.0.1,172.25.0.1,::ffff:172.25.0.1,172.26.0.1,::ffff:172.26.0.1,172.27.0.1,::ffff:172.27.0.1"
+  RATE_LIMIT_WHITELIST: "127.0.0.1,::ffff:127.0.0.1,::1"
 
 x-app-depends: &app-depends
   mongodb:
@@ -55,6 +58,9 @@ x-app-base: &app-base
   networks:
     - auth-network
   restart: unless-stopped
+  mem_limit: 512m
+  cpus: "0.75"
+  pids_limit: 256
   healthcheck:
     test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
     interval: 15s
@@ -77,6 +83,9 @@ services:
     networks:
       - auth-network
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
+    pids_limit: 128
 
   # ─── App Instance 1 ────────────────────────────────────────────────────────
   auth-app-1:
@@ -107,6 +116,9 @@ services:
     networks:
       - auth-network
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.00"
+    pids_limit: 512
     healthcheck:
       test:
         - CMD-SHELL
@@ -133,6 +145,9 @@ services:
     networks:
       - auth-network
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.25"
+    pids_limit: 256
     healthcheck:
       test:
         - CMD-SHELL
@@ -162,6 +177,9 @@ services:
     networks:
       - auth-network
     restart: unless-stopped
+    mem_limit: 768m
+    cpus: "0.75"
+    pids_limit: 512
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "2181"]
       interval: 10s

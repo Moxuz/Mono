@@ -8,6 +8,7 @@ const { validate, rules } = require('../../../shared/middleware/validate');
 const User = require('../../../shared/models/User');
 const Consent = require('../../../shared/models/Consent');
 const logger = require('../../../shared/utils/logger');
+const { parsePagination } = require('../../../shared/utils/pagination');
 
 /**
  * GET /api/users/profile
@@ -83,8 +84,9 @@ router.get('/me', authenticate, async (req, res, next) => {
  */
 router.get('/', authenticate, authorize('admin'), async (req, res, next) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
+        const pagination = parsePagination(req.query.page, req.query.limit, 10, 100);
+        const page = pagination.page;
+        const limit = pagination.limit;
         const skip = (page - 1) * limit;
 
         const users = await User.find()

@@ -34,8 +34,6 @@ const AUTH_PAGES = [
 const ADMIN_PAGES = [
   { url: '/admin',               name: '15-admin' },
   { url: '/admin-logs.html',     name: '16-admin-logs' },
-  { url: '/admin-monitoring.html', name: '17-admin-monitoring' },
-  { url: '/admin-analytics.html', name: '18-admin-analytics' },
 ];
 
 const CREDS = {

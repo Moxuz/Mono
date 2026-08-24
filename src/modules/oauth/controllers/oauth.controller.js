@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const oauthService = require('../services/oauth.service');
 const User = require('../../../shared/models/User');
 const Client = require('../../../shared/models/Client');
+const Session = require('../../../shared/models/Session');
 const logger = require('../../../shared/utils/logger');
 const Consent = require('../../../shared/models/Consent');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
@@ -10,6 +11,7 @@ const {
     validateRegisteredScopes
 } = require('../../../shared/utils/oauthScopes');
 const { generateCSRFToken, validateCSRFToken } = require('../../../shared/middleware/csrf');
+const { parsePagination } = require('../../../shared/utils/pagination');
 async function getActiveSessionUser(req) {
     const sessionUserId = req.session?.user?.id;
     if (!sessionUserId) return null;
@@ -23,6 +25,19 @@ async function getActiveSessionUser(req) {
             }
             return null;
         }
+
+        if (!req.session.user.sessionId) return null;
+        const session = await Session.findOne({
+            _id: req.session.user.sessionId,
+            userId: user._id,
+            isActive: true
+        });
+        if (!session || session.isExpired()) {
+            if (session?.isExpired()) await session.revoke('expired');
+            delete req.session.user;
+            delete req.session.oauthClientFlow;
+            return null;
+        }
         return user;
     } catch (_) {
         if (req.session) {
@@ -33,6 +48,101 @@ async function getActiveSessionUser(req) {
     }
 }
 const config = require('../../../shared/config/config');
+
+function setOAuthNoStore(res) {
+    res.set({
+        'Cache-Control': 'no-store',
+        Pragma: 'no-cache'
+    });
+}
+
+const OAUTH_INPUT_LIMITS = Object.freeze({
+    clientId: 128,
+    clientSecret: 256,
+    authorizationCode: 512,
+    redirectUri: 2048,
+    codeVerifierMin: 43,
+    codeVerifierMax: 128,
+    refreshToken: 4096,
+    bearerToken: 4096,
+    sessionToken: 512
+});
+
+const OAUTH_SAFE_VALUE_RE = /^[A-Za-z0-9._~-]+$/;
+const OAUTH_PRINTABLE_SECRET_RE = /^[\x21-\x7E]+$/;
+
+function validateOAuthTokenInputs({ grantType, code, clientId, clientSecret, redirectUri, refreshToken, codeVerifier, sessionToken }) {
+    if (typeof grantType !== 'string' || grantType.length > 64) return 'Invalid grant_type';
+
+    const bounded = [
+        ['client_id', clientId, OAUTH_INPUT_LIMITS.clientId],
+        ['client_secret', clientSecret, OAUTH_INPUT_LIMITS.clientSecret],
+        ['code', code, OAUTH_INPUT_LIMITS.authorizationCode],
+        ['redirect_uri', redirectUri, OAUTH_INPUT_LIMITS.redirectUri],
+        ['refresh_token', refreshToken, OAUTH_INPUT_LIMITS.refreshToken],
+        ['session_token', sessionToken, OAUTH_INPUT_LIMITS.sessionToken]
+    ];
+    for (const [name, value, max] of bounded) {
+        if (value !== undefined && value !== null &&
+            (typeof value !== 'string' || value.length === 0 || value.length > max)) {
+            return `${name} is invalid or exceeds its maximum length`;
+        }
+    }
+
+    if (clientId && !OAUTH_SAFE_VALUE_RE.test(clientId)) return 'client_id has an invalid format';
+    if (clientSecret && !OAUTH_PRINTABLE_SECRET_RE.test(clientSecret)) return 'client_secret has an invalid format';
+    if (code && !OAUTH_SAFE_VALUE_RE.test(code)) return 'code has an invalid format';
+    if (refreshToken && !OAUTH_SAFE_VALUE_RE.test(refreshToken)) return 'refresh_token has an invalid format';
+    if (sessionToken && !OAUTH_SAFE_VALUE_RE.test(sessionToken)) return 'session_token has an invalid format';
+
+    if (redirectUri) {
+        const redirectError = validateRedirectUris([redirectUri]);
+        if (redirectError) return redirectError;
+    }
+
+    if (codeVerifier !== undefined &&
+        (typeof codeVerifier !== 'string' ||
+            !new RegExp(`^[A-Za-z0-9._~-]{${OAUTH_INPUT_LIMITS.codeVerifierMin},${OAUTH_INPUT_LIMITS.codeVerifierMax}}$`).test(codeVerifier))) {
+        return 'code_verifier must be 43-128 RFC 7636 characters';
+    }
+
+    return null;
+}
+
+function validateClientCredentialInputs(clientId, clientSecret) {
+    if (clientId !== undefined && clientId !== null &&
+        (typeof clientId !== 'string' || clientId.length === 0 || clientId.length > OAUTH_INPUT_LIMITS.clientId || !OAUTH_SAFE_VALUE_RE.test(clientId))) {
+        return 'client_id is invalid or exceeds its maximum length';
+    }
+    if (clientSecret !== undefined && clientSecret !== null &&
+        (typeof clientSecret !== 'string' || clientSecret.length === 0 || clientSecret.length > OAUTH_INPUT_LIMITS.clientSecret || !OAUTH_PRINTABLE_SECRET_RE.test(clientSecret))) {
+        return 'client_secret is invalid or exceeds its maximum length';
+    }
+    return null;
+}
+
+function validateOpaqueToken(token) {
+    return typeof token === 'string' && token.length > 0 &&
+        token.length <= OAUTH_INPUT_LIMITS.bearerToken && OAUTH_SAFE_VALUE_RE.test(token);
+}
+
+function validateLogoUri(logoUri) {
+    if (logoUri === undefined || logoUri === null || logoUri === '') return null;
+    if (typeof logoUri !== 'string' || logoUri.trim() !== logoUri || logoUri.length > 2048) {
+        return 'logo_uri must be a trimmed URL of 1-2048 characters';
+    }
+    try {
+        const parsed = new URL(logoUri);
+        const localDev = config.NODE_ENV !== 'production' &&
+            parsed.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+        if ((!['https:'].includes(parsed.protocol) && !localDev) || parsed.username || parsed.password || parsed.hash) {
+            return 'logo_uri must use HTTPS and cannot contain credentials or fragments';
+        }
+    } catch {
+        return 'logo_uri must be a valid absolute URL';
+    }
+    return null;
+}
 
 function validateRedirectUris(redirectUris) {
     if (!Array.isArray(redirectUris) || redirectUris.length < 1 || redirectUris.length > 10) {
@@ -120,6 +230,11 @@ exports.registerClient = async (req, res, next) => {
             return res.status(400).json({ success: false, error: redirectError });
         }
 
+        const logoError = validateLogoUri(clientData.logo_uri);
+        if (logoError) {
+            return res.status(400).json({ success: false, error: logoError });
+        }
+
         const registeredScopes = validateRegisteredScopes(clientData.scope);
         if (!registeredScopes.valid) {
             return res.status(400).json({
@@ -155,8 +270,7 @@ exports.registerClient = async (req, res, next) => {
 exports.listClients = async (req, res, next) => {
     try {
         const ownerId = req.user.id;
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
+        const { page, limit } = parsePagination(req.query.page, req.query.limit, 10, 100);
 
         const result = await oauthService.listClients(ownerId, page, limit);
 
@@ -213,6 +327,11 @@ exports.updateClient = async (req, res, next) => {
             }
         }
 
+        const logoError = validateLogoUri(updateData.logo_uri);
+        if (logoError) {
+            return res.status(400).json({ success: false, error: logoError });
+        }
+
         const client = await oauthService.updateClient(clientId, updateData, ownerId);
 
         logger.info('Client updated', { client_id: clientId });
@@ -261,7 +380,7 @@ exports.showAuthorizeForm = async (req, res, next) => {
     try {
         const {
             client_id, redirect_uri, response_type,
-            scope, state, code_challenge, code_challenge_method, nonce
+            scope, state, code_challenge, code_challenge_method, nonce, prompt
         } = req.query;
 
         if (response_type !== 'code') {
@@ -281,6 +400,12 @@ exports.showAuthorizeForm = async (req, res, next) => {
             return res.status(400).json({
                 error: 'invalid_request',
                 error_description: 'state must be at most 2048 characters'
+            });
+        }
+        if (prompt !== undefined && prompt !== 'none') {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: 'Only prompt=none is supported'
             });
         }
 
@@ -356,10 +481,24 @@ exports.showAuthorizeForm = async (req, res, next) => {
             }
 
             // ─── login แล้ว แต่ยังไม่ consent ───────────────────
+            if (prompt === 'none') {
+                const separator = redirect_uri.includes('?') ? '&' : '?';
+                const stateParam = state ? `&state=${encodeURIComponent(state)}` : '';
+                return res.redirect(
+                    `${redirect_uri}${separator}error=consent_required${stateParam}`
+                );
+            }
             baseParams.set('mode',       'consent');
-            baseParams.set('user_email', sessionUser.email);
 
         } else {
+            if (prompt === 'none') {
+                const separator = redirect_uri.includes('?') ? '&' : '?';
+                const stateParam = state ? `&state=${encodeURIComponent(state)}` : '';
+                return res.redirect(
+                    `${redirect_uri}${separator}error=login_required${stateParam}`
+                );
+            }
+
             // ─── ยังไม่ login → redirect ไป login.html พร้อม returnTo ──
             const returnTo = `/api/oauth/authorize?${baseParams.toString()}`;
             return res.redirect(`/login.html?returnTo=${encodeURIComponent(returnTo)}`);
@@ -515,6 +654,7 @@ exports.authorize = async (req, res, next) => {
 // token endpoint - รับ code_verifier
 exports.token = async (req, res, next) => {
     try {
+        setOAuthNoStore(res);
         let {
             code,
             client_id,
@@ -543,6 +683,23 @@ exports.token = async (req, res, next) => {
                     error_description: 'Invalid client authentication'
                 });
             }
+        }
+
+        const inputError = validateOAuthTokenInputs({
+            grantType: grant_type,
+            code,
+            clientId: client_id,
+            clientSecret: client_secret,
+            redirectUri: redirect_uri,
+            refreshToken: refresh_token,
+            codeVerifier: code_verifier,
+            sessionToken: session_token
+        });
+        if (inputError) {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: inputError
+            });
         }
 
         if (grant_type === 'refresh_token') {
@@ -646,6 +803,7 @@ exports.token = async (req, res, next) => {
  */
 exports.userinfo = async (req, res, next) => {
     try {
+        setOAuthNoStore(res);
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -707,6 +865,7 @@ exports.userinfo = async (req, res, next) => {
 
 exports.revokeToken = async (req, res, next) => {
     try {
+        setOAuthNoStore(res);
         let { token, client_id, client_secret } = req.body;
 
         if (!token) {
@@ -724,6 +883,14 @@ exports.revokeToken = async (req, res, next) => {
                 client_id = decodeURIComponent(decodedBasic.slice(0, separator));
                 client_secret = decodeURIComponent(decodedBasic.slice(separator + 1));
             }
+        }
+
+        const credentialError = validateClientCredentialInputs(client_id, client_secret);
+        if (credentialError || !validateOpaqueToken(token)) {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: credentialError || 'token is invalid or exceeds its maximum length'
+            });
         }
 
         const claims = jwt.decode(token);
@@ -780,6 +947,7 @@ exports.revokeToken = async (req, res, next) => {
  */
 exports.introspectToken = async (req, res, next) => {
     try {
+        setOAuthNoStore(res);
         let { token, client_id, client_secret } = req.body;
 
         if ((!client_id || !client_secret) && req.headers.authorization?.startsWith('Basic ')) {
@@ -789,6 +957,14 @@ exports.introspectToken = async (req, res, next) => {
                 client_id = decodeURIComponent(decodedBasic.slice(0, separator));
                 client_secret = decodeURIComponent(decodedBasic.slice(separator + 1));
             }
+        }
+
+        const credentialError = validateClientCredentialInputs(client_id, client_secret);
+        if (credentialError || !validateOpaqueToken(token)) {
+            return res.status(400).json({
+                error: 'invalid_request',
+                error_description: credentialError || 'token is invalid or exceeds its maximum length'
+            });
         }
 
         if (!token) {
@@ -812,6 +988,13 @@ exports.introspectToken = async (req, res, next) => {
                 error: 'invalid_client',
                 error_description: 'Invalid client credentials'
             });
+        }
+
+        const claims = jwt.decode(token);
+        if (!claims?.client_id || claims.client_id !== client_id) {
+            // With valid introspection credentials, an unknown or foreign token
+            // is a normal inactive result, not a client-authentication failure.
+            return res.json({ active: false });
         }
 
         const result = await oauthService.introspectToken(token);

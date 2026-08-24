@@ -1,6 +1,7 @@
 const rateLimit = require('express-rate-limit');
 const { RedisStore } = require('rate-limit-redis');
 const Redis = require('ioredis');
+const crypto = require('crypto');
 const config = require('../config/config');
 
 // Lazy logger reference to avoid circular dependency at module load time
@@ -172,10 +173,11 @@ const emailIpKeyGenerator = (req) => {
     // NoSQL-injection payload must reach the normal 400 validation path,
     // not make the limiter throw a 500 before validation runs.
     const email = typeof req.body?.email === 'string'
-        ? req.body.email
+        ? req.body.email.trim().toLowerCase()
         : 'invalid-email';
     const ip = getIpFromRequest(req);
-    return `${ip}_${email}`;
+    const emailHash = crypto.createHash('sha256').update(email).digest('hex').slice(0, 32);
+    return `${ip}_${emailHash}`;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -191,12 +193,16 @@ function createLimiter(options, prefix = 'rl') {
         store: store || undefined,
         windowMs: options.windowMs,
         max: options.max,
+        // Production startup requires Redis. If it disappears later, do not
+        // silently allow unlimited requests or downgrade to a per-process
+        // limiter.
+        passOnStoreError: false,
         keyGenerator: options.keyGenerator || ((req) => getIpFromRequest(req)),
         standardHeaders: true,
         legacyHeaders: false,
         skip: (req) => {
             const ip = getIpFromRequest(req);
-            return whitelistedIPs.includes(ip);
+            return whitelistedIPs.includes(ip) || Boolean(options.skip?.(req));
         },
         handler: options.handler || ((req, res) => {
             res.status(429).json({
@@ -268,21 +274,12 @@ const registerLimiter = createLimiter({
     }
 }, 'register');
 
-// จำกัดการ refresh token: 10 ครั้ง / 15 นาที — keyed per user+IP (decoded from token)
+// จำกัดการ refresh token: 10 ครั้ง / 15 นาที — keyed by IP.
+// Never use an unverified JWT claim as a rate-limit key: an attacker can vary
+// the claim and create unlimited buckets from one source IP.
 const refreshTokenLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
     max: 10,
-    keyGenerator: (req) => {
-        const token = req.body?.refreshToken;
-        if (token) {
-            try {
-                const jwt = require('jsonwebtoken');
-                const decoded = jwt.decode(token);
-                if (decoded?.sub) return `${decoded.sub}_${getIpFromRequest(req)}`;
-            } catch {}
-        }
-        return getIpFromRequest(req);
-    },
     message: 'Too many refresh token requests. Please try again in 15 minutes.'
 }, 'refresh-token');
 
@@ -300,15 +297,12 @@ const forgotPasswordLimiter = createLimiter({
     message: 'Too many password reset requests. Please try again in 1 hour.'
 }, 'forgot-password');
 
-// จำกัดการ userinfo: 60 ครั้ง / 1 นาที — keyed per token (Bearer)
+// จำกัดการ userinfo: 60 ครั้ง / 1 นาที — keyed by IP.
+// Token values are attacker-controlled input and must not create separate
+// buckets before authentication has succeeded.
 const userinfoLimiter = createLimiter({
     windowMs: 60 * 1000,
     max: 60,
-    keyGenerator: (req) => {
-        const auth = req.headers.authorization;
-        if (auth?.startsWith('Bearer ')) return auth.split(' ')[1].slice(0, 32);
-        return getIpFromRequest(req);
-    },
     message: 'Too many userinfo requests. Please try again in 1 minute.'
 }, 'userinfo');
 
@@ -350,10 +344,13 @@ const revokeLimiter = createLimiter({
     message: 'Too many revocation requests. Please try again in 15 minutes.'
 }, 'revoke');
 
-// จำกัด request ทั่วไป: 100 ครั้ง / 15 นาที
+// General protection applies to API traffic. Page loads and static assets are
+// deliberately skipped because one browser page can legitimately request
+// dozens of files and should not consume the API budget.
 const generalLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: config.GENERAL_RATE_LIMIT_MAX,
+    skip: (req) => req.method === 'GET' && !req.path.startsWith('/api/'),
     message: 'Too many requests. Please try again in 15 minutes.'
 }, 'general');
 
@@ -368,16 +365,23 @@ const TIER_LIMITS = {
     admin: { max: 10000, windowMs: 15 * 60 * 1000 }
 };
 
+const tierLimiterCache = new Map();
+
 // สร้าง rate limiter ตาม tier ของ user (free, authenticated, premium, admin)
 function createTierLimiter(tier = 'free') {
+    if (tierLimiterCache.has(tier)) return tierLimiterCache.get(tier);
+
     const config = TIER_LIMITS[tier] || TIER_LIMITS.free;
-    
-    return createLimiter({
+
+    const limiter = createLimiter({
         windowMs: config.windowMs,
         max: config.max,
         keyGenerator: userIpKeyGenerator,
         message: `Tier ${tier} rate limit exceeded`
     }, `tier:${tier}`);
+
+    tierLimiterCache.set(tier, limiter);
+    return limiter;
 }
 
 // ตรวจจับ tier ของ user อัตโนมัติและใช้ rate limit ที่เหมาะสม
@@ -398,11 +402,12 @@ const WHITELISTED_IPS = process.env.RATE_LIMIT_WHITELIST?.split(',') || [];
 
 // สร้าง rate limiter พร้อม IP whitelist สำหรับข้าม limit
 function createWhitelistedLimiter(options) {
+    const customSkip = options.skip;
     return createLimiter({
         ...options,
         skip: (req) => {
             const ip = req.ip || req.headers['x-forwarded-for']?.split(',')[0];
-            return WHITELISTED_IPS.includes(ip);
+            return WHITELISTED_IPS.includes(ip) || Boolean(customSkip?.(req));
         }
     });
 }

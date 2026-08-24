@@ -18,7 +18,12 @@ exports.getLoginActivity = async (req, res) => {
         }
 
         // รับ timezone offset จาก client (หน่วยเป็นนาที)
-        const timezoneOffset = parseInt(req.query.offset || 0);
+        const parsedOffset = Number.parseInt(req.query.offset || 0, 10);
+        // Keep the client-supplied offset within the real-world UTC range
+        // (UTC-14 through UTC+14) and avoid date arithmetic with Infinity.
+        const timezoneOffset = Number.isFinite(parsedOffset)
+            ? Math.max(-14 * 60, Math.min(14 * 60, parsedOffset))
+            : 0;
 
         logger.info(`Getting login activity for user: ${userId}, timezone offset: ${timezoneOffset}`);
 

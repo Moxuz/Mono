@@ -3,6 +3,8 @@ const Session = require('../../../shared/models/Session');
 const User = require('../../../shared/models/User');
 const logger = require('../../../shared/utils/logger');
 const sessionService = require('../../../shared/services/session.service');
+const { parsePagination } = require('../../../shared/utils/pagination');
+const { sanitizeAuditMetadata } = require('../../../shared/utils/auditIdentity');
 
 /**
  * Get current user's activity logs
@@ -11,12 +13,14 @@ const sessionService = require('../../../shared/services/session.service');
 async function getUserActivity(req, res) {
     try {
         const userId = req.user.id;
-        const { days = 30, page = 1, limit = 20 } = req.query;
-
-        const daysAgo = new Date(Date.now() - (parseInt(days) * 24 * 60 * 60 * 1000));
-        const pageNum = parseInt(page);
-        const limitNum = parseInt(limit);
+        const { days = 30 } = req.query;
+        const parsedDays = Number.parseInt(days, 10);
+        const safeDays = Number.isFinite(parsedDays) && parsedDays > 0 ? Math.min(parsedDays, 365) : 30;
+        const pagination = parsePagination(req.query.page, req.query.limit, 20, 100);
+        const pageNum = pagination.page;
+        const limitNum = pagination.limit;
         const skip = (pageNum - 1) * limitNum;
+        const daysAgo = new Date(Date.now() - (safeDays * 24 * 60 * 60 * 1000));
 
         const filter = {
             userId,
@@ -36,14 +40,17 @@ async function getUserActivity(req, res) {
         res.json({
             success: true,
             data: {
-                activities,
+                activities: activities.map(activity => ({
+                    ...activity,
+                    metadata: sanitizeAuditMetadata(activity.metadata || {})
+                })),
                 pagination: {
                     total,
                     page: pageNum,
                     limit: limitNum,
                     pages: Math.ceil(total / limitNum)
                 },
-                period: `${days} days`
+                period: `${safeDays} days`
             }
         });
     } catch (error) {
@@ -207,8 +214,14 @@ async function getSecuritySummary(req, res) {
                 sessions: {
                     activeCount: sessionsCount
                 },
-                recentLogins: loginHistory,
-                securityEvents,
+                recentLogins: loginHistory.map(log => ({
+                    ...log,
+                    metadata: sanitizeAuditMetadata(log.metadata || {})
+                })),
+                securityEvents: securityEvents.map(log => ({
+                    ...log,
+                    metadata: sanitizeAuditMetadata(log.metadata || {})
+                })),
                 generatedAt: new Date().toISOString()
             }
         });
@@ -230,22 +243,46 @@ async function getLoginHistory(req, res) {
         const userId = req.user.id;
         const { days = 30 } = req.query;
 
-        const daysAgo = new Date(Date.now() - (parseInt(days) * 24 * 60 * 60 * 1000));
-
-        const logins = await SecurityAudit.find({
+        const parsedDays = Number.parseInt(days, 10);
+        const safeDays = Number.isFinite(parsedDays) && parsedDays > 0 ? Math.min(parsedDays, 365) : 30;
+        const daysAgo = new Date(Date.now() - (safeDays * 24 * 60 * 60 * 1000));
+        const filter = {
             userId,
             action: { $in: ['login_success', 'login_failed'] },
             createdAt: { $gte: daysAgo }
-        }).sort({ createdAt: -1 }).lean();
+        };
+        const pagination = parsePagination(req.query.page, req.query.limit, 50, 100);
+        const pageNum = pagination.page;
+        const limitNum = pagination.limit;
+        const skip = (pageNum - 1) * limitNum;
+        const [totalLogins, successfulLogins, failedLogins, logins] = await Promise.all([
+            SecurityAudit.countDocuments(filter),
+            SecurityAudit.countDocuments({ ...filter, action: 'login_success' }),
+            SecurityAudit.countDocuments({ ...filter, action: 'login_failed' }),
+            SecurityAudit.find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum)
+                .lean()
+        ]);
 
         res.json({
             success: true,
             data: {
-                logins,
-                period: `${days} days`,
-                totalLogins: logins.length,
-                successfulLogins: logins.filter(l => l.status === 'success').length,
-                failedLogins: logins.filter(l => l.status === 'failure').length
+                logins: logins.map(log => ({
+                    ...log,
+                    metadata: sanitizeAuditMetadata(log.metadata || {})
+                })),
+                period: `${safeDays} days`,
+                totalLogins,
+                successfulLogins,
+                failedLogins,
+                pagination: {
+                    total: totalLogins,
+                    page: pageNum,
+                    limit: limitNum,
+                    pages: Math.ceil(totalLogins / limitNum)
+                }
             }
         });
     } catch (error) {

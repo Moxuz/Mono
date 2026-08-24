@@ -66,6 +66,18 @@ app.use(session({
     }
 }));
 
+app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: http:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+    if (process.env.NODE_ENV === 'production') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+});
+
 function requireAuth(req, res, next) {
     if (req.session.user) return next();
     res.redirect('/login');
@@ -130,26 +142,35 @@ async function verifyIdToken(idToken, expectedNonce) {
     return claims;
 }
 
+async function establishClientSession(req, user, accessToken, idToken) {
+    const cookieConsent = req.session.cookieConsent;
+    await new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve()));
+    req.session.user = user;
+    req.session.accessToken = accessToken;
+    req.session.idToken = idToken;
+    if (cookieConsent) req.session.cookieConsent = cookieConsent;
+    await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+}
+
+async function revokeAuthToken(token) {
+    if (!token || !config.clientId || !config.clientSecret) return;
+    try {
+        await axios.post(`${config.oauthProvider}/api/oauth/revoke`, {
+            token,
+            client_id: config.clientId,
+            client_secret: config.clientSecret
+        }, { headers: { 'Content-Type': 'application/json' }, timeout: 5000 });
+    } catch (error) {
+        console.warn('OAuth token revoke failed:', error.response?.status || error.message);
+    }
+}
+
 app.get('/dashboard.html', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 app.get('/dashboard', requireAuth, (req, res) => {
     res.redirect('/dashboard.html');
-});
-
-// Keep static assets after the protected page route so dashboard.html cannot
-// be served without an authenticated session.
-app.use((req, res, next) => {
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: http:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
-    if (process.env.NODE_ENV === 'production') {
-        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    }
-    next();
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -172,6 +193,7 @@ app.get('/login', (req, res) => {
         httpOnly: true, secure: config.cookieSecure, sameSite: 'lax', maxAge: 300000
     });
 
+    const silent = req.query.silent === '1' || req.query.prompt === 'none';
     const authorizeUrl = new URL('/api/oauth/authorize', config.oauthPublicUrl);
     authorizeUrl.search = new URLSearchParams({
         client_id: config.clientId,
@@ -182,7 +204,8 @@ app.get('/login', (req, res) => {
         state,
         nonce,
         code_challenge: challenge,
-        code_challenge_method: 'S256'
+        code_challenge_method: 'S256',
+        ...(silent ? { prompt: 'none' } : {})
     }).toString();
 
     res.redirect(authorizeUrl.toString());
@@ -218,6 +241,9 @@ app.get('/callback', async (req, res) => {
         );
 
         const { access_token, id_token } = tokenResponse.data;
+        if (typeof access_token !== 'string' || typeof id_token !== 'string') {
+            throw new Error('OAuth token response is incomplete');
+        }
         await verifyIdToken(id_token, savedNonce);
         const userResponse = await axios.get(
             `${config.oauthProvider}/api/oauth/userinfo`,
@@ -225,13 +251,7 @@ app.get('/callback', async (req, res) => {
         );
 
         // Tokens stay on the server. The browser receives only the session cookie.
-        req.session.user = userResponse.data;
-        req.session.accessToken = access_token;
-        req.session.idToken = id_token;
-
-        await new Promise((resolve, reject) => {
-            req.session.save((err) => err ? reject(err) : resolve());
-        });
+        await establishClientSession(req, userResponse.data, access_token, id_token);
         res.redirect('/dashboard.html');
     } catch (errorResponse) {
         console.error('Client 2 OAuth error:', errorResponse.response?.data || errorResponse.message);
@@ -269,7 +289,9 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', app: config.appName });
 });
 
-app.get('/logout', (req, res) => {
+app.post('/logout', async (req, res) => {
+    const accessToken = req.session?.accessToken;
+    await revokeAuthToken(accessToken);
     req.session.destroy(() => res.redirect('/'));
 });
 

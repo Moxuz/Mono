@@ -180,16 +180,14 @@
             <div class="form-group">
                 <label class="input-label" data-i18n="apikeys.environment">Environment</label>
                 <select class="settings-select" id="keyEnvironment">
-                    <option value="development">Development</option>
-                    <option value="staging">Staging</option>
-                    <option value="production">Production</option>
+                    <option value="production">Production (HTTPS web app)</option>
                 </select>
             </div>
             <div class="form-group">
                 <label class="input-label" for="redirectUris">Redirect URI</label>
                 <input type="url" class="input" id="redirectUris"
                        placeholder="https://your-app.example/callback"
-                       autocomplete="url" maxlength="4096" required>
+                       autocomplete="url" maxlength="2048" required>
                 <small class="input-help">Use the exact callback URL your app will use. Separate multiple URLs with commas.</small>
             </div>
         </div>

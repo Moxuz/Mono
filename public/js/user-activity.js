@@ -6,7 +6,11 @@ async function loadBrowserUser() {
     try {
         const response = await fetch('/api/auth/session', { credentials: 'same-origin' });
         const session = await response.json();
-        if (session.authenticated && session.user) Object.assign(user, session.user);
+        if (!session.authenticated) {
+            window.location.href = '/login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+            return;
+        }
+        if (session.user) Object.assign(user, session.user);
     } catch (_) {
         // Protected API calls below provide the authoritative auth result.
     }
@@ -385,13 +389,14 @@ async function loadAuditLogs() {
                     <p style="font-family: var(--font-mono); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;">FAILED_TO_LOAD_AUDIT_LOGS</p>
                     <span style="font-size: 0.75rem; color: var(--on-surface-variant);">${escapeHtml(error.message)}</span>
                     <br><br>
-                    <button class="action-btn" style="font-size: 0.75rem; padding: 0.5rem 1rem;" onclick="loadAuditLogs()">
+                    <button id="retryAuditLogsBtn" class="action-btn" style="font-size: 0.75rem; padding: 0.5rem 1rem;">
                         <span class="material-symbols-outlined" style="font-size: 0.875rem;">refresh</span>
                         RETRY
                     </button>
                 </td>
             </tr>
         `;
+        document.getElementById('retryAuditLogsBtn')?.addEventListener('click', loadAuditLogs);
     }
 }
 

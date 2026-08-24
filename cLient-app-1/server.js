@@ -46,6 +46,9 @@ if (!config.sessionSecret && process.env.NODE_ENV === 'production') {
 if (!config.mongoUrl && process.env.NODE_ENV === 'production') {
     throw new Error('MONGODB_URI is required in production');
 }
+if (process.env.NODE_ENV === 'production' && (!config.clientId || !config.clientSecret || !process.env.REDIRECT_URI)) {
+    throw new Error('CLIENT_ID, CLIENT_SECRET, and REDIRECT_URI are required in production');
+}
 config.sessionSecret ||= crypto.randomBytes(32).toString('hex');
 
 app.use(express.json());
@@ -64,18 +67,6 @@ app.use(session({
 }));
 
 // ─── Middleware ───────────────────────────────────────────────
-function requireAuth(req, res, next) {
-    if (req.session.user) return next();
-    res.redirect('/login');
-}
-
-// Do not let the static-file middleware bypass the auth-protected page routes.
-for (const page of ['dashboard.html', 'products.html', 'profile.html']) {
-    app.get(`/${page}`, requireAuth, (req, res) =>
-        res.sendFile(path.join(__dirname, 'public', page))
-    );
-}
-
 app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -87,6 +78,18 @@ app.use((req, res, next) => {
     }
     next();
 });
+
+function requireAuth(req, res, next) {
+    if (req.session.user) return next();
+    res.redirect('/login');
+}
+
+// Do not let the static-file middleware bypass the auth-protected page routes.
+for (const page of ['dashboard.html', 'products.html', 'profile.html']) {
+    app.get(`/${page}`, requireAuth, (req, res) =>
+        res.sendFile(path.join(__dirname, 'public', page))
+    );
+}
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -144,7 +147,35 @@ async function verifyIdToken(idToken, expectedNonce) {
     return claims;
 }
 
+async function establishClientSession(req, user, accessToken, idToken) {
+    const cookieConsent = req.session.cookieConsent;
+    await new Promise((resolve, reject) => req.session.regenerate(err => err ? reject(err) : resolve()));
+    req.session.user = user;
+    req.session.accessToken = accessToken;
+    req.session.idToken = idToken;
+    if (cookieConsent) req.session.cookieConsent = cookieConsent;
+    await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+}
+
+async function revokeAuthToken(token) {
+    if (!token || !config.clientId || !config.clientSecret) return;
+    try {
+        await axios.post(`${config.oauthProvider}/api/oauth/revoke`, {
+            token,
+            client_id: config.clientId,
+            client_secret: config.clientSecret
+        }, { headers: { 'Content-Type': 'application/json' }, timeout: 5000 });
+    } catch (error) {
+        console.warn('OAuth token revoke failed:', error.response?.status || error.message);
+    }
+}
+
 // ─── Routes ──────────────────────────────────────────────────
+
+// Lightweight unauthenticated probe for Docker/VPS health checks.
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', app: config.appName });
+});
 
 // Static pages (serve HTML files)
 app.get('/',          (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -175,12 +206,17 @@ app.get('/login', (req, res) => {
     const provider = ['google', 'github'].includes(req.query.provider)
         ? `/api/auth/${req.query.provider}`
         : '/api/oauth/authorize';
+    const silent = req.query.silent === '1' || req.query.prompt === 'none';
+    const promptParam = provider === '/api/oauth/authorize' && silent
+        ? '&prompt=none'
+        : '';
     const authUrl = `${config.oauthPublicUrl}${provider}?` +
         `client_id=${encodeURIComponent(config.clientId || '')}&` +
         `redirect_uri=${encodeURIComponent(config.redirectUri)}&` +
         `response_type=code&scope=openid%20profile%20email&` +
         `state=${encodeURIComponent(state)}&` +
-        `code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256&nonce=${encodeURIComponent(nonce)}`;
+        `code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256&nonce=${encodeURIComponent(nonce)}` +
+        promptParam;
 
     res.redirect(authUrl);
 });
@@ -215,6 +251,9 @@ app.get('/callback', async (req, res) => {
         );
 
         const { access_token, id_token } = tokenRes.data;
+        if (typeof access_token !== 'string' || typeof id_token !== 'string') {
+            throw new Error('OAuth token response is incomplete');
+        }
 
         await verifyIdToken(id_token, savedNonce);
         const userRes = await axios.get(
@@ -222,11 +261,7 @@ app.get('/callback', async (req, res) => {
             { headers: { 'Authorization': `Bearer ${access_token}` } }
         );
 
-        req.session.user         = userRes.data;
-        req.session.accessToken  = access_token;
-        req.session.idToken      = id_token;
-
-        await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
+        await establishClientSession(req, userRes.data, access_token, id_token);
 
         res.redirect('/dashboard');
 
@@ -275,8 +310,10 @@ app.post('/api/cookie-consent', async (req, res) => {
     });
 });
 
-// Logout
-app.get('/logout', (req, res) => {
+// Logout must be a state-changing POST so a link or crawler cannot sign a user out.
+app.post('/logout', async (req, res) => {
+    const accessToken = req.session?.accessToken;
+    await revokeAuthToken(accessToken);
     req.session.destroy(err => {
         if (err) console.error('Logout error:', err);
         res.redirect('/');

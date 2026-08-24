@@ -7,6 +7,7 @@ const dashboardController = require('../controllers/dashboard.controller');
 const logRoutes = require('./log.routes');
 const userRoutes = require('./user.routes');
 const monitoringRoutes = require('./monitoring.routes');
+
 const analyticsRoutes = require('./analytics.routes');
 const redisHealthRoutes = require('./redis.health');
 

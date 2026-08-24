@@ -30,6 +30,10 @@
         credentials: 'same-origin'
       });
 
+      if (res.status === 401) {
+        window.location.href = '/login.html?returnTo=' + encodeURIComponent(window.location.pathname);
+        return;
+      }
       if (!res.ok) throw new Error('Failed to load profile');
 
       const data = await res.json();

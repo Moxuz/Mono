@@ -97,7 +97,8 @@ async function prepareOAuthClientFlow(req, res) {
     codeChallenge,
     codeChallengeMethod,
     nonce,
-    scope: validScopes.join(' ')
+    scope: validScopes.join(' '),
+    remember: req.session.socialRemember === true
   };
   return true;
 }
@@ -112,7 +113,9 @@ async function finishOAuthClientFlow(req, res) {
     // Keep the flow in the session while the user makes an explicit decision
     // on the AuthSys consent page. The normal authorize POST will issue the
     // code and record consent after the user clicks Allow.
-    await establishWebSession(req, req.user, null, ['oauthClientFlow']);
+    await establishWebSession(req, req.user, null, ['oauthClientFlow'], {
+      remember: flow.remember === true
+    });
     const params = new URLSearchParams({
       mode: 'consent',
       client_id: flow.clientId,
@@ -123,8 +126,7 @@ async function finishOAuthClientFlow(req, res) {
       state: flow.state,
       code_challenge: flow.codeChallenge,
       code_challenge_method: flow.codeChallengeMethod,
-      nonce: flow.nonce,
-      user_email: req.user.email || ''
+      nonce: flow.nonce
     });
     return res.redirect(`/consent.html?${params.toString()}`);
   }
@@ -150,7 +152,9 @@ async function finishInternalSessionFlow(req, res) {
   if (!isSafeRelativePath(returnTo)) return false;
 
   delete req.session.oauthSessionReturnTo;
-  await establishWebSession(req, req.user);
+  const remember = req.session.socialRemember === true;
+  delete req.session.socialRemember;
+  await establishWebSession(req, req.user, null, [], { remember });
   return res.redirect(returnTo);
 }
 
@@ -182,6 +186,7 @@ if (GOOGLE_ENABLED) {
   // เริ่มกระบวนการ login ผ่าน Google OAuth
   router.get('/google', async (req, res, next) => {
     try {
+      req.session.socialRemember = req.query.remember === '1';
       if (!await prepareOAuthClientFlow(req, res)) return;
     } catch (error) {
       return next(error);
@@ -257,7 +262,9 @@ if (GOOGLE_ENABLED) {
         sendLoginAlertIfEnabled(req.user, req).catch(err => {
           logger.error('Google OAuth: login alert email failed:', err.message);
         });
-        await establishWebSession(req, req.user);
+        const remember = req.session.socialRemember === true;
+        delete req.session.socialRemember;
+        await establishWebSession(req, req.user, null, [], { remember });
         res.redirect('/dashboard.html');
 
       } catch (error) {
@@ -283,6 +290,7 @@ if (GITHUB_ENABLED) {
   // เริ่มกระบวนการ login ผ่าน GitHub OAuth
   router.get('/github', async (req, res, next) => {
     try {
+      req.session.socialRemember = req.query.remember === '1';
       if (!await prepareOAuthClientFlow(req, res)) return;
     } catch (error) {
       return next(error);
@@ -358,7 +366,9 @@ if (GITHUB_ENABLED) {
         sendLoginAlertIfEnabled(req.user, req).catch(err => {
           logger.error('GitHub OAuth: login alert email failed:', err.message);
         });
-        await establishWebSession(req, req.user);
+        const remember = req.session.socialRemember === true;
+        delete req.session.socialRemember;
+        await establishWebSession(req, req.user, null, [], { remember });
         res.redirect('/dashboard.html');
 
       } catch (error) {

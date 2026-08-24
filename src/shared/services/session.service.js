@@ -1,5 +1,6 @@
 const Session = require('../models/Session');
 const TokenBlacklist = require('../models/TokenBlacklist');
+const config = require('../config/config');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const securityAuditService = require('../services/securityAudit.service');
@@ -59,6 +60,18 @@ async function createSession(userId, accessToken, refreshToken, req, remember = 
         };
         
         const result = await Session.createSession(sessionData);
+
+        // Keep the policy in the shared session path so password, social and
+        // OAuth browser logins all enforce the same maximum.
+        let limitResult = null;
+        try {
+            limitResult = await enforceSessionLimit(userId);
+        } catch (limitError) {
+            // Do not turn a successful login into a 500 because cleanup of an
+            // older session failed; the active-session check still protects
+            // authentication and the next login retries enforcement.
+            logger.error('Enforce session limit failed:', limitError.message);
+        }
         
         logger.info(`Session created for user ${userId}`, {
             function: 'createSession',
@@ -70,7 +83,8 @@ async function createSession(userId, accessToken, refreshToken, req, remember = 
         
         return {
             sessionId: result.sessionId,
-            deviceInfo
+            deviceInfo,
+            sessionLimit: limitResult
         };
     } catch (error) {
         logger.error('Create session error:', error);
@@ -90,6 +104,58 @@ async function blacklistSessionTokens(session, userId, reason) {
     if (session.refreshTokenHash) {
         await TokenBlacklist.revokeByHash(session.refreshTokenHash, userId, null, tokenReason);
     }
+}
+
+/**
+ * Keep only the newest active sessions for a user.
+ * The newest session is retained; older sessions are revoked and their token
+ * hashes are blacklisted before the session is marked inactive.
+ */
+async function enforceSessionLimit(userId, maxSessions = config.MAX_ACTIVE_SESSIONS) {
+    const safeMax = Number.isInteger(maxSessions) && maxSessions > 0
+        ? Math.min(maxSessions, 50)
+        : 5;
+    const activeCount = await Session.countDocuments({ userId, isActive: true });
+    const overflow = activeCount - safeMax;
+
+    if (overflow <= 0) {
+        return { limitReached: false, activeSessions: activeCount, maxSessions: safeMax };
+    }
+
+    const activeSessions = await Session.find({ userId, isActive: true })
+        .sort({ lastActiveAt: 1, createdAt: 1 })
+        .limit(overflow);
+
+    const revoked = [];
+    for (const session of activeSessions.slice(0, overflow)) {
+        try {
+            await blacklistSessionTokens(session, userId, 'security');
+        } catch (error) {
+            logger.warn('Could not blacklist an evicted session token:', error.message);
+        }
+        await Session.updateOne(
+            { _id: session._id, userId, isActive: true },
+            {
+                $set: {
+                    isActive: false,
+                    revokedAt: new Date(),
+                    revokeReason: 'security'
+                }
+            }
+        );
+        revoked.push(session._id.toString());
+    }
+
+    logger.warn(`Session limit enforced for user ${userId}`, {
+        maxSessions: safeMax,
+        revokedCount: revoked.length
+    });
+    return {
+        limitReached: true,
+        activeSessions: safeMax,
+        maxSessions: safeMax,
+        revokedCount: revoked.length
+    };
 }
 
 /**
@@ -306,6 +372,7 @@ async function updateRefreshToken(sessionToken, newRefreshToken) {
 
 module.exports = {
     createSession,
+    enforceSessionLimit,
     validateSession,
     getUserSessions,
     revokeSession,
