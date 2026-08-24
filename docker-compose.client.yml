@@ -8,14 +8,49 @@
 #   Logs:      docker-compose -f docker-compose.client.yml logs -f
 #
 # This creates:
-#   - Client App 1 (ShopHub E-commerce with OAuth SSO)
+#   - Client App 1 and Client App 2 OAuth relying parties
+#   - A dedicated Redis instance for their server-side sessions
 #
 # Prerequisites:
 #   - Auth server must be running first (docker-compose up -d in main folder)
 #   - OAuth client must be registered in auth server developer portal
 # ─────────────────────────────────────────────────────────────────────────────
 
+x-client-logging: &client-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
+  # Client sessions are intentionally isolated from the AuthSys Redis and
+  # MongoDB. The relying parties never receive AuthSys database credentials.
+  client-session-redis:
+    image: redis:7-alpine
+    container_name: auth-client-redis
+    environment:
+      CLIENT_REDIS_PASSWORD: ${CLIENT_REDIS_PASSWORD:?Set CLIENT_REDIS_PASSWORD}
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        exec redis-server --appendonly yes --maxmemory 64mb
+        --maxmemory-policy noeviction --requirepass "$$CLIENT_REDIS_PASSWORD"
+    volumes:
+      - client-session-redis-data:/data
+    networks:
+      - client-network
+    restart: unless-stopped
+    logging: *client-logging
+    mem_limit: 128m
+    cpus: "0.15"
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$CLIENT_REDIS_PASSWORD\" ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ─── Client App 1 (ShopHub E-commerce) ─────────────────────────────────────
   client-app-1:
     build:
@@ -38,21 +73,25 @@ services:
       OAUTH_PROVIDER: ${OAUTH_PROVIDER_INTERNAL:-http://nginx}
       OAUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost}
       SESSION_SECRET: ${CLIENT_SESSION_SECRET:-}
-      MONGODB_URI: ${CLIENT_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-change_me}@mongodb:27017/authdb?authSource=admin}
+      USE_REDIS_SESSIONS: "true"
+      REDIS_HOST: client-session-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${CLIENT_REDIS_PASSWORD:?Set CLIENT_REDIS_PASSWORD}
       COOKIE_SECURE: ${CLIENT_COOKIE_SECURE:-false}
-    # Note: Auth server must be running separately
-    # Remove depends_on if auth server is already running
+    depends_on:
+      client-session-redis:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - client-network
-      - auth-network
     restart: unless-stopped
+    logging: *client-logging
     mem_limit: 256m
     cpus: "0.50"
     pids_limit: 128
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/session"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -77,13 +116,19 @@ services:
       OAUTH_PROVIDER: ${CLIENT2_OAUTH_PROVIDER_INTERNAL:-http://nginx}
       OAUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost}
       COOKIE_SECURE: ${CLIENT2_COOKIE_SECURE:-false}
-      MONGODB_URI: ${CLIENT2_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-change_me}@mongodb:27017/authdb?authSource=admin}
+      USE_REDIS_SESSIONS: "true"
+      REDIS_HOST: client-session-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${CLIENT_REDIS_PASSWORD:?Set CLIENT_REDIS_PASSWORD}
+    depends_on:
+      client-session-redis:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - client-network
-      - auth-network
     restart: unless-stopped
+    logging: *client-logging
     mem_limit: 256m
     cpus: "0.50"
     pids_limit: 128
@@ -113,10 +158,6 @@ networks:
   client-network:
     driver: bridge
     name: ${CLIENT_NETWORK_NAME:-client-network}
-  auth-network:
-    external: true
-    name: ${AUTH_NETWORK_NAME:-auth-network}
 
-# Volumes (optional - for persistent data if needed)
-# volumes:
-#   client-data:
+volumes:
+  client-session-redis-data:

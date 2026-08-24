@@ -153,17 +153,6 @@ function createRedisStore(prefix = 'rl') {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Generate key from IP and User ID
- * @param {Object} req - Express request
- * @returns {string}
- */
-const userIpKeyGenerator = (req) => {
-    const userId = req.user?.id || 'anon';
-    const ip = getIpFromRequest(req);
-    return `${userId}_${ip}`;
-};
-
-/**
  * Generate key from IP and email
  * @param {Object} req - Express request
  * @returns {string}
@@ -283,10 +272,12 @@ const refreshTokenLimiter = createLimiter({
     message: 'Too many refresh token requests. Please try again in 15 minutes.'
 }, 'refresh-token');
 
-// จำกัดการขอ token: 10 ครั้ง / 15 นาที
+// Token exchanges from a confidential BFF share the BFF container IP across
+// all of its users. Keep a useful per-source budget while the general limiter
+// still bounds abusive client_id variation.
 const tokenLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: 60,
     message: 'Too many token requests. Please try again in 15 minutes.'
 }, 'token');
 
@@ -302,14 +293,14 @@ const forgotPasswordLimiter = createLimiter({
 // buckets before authentication has succeeded.
 const userinfoLimiter = createLimiter({
     windowMs: 60 * 1000,
-    max: 60,
+    max: 120,
     message: 'Too many userinfo requests. Please try again in 1 minute.'
 }, 'userinfo');
 
 // จำกัดการ authorize: 30 ครั้ง / 15 นาที
 const authorizeLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 30,
+    max: 60,
     message: 'Too many authorization requests. Please try again in 15 minutes.',
     handler: (req, res) => {
         const SecurityAudit = require('../models/SecurityAudit');
@@ -330,17 +321,20 @@ const authorizeLimiter = createLimiter({
     }
 }, 'authorize');
 
-// จำกัดการ introspect token: 20 ครั้ง / 15 นาที
+// Confidential BFF clients use introspection to invalidate their own local
+// sessions promptly after token/consent/account revocation. Multiple users of
+// one BFF share its container IP, so this endpoint needs a per-source budget
+// larger than an interactive login endpoint.
 const introspectLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 20,
+    max: 300,
     message: 'Too many introspection requests. Please try again in 15 minutes.'
 }, 'introspect');
 
 // จำกัดการ revoke token: 20 ครั้ง / 15 นาที
 const revokeLimiter = createLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 20,
+    max: 60,
     message: 'Too many revocation requests. Please try again in 15 minutes.'
 }, 'revoke');
 
@@ -353,64 +347,6 @@ const generalLimiter = createLimiter({
     skip: (req) => req.method === 'GET' && !req.path.startsWith('/api/'),
     message: 'Too many requests. Please try again in 15 minutes.'
 }, 'general');
-
-// ─────────────────────────────────────────────────────────────────────────────
-// User Tier System (Premium Support)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TIER_LIMITS = {
-    free: { max: 100, windowMs: 15 * 60 * 1000 },
-    authenticated: { max: 500, windowMs: 15 * 60 * 1000 },
-    premium: { max: 2000, windowMs: 15 * 60 * 1000 },
-    admin: { max: 10000, windowMs: 15 * 60 * 1000 }
-};
-
-const tierLimiterCache = new Map();
-
-// สร้าง rate limiter ตาม tier ของ user (free, authenticated, premium, admin)
-function createTierLimiter(tier = 'free') {
-    if (tierLimiterCache.has(tier)) return tierLimiterCache.get(tier);
-
-    const config = TIER_LIMITS[tier] || TIER_LIMITS.free;
-
-    const limiter = createLimiter({
-        windowMs: config.windowMs,
-        max: config.max,
-        keyGenerator: userIpKeyGenerator,
-        message: `Tier ${tier} rate limit exceeded`
-    }, `tier:${tier}`);
-
-    tierLimiterCache.set(tier, limiter);
-    return limiter;
-}
-
-// ตรวจจับ tier ของ user อัตโนมัติและใช้ rate limit ที่เหมาะสม
-function dynamicTierLimiter(req, res, next) {
-    const tier = req.user?.role === 'admin' ? 'admin'
-        : req.user?.subscription === 'premium' ? 'premium'
-        : req.user ? 'authenticated' : 'free';
-
-    const limiter = createTierLimiter(tier);
-    limiter(req, res, next);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// IP Whitelist
-// ─────────────────────────────────────────────────────────────────────────────
-
-const WHITELISTED_IPS = process.env.RATE_LIMIT_WHITELIST?.split(',') || [];
-
-// สร้าง rate limiter พร้อม IP whitelist สำหรับข้าม limit
-function createWhitelistedLimiter(options) {
-    const customSkip = options.skip;
-    return createLimiter({
-        ...options,
-        skip: (req) => {
-            const ip = req.ip || req.headers['x-forwarded-for']?.split(',')[0];
-            return WHITELISTED_IPS.includes(ip) || Boolean(customSkip?.(req));
-        }
-    });
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Exports
@@ -435,13 +371,6 @@ module.exports = {
     revokeLimiter,
     generalLimiter,
     
-    // Advanced features
-    createTierLimiter,
-    dynamicTierLimiter,
-    createWhitelistedLimiter,
-    
     // Utilities
-    userIpKeyGenerator,
-    emailIpKeyGenerator,
-    TIER_LIMITS
+    emailIpKeyGenerator
 };

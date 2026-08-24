@@ -5,7 +5,6 @@ const config      = require('./shared/config/config');
 const emailService = require('./shared/services/email.service');
 const mongoose    = require('mongoose');
 const connectDB   = require('./shared/utils/database');
-const { initializeWebSocket, broadcastSecurityEvent } = require('./shared/utils/websocket');
 const { initRedis, closeRedis, isRedisReady } = require('./shared/middleware/rateLimiter');
 const kafkaLogger = require('./shared/utils/kafkaLogger');
 
@@ -63,10 +62,6 @@ const startServer = async () => {
       logger.info(`Server running on http://localhost:${PORT}`);
       logger.info(`Environment: ${config.NODE_ENV}`);
     });
-
-    // 5. Initialize WebSocket server (requires HTTP server to be started first)
-    initializeWebSocket(httpServer);
-    logger.info('WebSocket server initialized');
 
     // Graceful shutdown
     const shutdown = async (signal) => {

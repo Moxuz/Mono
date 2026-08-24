@@ -144,7 +144,7 @@ function stripOperators(obj, depth = 0) {
 // Pre-built rule sets for common routes
 const rules = {
     register: {
-        username: { required: true, minLen: 3, maxLen: 30, match: USERNAME_RE },
+        username: { required: true, minLen: 3, maxLen: 64, match: USERNAME_RE },
         email:    { required: true, type: 'email', maxLen: 254 },
         password: { required: true, minLen: 8, maxLen: 128 },
         consentEssential: { required: true, type: 'boolean' },
@@ -185,8 +185,6 @@ const rules = {
         redirect_uris: { type: 'array', minItems: 1, maxItems: 10 },
     },
     profile: {
-        username:   { minLen: 3, maxLen: 64, match: USERNAME_RE },
-        email:      { type: 'email', maxLen: 254 },
         displayName:{ maxLen: 80 },
         bio:        { maxLen: 160 },
     },

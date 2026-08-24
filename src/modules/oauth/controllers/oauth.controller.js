@@ -64,14 +64,13 @@ const OAUTH_INPUT_LIMITS = Object.freeze({
     codeVerifierMin: 43,
     codeVerifierMax: 128,
     refreshToken: 4096,
-    bearerToken: 4096,
-    sessionToken: 512
+    bearerToken: 4096
 });
 
 const OAUTH_SAFE_VALUE_RE = /^[A-Za-z0-9._~-]+$/;
 const OAUTH_PRINTABLE_SECRET_RE = /^[\x21-\x7E]+$/;
 
-function validateOAuthTokenInputs({ grantType, code, clientId, clientSecret, redirectUri, refreshToken, codeVerifier, sessionToken }) {
+function validateOAuthTokenInputs({ grantType, code, clientId, clientSecret, redirectUri, refreshToken, codeVerifier }) {
     if (typeof grantType !== 'string' || grantType.length > 64) return 'Invalid grant_type';
 
     const bounded = [
@@ -79,8 +78,7 @@ function validateOAuthTokenInputs({ grantType, code, clientId, clientSecret, red
         ['client_secret', clientSecret, OAUTH_INPUT_LIMITS.clientSecret],
         ['code', code, OAUTH_INPUT_LIMITS.authorizationCode],
         ['redirect_uri', redirectUri, OAUTH_INPUT_LIMITS.redirectUri],
-        ['refresh_token', refreshToken, OAUTH_INPUT_LIMITS.refreshToken],
-        ['session_token', sessionToken, OAUTH_INPUT_LIMITS.sessionToken]
+        ['refresh_token', refreshToken, OAUTH_INPUT_LIMITS.refreshToken]
     ];
     for (const [name, value, max] of bounded) {
         if (value !== undefined && value !== null &&
@@ -93,8 +91,6 @@ function validateOAuthTokenInputs({ grantType, code, clientId, clientSecret, red
     if (clientSecret && !OAUTH_PRINTABLE_SECRET_RE.test(clientSecret)) return 'client_secret has an invalid format';
     if (code && !OAUTH_SAFE_VALUE_RE.test(code)) return 'code has an invalid format';
     if (refreshToken && !OAUTH_SAFE_VALUE_RE.test(refreshToken)) return 'refresh_token has an invalid format';
-    if (sessionToken && !OAUTH_SAFE_VALUE_RE.test(sessionToken)) return 'session_token has an invalid format';
-
     if (redirectUri) {
         const redirectError = validateRedirectUris([redirectUri]);
         if (redirectError) return redirectError;
@@ -300,6 +296,9 @@ exports.getClient = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('Get client error:', error);
+        if (error.message === 'Client not found') {
+            return res.status(404).json({ success: false, error: 'Client not found' });
+        }
         next(error);
     }
 };
@@ -343,6 +342,9 @@ exports.updateClient = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('Update client error:', error);
+        if (error.message === 'Client not found') {
+            return res.status(404).json({ success: false, error: 'Client not found' });
+        }
         next(error);
     }
 };
@@ -365,6 +367,9 @@ exports.deleteClient = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('Delete client error:', error);
+        if (error.message === 'Client not found') {
+            return res.status(404).json({ success: false, error: 'Client not found' });
+        }
         next(error);
     }
 };
@@ -436,7 +441,10 @@ exports.showAuthorizeForm = async (req, res, next) => {
         const validScopes = sanitizeRequestedScopes(scope, client.scope);
 
         if (validScopes.length === 0) {
-            return res.status(400).send('<h1>invalid_scope</h1><p>The requested scopes are not permitted for this client.</p>');
+            return res.status(400).json({
+                error: 'invalid_scope',
+                error_description: 'The requested scopes are not permitted for this client'
+            });
         }
 
         const requestedScope = validScopes.join(' ');
@@ -556,7 +564,13 @@ exports.authorize = async (req, res, next) => {
         // state-changing POST to a short-lived CSRF token. Authorization must
         // always use the already-authenticated AuthSys browser session.
         const sessionUser = await getActiveSessionUser(req);
-        if (sessionUser && !validateCSRFToken(req.body.csrf_token, sessionUser._id.toString())) {
+        if (!sessionUser) {
+            return res.status(401).json({
+                error: 'login_required',
+                error_description: 'Sign in to AuthSys before making an authorization decision'
+            });
+        }
+        if (!validateCSRFToken(req.body.csrf_token, sessionUser._id.toString())) {
             return res.status(403).json({ error: 'csrf_invalid', error_description: 'Invalid authorization request' });
         }
 
@@ -574,6 +588,13 @@ exports.authorize = async (req, res, next) => {
             if (req.session?.oauthClientFlow?.clientId === client_id) {
                 delete req.session.oauthClientFlow;
             }
+            securityAuditService.logSecurityEvent({
+                userId: sessionUser._id,
+                action: 'consent_denied',
+                status: 'success',
+                ipAddress: req.ip,
+                metadata: { clientId: client_id }
+            }).catch(() => {});
             return res.json({
                 success: false,
                 redirect_url: `${redirect_uri}${sep}error=access_denied` +
@@ -581,12 +602,6 @@ exports.authorize = async (req, res, next) => {
             });
         }
 
-        if (!sessionUser) {
-            return res.status(401).json({
-                error: 'login_required',
-                error_description: 'Sign in to AuthSys before approving an application'
-            });
-        }
         const userId = sessionUser._id.toString();
 
         // ─── บันทึก Consent ───────────────────────────────────────
@@ -662,8 +677,7 @@ exports.token = async (req, res, next) => {
             redirect_uri,
             grant_type,
             refresh_token,
-            code_verifier,
-            session_token
+            code_verifier
         } = req.body;
 
         // Support the RFC 6749 client_secret_basic method advertised by
@@ -692,8 +706,7 @@ exports.token = async (req, res, next) => {
             clientSecret: client_secret,
             redirectUri: redirect_uri,
             refreshToken: refresh_token,
-            codeVerifier: code_verifier,
-            sessionToken: session_token
+            codeVerifier: code_verifier
         });
         if (inputError) {
             return res.status(400).json({
@@ -730,14 +743,15 @@ exports.token = async (req, res, next) => {
                 });
             }
             const refreshClaims = jwt.decode(refresh_token);
-            if (!refreshClaims || refreshClaims.client_id !== client_id) {
+            const refreshAudiences = Array.isArray(refreshClaims?.aud) ? refreshClaims.aud : [refreshClaims?.aud];
+            if (!refreshClaims || refreshClaims.client_id !== client_id || !refreshAudiences.includes(client_id)) {
                 return res.status(401).json({
                     error: 'invalid_grant',
                     error_description: 'Refresh token does not belong to this client'
                 });
             }
 
-            const result = await oauthService.refreshAccessToken(refresh_token, { sessionToken: session_token });
+            const result = await oauthService.refreshAccessToken(refresh_token);
             
             logger.info(`OAuth Token refreshed: client=${client_id}`, {
                 client_id,
@@ -839,20 +853,13 @@ exports.userinfo = async (req, res, next) => {
             action: 'userinfo_failed',
             status: 'failure',
             ipAddress: req.ip,
-            metadata: { reason: 'invalid_token', detail: error.message }
+            metadata: { reason: 'invalid_token' }
         }).catch(() => {});
 
         if (error.message.includes('expired')) {
             return res.status(401).json({
                 error: 'invalid_token',
                 error_description: 'Token has expired'
-            });
-        }
-
-        if (error.message.includes('not found')) {
-            return res.status(404).json({
-                error: 'user_not_found',
-                error_description: 'User not found'
             });
         }
 
@@ -893,12 +900,7 @@ exports.revokeToken = async (req, res, next) => {
             });
         }
 
-        const claims = jwt.decode(token);
-        if (!claims?.sub) {
-            return res.status(400).json({ error: 'invalid_request', error_description: 'Invalid token' });
-        }
-
-        let userId = claims.sub;
+        let verifiedClaims;
         if (client_id || client_secret) {
             if (!client_id || !client_secret) {
                 return res.status(401).json({ error: 'invalid_client', error_description: 'Complete client authentication is required' });
@@ -907,8 +909,12 @@ exports.revokeToken = async (req, res, next) => {
             if (!client || !(await client.compareSecret(client_secret))) {
                 return res.status(401).json({ error: 'invalid_client', error_description: 'Invalid client credentials' });
             }
-            if (claims.client_id && claims.client_id !== client_id) {
-                return res.status(401).json({ error: 'invalid_client', error_description: 'Token does not belong to this client' });
+            try {
+                verifiedClaims = oauthService.verifyRevocableToken(token, client_id);
+            } catch (_) {
+                // RFC 7009 makes revocation idempotent and does not expose
+                // whether a submitted token exists or is already invalid.
+                return res.json({ success: true, message: 'Token revoked successfully' });
             }
         } else {
             // First-party compatibility path: validate the bearer as a live
@@ -917,14 +923,15 @@ exports.revokeToken = async (req, res, next) => {
             if (!bearer) {
                 return res.status(401).json({ error: 'invalid_client', error_description: 'OAuth client credentials or matching bearer token required' });
             }
-            const bearerClaims = await oauthService.verifyAccessToken(bearer);
-            if (bearerClaims.sub !== claims.sub) {
-                return res.status(403).json({ error: 'access_denied', error_description: 'Token belongs to another user' });
+            if (bearer !== token) {
+                return res.status(403).json({ error: 'access_denied', error_description: 'Bearer token may revoke only itself' });
             }
-            userId = bearerClaims.sub;
+            const bearerClaims = await oauthService.verifyAccessToken(bearer);
+            verifiedClaims = bearerClaims;
         }
 
-        await oauthService.revokeToken(token, userId, 'user_logout');
+        const userId = verifiedClaims.sub;
+        await oauthService.revokeToken(token, userId, 'user_logout', verifiedClaims.client_id);
 
         logger.info('Token revoked', { user: userId });
 
@@ -1024,6 +1031,14 @@ exports.revokeConsent = async (req, res, next) => {
         }
 
         await Consent.revokeConsent(userId, clientId, 'user_request');
+
+        await securityAuditService.logSecurityEvent({
+            userId,
+            action: 'consent_revoked',
+            status: 'success',
+            ipAddress: req.ip,
+            metadata: { clientId }
+        });
 
         logger.info(`Consent revoked: userId=${userId} clientId=${clientId}`);
 

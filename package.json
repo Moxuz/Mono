@@ -6,9 +6,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "npm run test:functions && npm run test:modules && npm run test:security && npm run test:blue && npm run test:red",
+    "test": "npm run test:functions && npm run test:audit && npm run test:modules && npm run test:security && npm run test:blue && npm run test:red",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:audit": "jest tests/audit-regressions.test.js --runInBand --detectOpenHandles",
     "test:integration": "jest tests/1-auth-core.test.js tests/2-auth-password.test.js tests/3-auth-sessions.test.js tests/4-auth-profile.test.js tests/5-oauth.test.js tests/6-security.test.js --detectOpenHandles --verbose --runInBand",
     "test:nginx": "jest tests/1-auth-core.test.js tests/2-auth-password.test.js tests/3-auth-sessions.test.js tests/4-auth-profile.test.js tests/5-oauth.test.js tests/6-security.test.js --detectOpenHandles --verbose --runInBand",
     "test:all": "npm run test:functions && npm run test:integration",
@@ -25,6 +26,7 @@
     "maintenance:scrub-audit": "node scripts/scrub-audit-pii.js",
     "test:functions": "node scripts/test-functions.js",
     "test:session": "node tests/session-expiry.test.js",
+    "test:ui-live": "node scripts/ui-v23-audit.js",
     "client:up": "docker-compose -f docker-compose.client.yml up -d",
     "client:down": "docker-compose -f docker-compose.client.yml down"
   },
@@ -42,9 +44,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
-    "connect-mongo": "^5.1.0",
     "connect-redis": "^9.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -63,8 +63,8 @@
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
     "rate-limit-redis": "^4.2.0",
-    "swagger-ui-express": "^5.0.0",
-    "ws": "^8.16.0"
+    "redis": "^5.11.0",
+    "swagger-ui-dist": "^5.32.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -74,6 +74,6 @@
     "supertest": "^6.3.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0 <25"
   }
 }

@@ -123,6 +123,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('loginForm');
     const alert = document.getElementById('alert');
 
+    // Bind before the session probe. A fast click must not fall back to the
+    // browser's native form submission while this page is initializing.
+    if (form) {
+        form.addEventListener('submit', handleLogin);
+    }
+    const passwordToggleBtns = document.querySelectorAll('.password-toggle');
+    passwordToggleBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const inputId = this.getAttribute('data-input');
+            const iconId = this.getAttribute('data-icon');
+            togglePassword(inputId, iconId);
+        });
+    });
+
     // ── Auto-redirect for an existing HttpOnly browser session ──────────────
     try {
         const sessionResponse = await fetch('/api/auth/session', { credentials: 'same-origin' });
@@ -145,20 +159,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('reset') === 'success') {
         showAlert('Password reset successfully. Please sign in with your new password.', 'success');
+    } else if (urlParams.get('password') === 'changed') {
+        showAlert('Password updated. Please sign in again on this device.', 'success');
     }
     
-    // Attach form submit handler
-    if (form) {
-        form.addEventListener('submit', handleLogin);
-    }
-    
-    // Attach password toggle handlers
-    const passwordToggleBtns = document.querySelectorAll('.password-toggle');
-    passwordToggleBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const inputId = this.getAttribute('data-input');
-            const iconId = this.getAttribute('data-icon');
-            togglePassword(inputId, iconId);
-        });
-    });
 });

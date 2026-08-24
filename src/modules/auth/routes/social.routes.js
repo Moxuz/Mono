@@ -28,7 +28,10 @@ function validateSocialState(req, res, next) {
   const expected = req.session.socialOAuthState;
   const received = req.query.state;
   delete req.session.socialOAuthState;
-  if (!expected || !received || expected !== received) {
+  const expectedBuffer = Buffer.from(String(expected || ''), 'utf8');
+  const receivedBuffer = Buffer.from(String(received || ''), 'utf8');
+  if (!expected || !received || expectedBuffer.length !== receivedBuffer.length ||
+      !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
     return res.redirect('/login.html?error=invalid_oauth_state');
   }
   return next();
@@ -131,7 +134,9 @@ async function finishOAuthClientFlow(req, res) {
     return res.redirect(`/consent.html?${params.toString()}`);
   }
 
-  delete req.session.oauthClientFlow;
+  await establishWebSession(req, req.user, null, [], {
+    remember: flow.remember === true
+  });
   const code = await oauthService.generateAuthorizationCode(
     req.user._id,
     flow.clientId,
@@ -141,8 +146,6 @@ async function finishOAuthClientFlow(req, res) {
     flow.nonce,
     consent.grantId
   );
-  await new Promise((resolve, reject) => req.session.save(err => err ? reject(err) : resolve()));
-
   const separator = flow.redirectUri.includes('?') ? '&' : '?';
   return res.redirect(`${flow.redirectUri}${separator}code=${encodeURIComponent(code)}&state=${encodeURIComponent(flow.state)}`);
 }
@@ -255,13 +258,13 @@ if (GOOGLE_ENABLED) {
           }
         });
 
-        if (await finishOAuthClientFlow(req, res)) return;
-        if (await finishInternalSessionFlow(req, res)) return;
-
-        // ส่ง login alert email (ไม่รอผล)
         sendLoginAlertIfEnabled(req.user, req).catch(err => {
           logger.error('Google OAuth: login alert email failed:', err.message);
         });
+
+        if (await finishOAuthClientFlow(req, res)) return;
+        if (await finishInternalSessionFlow(req, res)) return;
+
         const remember = req.session.socialRemember === true;
         delete req.session.socialRemember;
         await establishWebSession(req, req.user, null, [], { remember });
@@ -359,13 +362,13 @@ if (GITHUB_ENABLED) {
           }
         });
 
-        if (await finishOAuthClientFlow(req, res)) return;
-        if (await finishInternalSessionFlow(req, res)) return;
-
-        // ส่ง login alert email (ไม่รอผล)
         sendLoginAlertIfEnabled(req.user, req).catch(err => {
           logger.error('GitHub OAuth: login alert email failed:', err.message);
         });
+
+        if (await finishOAuthClientFlow(req, res)) return;
+        if (await finishInternalSessionFlow(req, res)) return;
+
         const remember = req.session.socialRemember === true;
         delete req.session.socialRemember;
         await establishWebSession(req, req.user, null, [], { remember });

@@ -18,12 +18,15 @@ Small second-party client for testing that one AuthSys instance can serve multip
 
    `npm install && npm start`
 
-   MongoDB is optional for this mock client in development; it uses the
-   express-session memory store when `MONGODB_URI` is empty.
+   A direct development run uses the in-memory session store when
+   `USE_REDIS_SESSIONS=false`. The Docker/production stack always uses the
+   dedicated client-session Redis and never receives AuthSys MongoDB credentials.
 
 4. Or start it with Docker:
 
-   `docker compose -f docker-compose.client.yml up -d client-app-2`
+   Set `CLIENT_REDIS_PASSWORD` in the root `.env`, then run:
+
+   `docker compose -f docker-compose.client.yml up -d client-session-redis client-app-2`
 
 Open `http://localhost:3002`.
 

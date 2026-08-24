@@ -45,7 +45,6 @@ function showCookieBanner() {
     const banner = document.getElementById('cookieBanner');
     if (banner) {
         banner.style.display = 'flex';
-        console.log('Cookie banner displayed');
     }
 }
 
@@ -54,23 +53,18 @@ function hideCookieBanner() {
     const banner = document.getElementById('cookieBanner');
     if (banner) {
         banner.style.display = 'none';
-        console.log('Cookie banner hidden');
     }
 }
 
 // Handle cookie consent
 function handleCookieConsent(accepted) {
-    console.log('Cookie consent:', accepted ? 'ACCEPTED' : 'DECLINED');
-
     // Store consent
     if (accepted) {
         CookieManager.set('cookieConsent', 'all', 365);
         CookieManager.set('analyticsConsent', 'true', 365);
-        console.log('All cookies accepted');
     } else {
         CookieManager.set('cookieConsent', 'essential', 365);
         CookieManager.set('analyticsConsent', 'false', 365);
-        console.log('Only essential cookies accepted');
     }
 
     // Hide banner
@@ -135,21 +129,20 @@ async function syncStoredCookieConsent() {
 
 // Check and show banner on page load
 function initCookieBanner() {
-    console.log('Initializing cookie banner...');
+    // Only recognized values count as a decision. A malformed/stale cookie
+    // must not hide the banner indefinitely.
+    const storedConsent = getStoredCookieConsent();
 
-    // Check if user has already given consent
-    const hasConsent = CookieManager.exists('cookieConsent');
-
-    console.log('Has cookie consent:', hasConsent);
-
-    if (!hasConsent) {
+    if (!storedConsent) {
         // Show banner after a short delay (for better UX)
         setTimeout(() => {
             showCookieBanner();
         }, 1000);
     } else {
-        console.log('User already gave consent:', CookieManager.get('cookieConsent'));
-        void syncStoredCookieConsent();
+        void sendConsentToBackend(
+            storedConsent.cookieConsentAccepted,
+            storedConsent.analyticsAccepted
+        );
     }
 }
 
@@ -163,7 +156,6 @@ function attachCookieBannerListeners() {
             e.preventDefault();
             handleCookieConsent(true);
         });
-        console.log('Accept button listener attached');
     }
 
     if (declineBtn) {
@@ -171,18 +163,14 @@ function attachCookieBannerListeners() {
             e.preventDefault();
             handleCookieConsent(false);
         });
-        console.log('Decline button listener attached');
     }
 }
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded - initializing cookie banner');
     attachCookieBannerListeners();
     initCookieBanner();
 });
 
-// Make functions globally accessible
-window.handleCookieConsent = handleCookieConsent;
-window.CookieManager = CookieManager;
+// Login/registration call this after a browser session is established.
 window.syncStoredCookieConsent = syncStoredCookieConsent;

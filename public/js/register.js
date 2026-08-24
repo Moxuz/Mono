@@ -160,8 +160,8 @@ async function handleRegister(event) {
         return;
     }
 
-    if (username.length > 30) {
-        showAlert('Username must be at most 30 characters long', 'error');
+    if (username.length > 64) {
+        showAlert('Username must be at most 64 characters long', 'error');
         return;
     }
     
@@ -212,7 +212,7 @@ async function handleRegister(event) {
             }
             showAlert('ACCOUNT_CREATED > REDIRECT_INIT', 'success');
             setTimeout(() => {
-                window.location.href = '/login.html';
+                window.location.href = '/dashboard.html';
             }, 1500);
         } else {
             const details = Array.isArray(data.details) ? `: ${data.details.join(', ')}` : '';
@@ -234,6 +234,23 @@ document.addEventListener('DOMContentLoaded', async function() {
     const passwordInput = document.getElementById('password');
     const alert = document.getElementById('alert');
 
+    // Bind before the session probe. A fast click must not fall back to a
+    // native GET submission that could put registration data in the URL.
+    if (form) {
+        form.addEventListener('submit', handleRegister);
+    }
+    if (passwordInput) {
+        passwordInput.addEventListener('input', updatePasswordStrength);
+    }
+    const passwordToggleBtns = document.querySelectorAll('.password-toggle');
+    passwordToggleBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const inputId = this.getAttribute('data-input');
+            const iconId = this.getAttribute('data-icon');
+            togglePassword(inputId, iconId);
+        });
+    });
+
     // ── Auto-redirect for an existing HttpOnly browser session ──────────────
     try {
         const sessionResponse = await fetch('/api/auth/session', { credentials: 'same-origin' });
@@ -251,23 +268,4 @@ document.addEventListener('DOMContentLoaded', async function() {
         alert.style.display = 'none';
     }
     
-    // Attach form submit handler
-    if (form) {
-        form.addEventListener('submit', handleRegister);
-    }
-    
-    // Attach password strength handler
-    if (passwordInput) {
-        passwordInput.addEventListener('input', updatePasswordStrength);
-    }
-    
-    // Attach password toggle handlers
-    const passwordToggleBtns = document.querySelectorAll('.password-toggle');
-    passwordToggleBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const inputId = this.getAttribute('data-input');
-            const iconId = this.getAttribute('data-icon');
-            togglePassword(inputId, iconId);
-        });
-    });
 });

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { authenticate, authorize } = require('../../auth/middleware/authenticate');
 const userController = require('../controllers/user.controller');
 const authController = require('../../auth/controllers/auth.controller');
@@ -7,6 +8,7 @@ const authService = require('../../auth/services/auth.service');
 const { validate, rules } = require('../../../shared/middleware/validate');
 const User = require('../../../shared/models/User');
 const Consent = require('../../../shared/models/Consent');
+const Client = require('../../../shared/models/Client');
 const logger = require('../../../shared/utils/logger');
 const { parsePagination } = require('../../../shared/utils/pagination');
 
@@ -90,7 +92,7 @@ router.get('/', authenticate, authorize('admin'), async (req, res, next) => {
         const skip = (page - 1) * limit;
 
         const users = await User.find()
-            .select('-password')
+            .select('_id username email role isActive createdAt lastLogin')
             .skip(skip)
             .limit(limit)
             .sort('-createdAt');
@@ -119,7 +121,11 @@ router.get('/', authenticate, authorize('admin'), async (req, res, next) => {
  */
 router.get('/:id', authenticate, authorize('admin'), async (req, res, next) => {
     try {
-        const user = await User.findById(req.params.id).select('-password');
+        if (!mongoose.isValidObjectId(req.params.id)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID' });
+        }
+        const user = await User.findById(req.params.id)
+            .select('_id username email role isActive displayName bio createdAt updatedAt lastLogin');
         
         if (!user) {
             return res.status(404).json({
@@ -140,23 +146,18 @@ router.get('/:id', authenticate, authorize('admin'), async (req, res, next) => {
 
 /**
  * PUT /api/users/:id
- * Update user (own profile or admin)
+ * Update login identifiers (admin only)
  */
-router.put('/:id', authenticate, validate(rules.userUpdate), async (req, res, next) => {
+router.put('/:id', authenticate, authorize('admin'), validate(rules.userUpdate), async (req, res, next) => {
     try {
         const userId = req.params.id;
-        
-        // Check if user is updating own profile or is admin
-        if (req.user.id !== userId && req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                error: 'You can only update your own profile'
-            });
+        if (!mongoose.isValidObjectId(userId)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID' });
         }
 
         const allowedUpdates = ['username', 'email'];
         const updates = {};
-        
+
         allowedUpdates.forEach(field => {
             if (req.body[field] !== undefined) {
                 updates[field] = req.body[field];
@@ -167,7 +168,7 @@ router.put('/:id', authenticate, validate(rules.userUpdate), async (req, res, ne
             userId,
             updates,
             { new: true, runValidators: true }
-        ).select('-password');
+        ).select('_id username email role isActive displayName bio createdAt updatedAt lastLogin');
 
         if (!user) {
             return res.status(404).json({
@@ -185,6 +186,9 @@ router.put('/:id', authenticate, validate(rules.userUpdate), async (req, res, ne
         });
     } catch (error) {
         logger.error('Update user error:', error);
+        if (error?.code === 11000) {
+            return res.status(409).json({ success: false, error: 'Username or email is already in use' });
+        }
         next(error);
     }
 });
@@ -195,6 +199,19 @@ router.put('/:id', authenticate, validate(rules.userUpdate), async (req, res, ne
  */
 router.delete('/:id', authenticate, authorize('admin'), async (req, res, next) => {
     try {
+        if (!mongoose.isValidObjectId(req.params.id)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID' });
+        }
+        if (String(req.user.id) === String(req.params.id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Use the account deletion flow to deactivate your own account'
+            });
+        }
+
+        const ownedClients = await Client.find({ owner: req.params.id })
+            .select('client_id')
+            .lean();
         const user = await User.findByIdAndUpdate(
             req.params.id,
             { isActive: false },
@@ -210,8 +227,17 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res, next) =
 
         // Deactivation must invalidate existing access/refresh tokens too;
         // otherwise a later reactivation could revive old credentials.
-        await authService.blacklistAllUserTokens(user._id, 'admin_revoke');
-        await Consent.revokeAllForUser(user._id, 'admin_revoke');
+        await Promise.all([
+            authService.blacklistAllUserTokens(user._id, 'admin_revoke'),
+            Consent.revokeAllForUser(user._id, 'admin_revoke'),
+            Client.updateMany(
+                { owner: user._id, isActive: true },
+                { $set: { isActive: false } }
+            ),
+            ...ownedClients.map((client) =>
+                Consent.revokeAllForClient(client.client_id, 'client_owner_deactivated')
+            )
+        ]);
 
         logger.info('User deactivated', { userId: user._id });
 

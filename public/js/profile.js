@@ -3,6 +3,12 @@ let hasPassword = true; // safe default until profile API responds
 let serverProfile = {};
 let authProvider = null;
 
+function clearAuthSysAccountStorage() {
+    ['recentEvents', 'userProfile', 'lastLogin', 'theme', 'language', 'emailNotif', 'loginAlerts']
+        .forEach((key) => localStorage.removeItem(key));
+    sessionStorage.removeItem('userProfile');
+}
+
 async function loadServerProfile() {
     try {
         const res = await fetch('/api/auth/profile', { credentials: 'same-origin' });
@@ -321,7 +327,10 @@ function openChangePasswordModal() {
             }
 
             showModalAlert(_t('profile.changePassSuccess'), 'success');
-            setTimeout(() => closeModal(), 2000);
+            setTimeout(() => {
+                clearAuthSysAccountStorage();
+                window.location.href = '/login.html?password=changed';
+            }, 1200);
 
         } catch (error) {
             showModalAlert(_t('profile.changePassFailed') + ': ' + error.message, 'error');
@@ -605,8 +614,7 @@ function showDeleteAccountModal(reauthToken = null) {
             // Success
             showAlert(_t('profile.deleteSuccess'), 'success');
             
-            // Clear localStorage
-            localStorage.clear();
+            clearAuthSysAccountStorage();
             
             // Close modal
             closeModal();
@@ -800,7 +808,7 @@ function showDeleteAccountConfirmModal(reauthToken) {
             if (!response.ok || !data.success) throw new Error(data.error || 'Failed to delete account');
 
             showModalAlert(_t('profile.deleteSuccess'), 'success');
-            localStorage.clear();
+            clearAuthSysAccountStorage();
             setTimeout(() => { window.location.href = '/login.html'; }, 2000);
 
         } catch (error) {

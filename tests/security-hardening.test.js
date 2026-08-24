@@ -157,22 +157,9 @@ test('Rate limiter exports Redis functions', () => {
     assert.ok(typeof rateLimiter.isRedisReady === 'function');
 });
 
-test('Rate limiter exports tier system', () => {
-    assert.ok(typeof rateLimiter.createTierLimiter === 'function');
-    assert.ok(typeof rateLimiter.dynamicTierLimiter === 'function');
-    assert.ok(rateLimiter.TIER_LIMITS);
-});
-
-test('Rate limiter exports whitelist function', () => {
-    assert.ok(typeof rateLimiter.createWhitelistedLimiter === 'function');
-});
-
-test('Tier limits are configured correctly', () => {
-    const tiers = rateLimiter.TIER_LIMITS;
-    assert.strictEqual(tiers.free.max, 100);
-    assert.strictEqual(tiers.authenticated.max, 500);
-    assert.strictEqual(tiers.premium.max, 2000);
-    assert.strictEqual(tiers.admin.max, 10000);
+test('Unused subscription-tier limiter is not exposed', () => {
+    assert.strictEqual(rateLimiter.dynamicTierLimiter, undefined);
+    assert.strictEqual(rateLimiter.TIER_LIMITS, undefined);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -320,9 +307,9 @@ test('Security audit service exports getUserAuditLogs', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9. OWASP COMPLIANCE
+// 9. OWASP-ORIENTED REGRESSION CHECKS
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('\n📋 SECTION 9: OWASP COMPLIANCE\n');
+console.log('\n📋 SECTION 9: OWASP-ORIENTED REGRESSION CHECKS\n');
 
 test('A01: Broken Access Control - Role-based auth exists', () => {
     const auth = require('../src/modules/auth/middleware/authenticate');
@@ -394,9 +381,9 @@ if (failed > 0) {
     console.log('   ✅ Password Security');
     console.log('   ✅ Account Lockout');
     console.log('   ✅ Session Security');
-    console.log('   ✅ Encryption (AES-256-CBC)');
+    console.log('   ✅ Token signing and password hashing checks');
     console.log('   ✅ Security Audit Logging');
-    console.log('   ✅ OWASP Top 10 Compliance');
-    console.log('\n🔒 Security Status: PRODUCTION READY\n');
+    console.log('   ✅ Selected OWASP-oriented regression checks');
+    console.log('\n🔒 Test status: suite passed; this is not a security certification.\n');
     process.exit(0);
 }

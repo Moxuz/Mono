@@ -32,11 +32,11 @@ const userSchema = new mongoose.Schema({
         sparse: true
     },
     
-    githubId: { type: String, sparse: true, unique: true },     
-     avatar: { type: String }, 
+    githubId: { type: String, sparse: true, unique: true },
+    avatar: { type: String, maxlength: 2048 },
     role: {
         type: String,
-        enum: ['user', 'admin', 'moderator'],
+        enum: ['user', 'admin'],
         default: 'user'
     },
     isActive: {
@@ -171,31 +171,52 @@ userSchema.methods.isLocked = function() {
 userSchema.methods.incrementLoginAttempts = async function() {
     const maxAttempts = 5;
     const lockTimeMs = 15 * 60 * 1000;
+    const now = new Date();
 
-    if (this.lockUntil && this.lockUntil > new Date()) {
-        return false;
+    if (this.lockUntil && this.lockUntil > now) {
+        return true;
     }
 
-    if (this.lockUntil && this.lockUntil < new Date()) {
-        this.failedLoginAttempts = 0;
-        this.lockUntil = null;
-    }
+    // Reset an expired lock once, then increment with MongoDB's atomic $inc.
+    // Document read/modify/save can lose concurrent failed attempts and let a
+    // distributed brute-force burst bypass the five-attempt threshold.
+    await this.constructor.updateOne(
+        { _id: this._id, lockUntil: { $lte: now } },
+        { $set: { failedLoginAttempts: 0, lockUntil: null } }
+    );
 
-    this.failedLoginAttempts += 1;
+    const updated = await this.constructor.findOneAndUpdate(
+        {
+            _id: this._id,
+            $or: [{ lockUntil: null }, { lockUntil: { $exists: false } }]
+        },
+        { $inc: { failedLoginAttempts: 1 } },
+        { new: true }
+    );
 
-    if (this.failedLoginAttempts >= maxAttempts) {
-        this.lockUntil = new Date(Date.now() + lockTimeMs);
-    }
+    if (!updated) return true;
 
-    await this.save();
-    return this.isLocked();
+    this.failedLoginAttempts = updated.failedLoginAttempts;
+    this.lockUntil = updated.lockUntil || null;
+    if (updated.failedLoginAttempts < maxAttempts) return false;
+
+    const lockUntil = new Date(Date.now() + lockTimeMs);
+    await this.constructor.updateOne(
+        { _id: this._id, failedLoginAttempts: { $gte: maxAttempts } },
+        { $set: { lockUntil } }
+    );
+    this.lockUntil = lockUntil;
+    return true;
 };
 
 // Reset login attempts on successful login
 userSchema.methods.resetLoginAttempts = async function() {
+    await this.constructor.updateOne(
+        { _id: this._id },
+        { $set: { failedLoginAttempts: 0, lockUntil: null } }
+    );
     this.failedLoginAttempts = 0;
     this.lockUntil = null;
-    await this.save();
 };
 
 module.exports = mongoose.model('User', userSchema);

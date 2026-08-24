@@ -21,7 +21,9 @@ const KAFKA_RETRIES = config.KAFKA_RETRIES;
 let producer = null;
 let isConnected = false;
 let connectPromise = null;
-let kafkaDisabled = false;
+let retryAfter = 0;
+let shuttingDown = false;
+const RETRY_COOLDOWN_MS = 30_000;
 
 // Log topics
 const TOPICS = {
@@ -32,17 +34,36 @@ const TOPICS = {
   ALL: 'application-logs'
 };
 
+async function resetProducer() {
+  const currentProducer = producer;
+  producer = null;
+  isConnected = false;
+  if (!currentProducer) return;
+
+  try {
+    await Promise.race([
+      currentProducer.disconnect(),
+      new Promise(resolve => {
+        const timer = setTimeout(resolve, 500);
+        timer.unref?.();
+      })
+    ]);
+  } catch (_) {
+    // Best effort: logging transport failures must not stop authentication.
+  }
+}
+
 // เริ่มต้นเชื่อมต่อ Kafka producer
 const connectKafka = async () => {
-  if (!KAFKA_ENABLED) {
+  if (!KAFKA_ENABLED || shuttingDown) {
     return false;
   }
 
-  if (kafkaDisabled) return false;
-
-  if (isConnected) {
+  if (isConnected && producer) {
     return true;
   }
+
+  if (Date.now() < retryAfter) return false;
 
   if (connectPromise) {
     return connectPromise;
@@ -73,25 +94,18 @@ const connectKafka = async () => {
       });
       await Promise.race([producer.connect(), timeout]);
       isConnected = true;
+      retryAfter = 0;
 
       console.log(`Kafka connected to ${KAFKA_BROKER}`);
       return true;
     } catch (error) {
       console.warn(`Kafka connection failed: ${error.message}`);
       console.warn('Falling back to file logging only');
-      isConnected = false;
-      kafkaDisabled = true;
-      if (producer) {
-        try {
-          await Promise.race([
-            producer.disconnect(),
-            new Promise(resolve => { const timer = setTimeout(resolve, 500); timer.unref?.(); })
-          ]);
-        } catch (_) { /* best effort */ }
-      }
-      producer = null;
-      connectPromise = null;
+      retryAfter = Date.now() + RETRY_COOLDOWN_MS;
+      await resetProducer();
       return false;
+    } finally {
+      connectPromise = null;
     }
   })();
 
@@ -100,9 +114,10 @@ const connectKafka = async () => {
 
 // ส่ง log ไปยัง Kafka topic ที่ระบุ
 const logToKafka = async (topic, level, message, metadata = {}) => {
-  if (!KAFKA_ENABLED || !isConnected || !producer) {
+  if (!KAFKA_ENABLED || shuttingDown) {
     return false;
   }
+  if ((!isConnected || !producer) && !(await connectKafka())) return false;
 
   try {
     const logEntry = {
@@ -135,15 +150,18 @@ const logToKafka = async (topic, level, message, metadata = {}) => {
   } catch (error) {
     // Don't throw - logging failure shouldn't break the app
     console.warn('Kafka log failed:', error.message);
+    retryAfter = Date.now() + RETRY_COOLDOWN_MS;
+    await resetProducer();
     return false;
   }
 };
 
 // ส่ง log หลายรายการพร้อมกันใน batch เดียว
 const logBatchToKafka = async (logs) => {
-  if (!KAFKA_ENABLED || !isConnected || !producer) {
+  if (!KAFKA_ENABLED || shuttingDown) {
     return false;
   }
+  if ((!isConnected || !producer) && !(await connectKafka())) return false;
 
   try {
     const messages = logs.map(log => ({
@@ -162,29 +180,25 @@ const logBatchToKafka = async (logs) => {
     return true;
   } catch (error) {
     console.warn('Kafka batch log failed:', error.message);
+    retryAfter = Date.now() + RETRY_COOLDOWN_MS;
+    await resetProducer();
     return false;
   }
 };
 
 // ตัดการเชื่อมต่อ Kafka producer
 const disconnectKafka = async () => {
-  if (producer) {
-    try {
-      await producer.disconnect();
-      isConnected = false;
-      producer = null;
-      console.log('Kafka disconnected');
-    } catch (error) {
-      console.error('Kafka disconnect error:', error.message);
-    }
-  }
-  kafkaDisabled = true;
+  shuttingDown = true;
+  await resetProducer();
+  connectPromise = null;
+  console.log('Kafka disconnected');
 };
 
 // ดึงสถานะการเชื่อมต่อ Kafka ปัจจุบัน
 const getStatus = () => ({
   enabled: KAFKA_ENABLED,
   connected: isConnected,
+  retryScheduled: !isConnected && retryAfter > Date.now(),
   broker: KAFKA_BROKER,
   clientId: KAFKA_CLIENT_ID
 });

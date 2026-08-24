@@ -1,0 +1,183 @@
+AuthSys v23 - Website Usage Guide
+=================================
+
+Live addresses
+--------------
+
+AuthSys:  https://testmono-user.duckdns.org
+Client 1: https://client-1.duckdns.org
+Client 2: https://client-2.duckdns.org
+
+Use the HTTP localhost addresses described in deploy/local-fallback only for
+local development. Do not use a localhost callback in the live HTTPS clients.
+
+
+1. Cookie choice
+----------------
+
+At first visit the banner shows:
+
+- Accept all: essential plus optional analytics consent.
+- Reject non-essential: keep essential sign-in/security cookies and disable
+  optional analytics.
+
+Both choices allow login. The choice is kept in the browser and synchronized
+to the signed-in account. The Terms & Privacy link opens the combined policy
+page.
+
+
+2. Create an account and sign in
+--------------------------------
+
+Local account:
+
+1. Open Register.
+2. Enter a valid email, username, password, and the required policy consent.
+3. Submit once and wait for the dashboard redirect.
+4. Sign in from Login with the same credentials.
+
+Password constraints are shown by the form and enforced again by the server.
+Repeated invalid attempts can trigger the account/IP rate limit and temporary
+lockout. A rate-limit response is expected protection, not a database error.
+
+Social account:
+
+- Choose Continue with Google or Continue with GitHub.
+- The provider account is selected in the provider browser page.
+- Return to AuthSys only through the configured callback.
+- A successful callback creates the same AuthSys browser session and opens the
+  dashboard.
+- A provider may be unavailable when its server credentials are not configured.
+
+The provider password is managed by Google/GitHub. AuthSys does not reset a
+provider password.
+
+
+3. Remember me and existing sessions
+--------------------------------------
+
+Without Remember me, the AuthSys browser session is short-lived. With
+Remember me, it lasts up to 30 days. The login page checks whether a valid
+HttpOnly session already exists, so opening Login again normally redirects to
+the dashboard without asking for the password again.
+
+The browser UI does not store AuthSys bearer tokens in localStorage or
+sessionStorage. Server-side session state is used for the first-party pages.
+
+
+4. User pages
+-------------
+
+Dashboard:
+
+- Current account summary.
+- Seven-day login activity.
+- Recent security events.
+- Active sessions and the current-session marker.
+
+Profile:
+
+- View the account identity and provider.
+- Update supported profile text fields.
+- The login email is an identifier and is not presented as a normal editable
+  profile field.
+
+Settings:
+
+- Theme and language preferences.
+- Email/login-alert preferences.
+- Cookie choice synchronization.
+
+Security/Activity:
+
+- Review recent sign-ins and security events.
+- Revoke a single other session.
+- Revoke all other sessions.
+- Use emergency lockdown when the account may be compromised.
+
+Password:
+
+- Local-password users can change the password after authentication.
+- Forgot-password starts the email reset flow when SMTP and local password
+  support are configured.
+- Social-only users should use the provider account or the supported AuthSys
+  set-password path; no AuthSys page can change the Google/GitHub password.
+
+Delete account:
+
+- Start from the profile/security area.
+- AuthSys requires an authenticated/re-authenticated action.
+- The account is deactivated/anonymized and related sessions, grants, owned
+  clients, and token state are invalidated. Retention cleanup removes eligible
+  records later.
+
+
+5. Register an OAuth client
+---------------------------
+
+1. Sign in to AuthSys.
+2. Open API Keys.
+3. Create a web client with a descriptive name and exact callback URI(s).
+4. Copy the client_id and one-time client secret to the client server's secret
+   configuration. Never put the secret in browser JavaScript or Git.
+5. Use the registered callback exactly. A slash, scheme, port, or hostname
+   difference is rejected.
+
+The private v23 server accepts only these identity scopes:
+
+    openid profile email
+
+Add `offline_access` only when the client truly needs a refresh token. AuthSys
+does not offer role scope, arbitrary API scope, or partial consent.
+
+
+6. Use an OAuth client
+----------------------
+
+Client 1 and Client 2 each have their own registration. A typical flow is:
+
+1. Open Client 1 or Client 2.
+2. Choose Login with AuthSys.
+3. AuthSys checks the client, exact callback, state, nonce, and S256 PKCE.
+4. Sign in locally or through Google/GitHub.
+5. On first use, review the consent page and choose Allow or Deny.
+6. Allow returns a one-time code to the client callback.
+7. The client server exchanges the code with AuthSys and creates its own
+   server-side session.
+8. The client shows the signed-in products/profile page.
+
+Deny is a complete decision. The client should show an access-denied message
+and must not retry in a loop. Consent can be revoked later in AuthSys under
+Authorized Apps/Consent. Revoking Client 1 does not revoke Client 2.
+
+The access token and ID token are short-lived RS256 JWTs verified with the
+AuthSys JWKS. A refresh token is returned only for `offline_access`, is
+short-lived relative to a long-lived login, and rotates when used.
+
+
+7. Admin pages
+-------------
+
+Only a server-side admin role can open Admin, Admin Users, or Admin Logs.
+Admin can inspect:
+
+- Mongo/Redis/Kafka/application health.
+- Bounded user lists and user status.
+- Security/application logs, filters, trace IDs, and CSV export.
+
+The UI does not manage arbitrary roles or permissions. Do not expect a
+moderator role or a role editor.
+
+
+8. If a flow fails
+------------------
+
+- Refreshing an old provider callback can cause invalid_oauth_state. Start a
+  new login from the client.
+- Check that the browser has accepted site permissions for AuthSys and the
+  provider and that popups/redirects are not blocked.
+- Check the exact client callback and provider callback values.
+- Use https://testmono-user.duckdns.org/health for AuthSys health.
+- If local Docker is unavailable, run unit/security tests locally and use the
+  VPS for live OAuth testing.
+- Do not expose MongoDB, Redis, Kafka, or Node port 5000 to the Internet.

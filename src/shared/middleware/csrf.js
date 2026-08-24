@@ -83,6 +83,24 @@ function isSameOriginRequest(req) {
     }
 }
 
+// Login and registration happen before a user-bound CSRF token exists. Modern
+// browsers send Origin (or at least Referer) on form/fetch POSTs, so reject an
+// explicitly cross-site browser request while keeping headerless CLI/API
+// clients usable.
+function rejectCrossOriginBrowserRequest(req, res, next) {
+    const origin = req.get('origin');
+    const referer = req.get('referer');
+    if (!origin && !referer) return next();
+
+    if (!isSameOriginRequest(req)) {
+        return res.status(403).json({
+            success: false,
+            error: 'Cross-origin authentication request blocked'
+        });
+    }
+    return next();
+}
+
 /**
  * CSRF protection middleware.
  * Bearer-authenticated API clients are not cookie-authenticated; browser
@@ -147,5 +165,6 @@ module.exports = {
     validateCSRFToken,
     csrfProtection,
     csrfToken,
-    isSameOriginRequest
+    isSameOriginRequest,
+    rejectCrossOriginBrowserRequest
 };

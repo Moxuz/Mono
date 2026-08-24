@@ -6,7 +6,18 @@ const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
 const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const logger = require('../../../shared/utils/logger');
-const { recordActiveUser } = require('../../dashboard/services/realtimeMetrics.service');
+
+function rejectAuthentication(req, res, payload) {
+    const path = String(req.originalUrl || req.url || '').split('?')[0];
+    const isHtmlPage = req.method === 'GET' &&
+        !path.startsWith('/api/') &&
+        !path.startsWith('/.well-known/') &&
+        req.accepts('html');
+    if (isHtmlPage) {
+        return res.redirect('/login.html?returnTo=' + encodeURIComponent(path || '/dashboard.html'));
+    }
+    return res.status(401).json(payload);
+}
 
 // ตรวจสอบ JWT token จาก Authorization header ค้นหา user และอัปเดต session
 exports.authenticate = async (req, res, next) => {
@@ -22,7 +33,7 @@ exports.authenticate = async (req, res, next) => {
         if (!token) {
             const sessionUser = req.session?.user;
             if (!sessionUser?.id) {
-                return res.status(401).json({
+                return rejectAuthentication(req, res, {
                     success: false,
                     message: 'No token provided'
                 });
@@ -30,14 +41,14 @@ exports.authenticate = async (req, res, next) => {
 
             const sessionAccount = await User.findById(sessionUser.id);
             if (!sessionAccount || !sessionAccount.isActive) {
-                return res.status(401).json({
+                return rejectAuthentication(req, res, {
                     success: false,
                     message: 'User account is inactive or unavailable'
                 });
             }
 
             if (!sessionUser.sessionId) {
-                return res.status(401).json({
+                return rejectAuthentication(req, res, {
                     success: false,
                     message: 'Session expired or requires sign-in again'
                 });
@@ -49,14 +60,14 @@ exports.authenticate = async (req, res, next) => {
                 isActive: true
             });
             if (!browserSession) {
-                return res.status(401).json({
+                return rejectAuthentication(req, res, {
                     success: false,
                     message: 'Session expired or revoked'
                 });
             }
             if (browserSession.isExpired()) {
                 await browserSession.revoke('expired');
-                return res.status(401).json({
+                return rejectAuthentication(req, res, {
                     success: false,
                     message: 'Session expired'
                 });
@@ -79,7 +90,6 @@ exports.authenticate = async (req, res, next) => {
                 username: sessionAccount.username,
                 role: sessionAccount.role
             };
-            recordActiveUser(sessionAccount._id.toString());
             return next();
         }
 
@@ -89,19 +99,19 @@ exports.authenticate = async (req, res, next) => {
 
         const isBlacklisted = await TokenBlacklist.isBlacklisted(token);
         if (isBlacklisted) {
-            return res.status(401).json({
+            return rejectAuthentication(req, res, {
                 success: false,
                 message: 'Token has been revoked'
             });
         }
 
-        const decoded = jwt.verify(token, config.JWT_SECRET);
+        const decoded = jwt.verify(token, config.JWT_SECRET, { algorithms: ['HS256'] });
 
         // Only access tokens may authenticate API requests.  Refresh tokens,
         // OIDC ID tokens and re-authentication tokens are separate credentials
         // and must never be accepted by the general API guard.
         if (decoded.type !== 'access_token') {
-            return res.status(401).json({
+            return rejectAuthentication(req, res, {
                 success: false,
                 message: 'Invalid token type'
             });
@@ -110,7 +120,7 @@ exports.authenticate = async (req, res, next) => {
         const userId = decoded.id || decoded.sub;
 
         if (!userId) {
-            return res.status(401).json({
+            return rejectAuthentication(req, res, {
                 success: false,
                 message: 'Invalid token format'
             });
@@ -119,14 +129,14 @@ exports.authenticate = async (req, res, next) => {
         const user = await User.findById(userId);
 
         if (!user) {
-            return res.status(401).json({
+            return rejectAuthentication(req, res, {
                 success: false,
                 message: 'User not found'
             });
         }
 
         if (!user.isActive) {
-            return res.status(401).json({
+            return rejectAuthentication(req, res, {
                 success: false,
                 message: 'User account is inactive'
             });
@@ -135,13 +145,14 @@ exports.authenticate = async (req, res, next) => {
         const accessTokenHash = Session.hashToken(token);
         const session = await Session.findOne({
             accessTokenHash,
+            userId: user._id,
             isActive: true
         });
 
         if (session) {
             if (session.isExpired()) {
                 await session.revoke('expired');
-                return res.status(401).json({
+                return rejectAuthentication(req, res, {
                     success: false,
                     message: 'Session expired',
                     error: 'Session expired'
@@ -162,7 +173,7 @@ exports.authenticate = async (req, res, next) => {
             // First-party API access is session-bound. Without this check a
             // revoked session's still-valid JWT could continue to authorize
             // requests until its natural expiry.
-            return res.status(401).json({
+            return rejectAuthentication(req, res, {
                 success: false,
                 message: 'Session expired or revoked'
             });
@@ -175,14 +186,12 @@ exports.authenticate = async (req, res, next) => {
             username: user.username,
             role: user.role
         };
-        recordActiveUser(user._id.toString());
-
         next();
     } catch (error) {
         logger.error('Authentication error:', { message: error.message });
         
         if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({
+            return rejectAuthentication(req, res, {
                 success: false,
                 message: 'Invalid token',
                 error: 'Invalid token'
@@ -190,17 +199,17 @@ exports.authenticate = async (req, res, next) => {
         }
         
         if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({
+            return rejectAuthentication(req, res, {
                 success: false,
                 message: 'Token expired',
                 error: 'Token expired'
             });
         }
 
-        return res.status(401).json({
+        return rejectAuthentication(req, res, {
             success: false,
             message: 'Authentication failed',
-            error: error.message
+            error: 'Authentication failed'
         });
     }
 };

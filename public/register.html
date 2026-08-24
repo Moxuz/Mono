@@ -20,10 +20,10 @@
             <!-- Alert (Hidden by default) -->
             <div id="alert" class="alert" style="display: none;"></div>
 
-            <form id="registerForm" class="auth-form" novalidate>
+            <form id="registerForm" class="auth-form" method="post" action="/api/auth/register" novalidate>
                 <div class="form-group">
                     <label for="username" class="input-label">Username</label>
-                    <input type="text" id="username" name="username" class="input" placeholder="operator_name" autocomplete="username" minlength="3" maxlength="30" required />
+                    <input type="text" id="username" name="username" class="input" placeholder="operator_name" autocomplete="username" minlength="3" maxlength="64" required />
                 </div>
 
                 <div class="form-group">
@@ -82,7 +82,7 @@
                 <span class="cookie-icon">🍪</span>
                 <div>
                     <strong>Privacy choices</strong>
-                    <p>Essential cookies keep sign-in and security working. Analytics is optional. <a href="/privacy-policy.html" target="_blank">Read Terms & Privacy</a>.</p>
+                    <p>Essential cookies keep sign-in and security working. Analytics is optional. <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer">Read Terms & Privacy</a>.</p>
                 </div>
             </div>
             <div class="cookie-banner-actions">

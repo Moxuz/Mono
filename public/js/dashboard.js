@@ -1,4 +1,32 @@
 let user = null;
+let recentEvents = [];
+let dashboardPageUnloading = false;
+const dashboardRequestControllers = new Set();
+
+function createDashboardRequestController() {
+    const controller = new AbortController();
+    dashboardRequestControllers.add(controller);
+    return controller;
+}
+
+function releaseDashboardRequestController(controller) {
+    dashboardRequestControllers.delete(controller);
+}
+
+function isDashboardRequestCancelled(error, controller) {
+    return dashboardPageUnloading || controller.signal.aborted || error?.name === 'AbortError';
+}
+
+// Dashboard requests can be interrupted when the authenticated page is
+// leaving (logout, account deletion, or a protected-page redirect). Treat
+// that lifecycle cancellation as normal instead of reporting a false runtime
+// error to the user or to browser diagnostics.
+if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', () => {
+        dashboardPageUnloading = true;
+        dashboardRequestControllers.forEach(controller => controller.abort());
+    }, { once: true });
+}
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -56,56 +84,52 @@ function updateCurrentUserCard() {
 async function loadRecentEvents() {
     const tbody = document.getElementById('recentEventsBody');
     if (!tbody) return;
+
+    const requestController = createDashboardRequestController();
     
     try {
         // Fetch from API
         const response = await fetch('/api/auth/security-audit', {
             headers: {
-            }
+            },
+            signal: requestController.signal
         });
         
         if (response.ok) {
             const data = await response.json();
             
-            if (data.success && data.data && data.data.length > 0) {
-                // Save to localStorage as cache
-                localStorage.setItem('recentEvents', JSON.stringify(data.data));
-                
-                // Display events
-                displayEvents(data.data, tbody);
+            if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+                // Security events can contain device/IP metadata. Keep the
+                // current view in memory instead of persisting it in localStorage.
+                recentEvents = data.data;
+                displayEvents(recentEvents, tbody);
                 return;
             }
         }
-        
-        // If API fails or no data, try cache
-        loadRecentEventsFromCache();
+
+        recentEvents = [];
+        showNoRecentEvents(tbody);
         
     } catch (error) {
+        if (isDashboardRequestCancelled(error, requestController)) {
+            return;
+        }
         console.error('Failed to fetch events:', error);
-        // Load from cache
-        loadRecentEventsFromCache();
+        recentEvents = [];
+        showNoRecentEvents(tbody);
+    } finally {
+        releaseDashboardRequestController(requestController);
     }
 }
 
-// Load events from localStorage cache
-function loadRecentEventsFromCache() {
-    const tbody = document.getElementById('recentEventsBody');
-    if (!tbody) return;
-    
-    const cachedEvents = JSON.parse(localStorage.getItem('recentEvents') || '[]');
-    
-    if (cachedEvents.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--on-surface-variant);">
-                    ${typeof t === 'function' ? t('dashboard.noEvents') : 'No events recorded yet.'}
-                </td>
-            </tr>
-        `;
-        return;
-    }
-    
-    displayEvents(cachedEvents, tbody);
+function showNoRecentEvents(tbody) {
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="4" style="text-align: center; padding: 3rem; color: var(--on-surface-variant);">
+                ${typeof t === 'function' ? t('dashboard.noEvents') : 'No events recorded yet.'}
+            </td>
+        </tr>
+    `;
 }
 
 function cleanIPForDisplay(ip) {
@@ -164,7 +188,7 @@ function displayEvents(events, tbody) {
 }
 // Export logs
 function exportLogs() {
-    const events = JSON.parse(localStorage.getItem('recentEvents') || '[]');
+    const events = recentEvents;
     
     if (events.length === 0) {
         alert(typeof t === 'function' ? t('dashboard.noExport') : 'No events to export.');
@@ -456,10 +480,12 @@ async function revokeAllOtherSessionsHandler() {
  * Fetch user profile from API
  */
 async function fetchUserProfile() {
+    const requestController = createDashboardRequestController();
     try {
         const response = await fetch('/api/auth/profile', {
             headers: {
-            }
+            },
+            signal: requestController.signal
         });
 
         if (response.ok) {
@@ -473,7 +499,10 @@ async function fetchUserProfile() {
             console.error('Failed to fetch profile:', response.status);
         }
     } catch (error) {
+        if (isDashboardRequestCancelled(error, requestController)) return;
         console.error('Failed to fetch user profile:', error);
+    } finally {
+        releaseDashboardRequestController(requestController);
     }
 }
 
@@ -481,20 +510,17 @@ async function fetchUserProfile() {
  * Load and display login activity chart
  */
 async function loadLoginActivity() {
+    const requestController = createDashboardRequestController();
     try {
-        console.log('🔄 Loading login activity...');
-        
         // 🆕 Get user's timezone offset (in minutes)
         const timezoneOffset = new Date().getTimezoneOffset();
-        console.log('⏰ Timezone offset:', timezoneOffset, 'minutes');
         
         const response = await fetch(`/api/dashboard/login-activity?offset=${timezoneOffset}`, {
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            signal: requestController.signal
         });
-
-        console.log('📡 Response status:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -503,8 +529,6 @@ async function loadLoginActivity() {
         }
 
         const result = await response.json();
-        console.log('✅ Login activity data:', result);
-
         if (!result.success || !result.data) {
             throw new Error(result.error || 'Failed to load login activity');
         }
@@ -544,9 +568,8 @@ async function loadLoginActivity() {
             chartContainer.innerHTML = createLoginChart(days, counts, stats.max);
         }
 
-        console.log('✅ Login activity loaded successfully');
-
     } catch (error) {
+        if (isDashboardRequestCancelled(error, requestController)) return;
         console.error('❌ Load login activity error:', error);
         
         // Show error state
@@ -560,6 +583,8 @@ async function loadLoginActivity() {
                 </div>
             `;
         }
+    } finally {
+        releaseDashboardRequestController(requestController);
     }
 }
 
@@ -648,7 +673,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Failed to load dashboard:', error);
         updateUserUI();
         updateCurrentUserCard();
-        loadRecentEventsFromCache();
+        recentEvents = [];
+        const tbody = document.getElementById('recentEventsBody');
+        if (tbody) showNoRecentEvents(tbody);
     }
 });
 

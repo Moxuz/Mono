@@ -32,6 +32,12 @@ x-auth-env: &auth-env
   KAFKA_CONNECT_TIMEOUT_MS: ${KAFKA_CONNECT_TIMEOUT_MS:-2000}
   KAFKA_RETRIES: ${KAFKA_RETRIES:-1}
 
+x-container-logging: &container-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   auth:
     build:
@@ -48,7 +54,8 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - auth-local
+      - auth-data-local
+      - web-local
     healthcheck:
       test: ["CMD", "node", "-e", "require(\"http\").get(\"http://localhost:5000/health\", r => process.exit(r.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))"]
       interval: 10s
@@ -56,6 +63,7 @@ services:
       retries: 10
       start_period: 20s
     restart: unless-stopped
+    logging: *container-logging
     mem_limit: 512m
     cpus: "0.75"
     pids_limit: 256
@@ -70,8 +78,9 @@ services:
       auth:
         condition: service_healthy
     networks:
-      - auth-local
+      - web-local
     restart: unless-stopped
+    logging: *container-logging
     mem_limit: 128m
     cpus: "0.25"
     pids_limit: 128
@@ -85,10 +94,12 @@ services:
     volumes:
       - mongo-data:/data/db
     networks:
-      - auth-local
+      - auth-data-local
     restart: unless-stopped
-    mem_limit: 1g
-    cpus: "1.00"
+    logging: *container-logging
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+    mem_limit: 640m
+    cpus: "0.50"
     pids_limit: 512
     healthcheck:
       test:
@@ -113,16 +124,17 @@ services:
       - -c
       - |
         if [ -n "$$REDIS_PASSWORD" ]; then
-          exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+          exec redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"
         else
-          exec redis-server --appendonly yes
+          exec redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy noeviction
         fi
     volumes:
       - redis-data:/data
     networks:
-      - auth-local
+      - auth-data-local
     restart: unless-stopped
-    mem_limit: 128m
+    logging: *container-logging
+    mem_limit: 192m
     cpus: "0.25"
     pids_limit: 128
     healthcheck:
@@ -134,6 +146,31 @@ services:
           else
             redis-cli ping;
           fi
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  client-session-redis:
+    image: redis:7-alpine
+    environment:
+      CLIENT_REDIS_PASSWORD: ${CLIENT_REDIS_PASSWORD:-local-client-session-redis-password}
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        exec redis-server --appendonly yes --maxmemory 64mb
+        --maxmemory-policy noeviction --requirepass "$$CLIENT_REDIS_PASSWORD"
+    volumes:
+      - client-session-redis-data:/data
+    networks:
+      - client-session-local
+    restart: unless-stopped
+    logging: *container-logging
+    mem_limit: 128m
+    cpus: "0.15"
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$CLIENT_REDIS_PASSWORD\" ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -155,18 +192,23 @@ services:
       OAUTH_PROVIDER: http://proxy
       OAUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost:8080}
       SESSION_SECRET: ${CLIENT_SESSION_SECRET:-local-client-1-session-secret-change-me-32}
-      MONGODB_URI: "mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-local_mongo_password}@mongodb:27017/authdb?authSource=admin"
+      USE_REDIS_SESSIONS: "true"
+      REDIS_HOST: client-session-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${CLIENT_REDIS_PASSWORD:-local-client-session-redis-password}
       COOKIE_SECURE: ${CLIENT_COOKIE_SECURE:-false}
     depends_on:
       proxy:
         condition: service_started
-      mongodb:
+      client-session-redis:
         condition: service_healthy
     ports:
       - "127.0.0.1:${CLIENT1_PORT:-3001}:3001"
     networks:
-      - auth-local
+      - web-local
+      - client-session-local
     restart: unless-stopped
+    logging: *container-logging
     mem_limit: 256m
     cpus: "0.50"
     pids_limit: 128
@@ -188,18 +230,23 @@ services:
       OAUTH_PROVIDER: http://proxy
       OAUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost:8080}
       SESSION_SECRET: ${CLIENT2_SESSION_SECRET:-local-client-2-session-secret-change-me-32}
-      MONGODB_URI: "mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-local_mongo_password}@mongodb:27017/authdb?authSource=admin"
+      USE_REDIS_SESSIONS: "true"
+      REDIS_HOST: client-session-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${CLIENT_REDIS_PASSWORD:-local-client-session-redis-password}
       COOKIE_SECURE: ${CLIENT2_COOKIE_SECURE:-false}
     depends_on:
       proxy:
         condition: service_started
-      mongodb:
+      client-session-redis:
         condition: service_healthy
     ports:
       - "127.0.0.1:${CLIENT2_PORT:-3002}:3002"
     networks:
-      - auth-local
+      - web-local
+      - client-session-local
     restart: unless-stopped
+    logging: *container-logging
     mem_limit: 256m
     cpus: "0.50"
     pids_limit: 128
@@ -216,12 +263,14 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_HEAP_OPTS: "-Xms64M -Xmx128M"
     volumes:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-logs:/var/lib/zookeeper/log
     networks:
-      - auth-local
+      - auth-data-local
     restart: unless-stopped
+    logging: *container-logging
     mem_limit: 256m
     cpus: "0.25"
     pids_limit: 256
@@ -235,7 +284,7 @@ services:
         condition: service_started
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_HEAP_OPTS: "-Xms128M -Xmx256M"
+      KAFKA_HEAP_OPTS: "-Xms128M -Xmx384M"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
@@ -251,15 +300,22 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
-      - auth-local
+      - auth-data-local
     restart: unless-stopped
-    mem_limit: 512m
+    logging: *container-logging
+    mem_limit: 768m
     cpus: "0.50"
     pids_limit: 512
 
 networks:
-  auth-local:
-    name: authsys-local-network
+  auth-data-local:
+    name: authsys-local-data-network
+    driver: bridge
+  web-local:
+    name: authsys-local-web-network
+    driver: bridge
+  client-session-local:
+    name: authsys-local-client-session-network
     driver: bridge
 
 volumes:
@@ -267,6 +323,8 @@ volumes:
     name: authsys-local-fallback-mongo-data
   redis-data:
     name: authsys-local-fallback-redis-data
+  client-session-redis-data:
+    name: authsys-local-fallback-client-session-redis-data
   zookeeper-data:
     name: authsys-local-fallback-zookeeper-data
   zookeeper-logs:

@@ -1,0 +1,245 @@
+TAS8 -> AuthSys v23 alignment notes
+===================================
+
+Purpose
+-------
+
+This file records the changes required when the TAS8 thesis and older usage
+documents are brought up to date with the v23 code. It does not overwrite the
+original thesis. The code, OpenAPI document, tests, and deployed runtime are
+the source of truth.
+
+
+1. Architecture and feature claims
+----------------------------------
+
+Old claim: the product has three or five modules with legacy analytics,
+monitoring, and realtime/WebSocket features.
+
+V23 wording: AuthSys is a private OAuth/OIDC identity service with local and
+social authentication, server-side sessions, OAuth client/consent management,
+simple user/admin access, MongoDB/Redis/Kafka support, and two relying-party
+client mockups. The dashboard keeps seven-day login activity and security
+events. Legacy analytics, fake CPU/resource metrics, and WebSocket streams are
+removed.
+
+Old claim: email verification and 2FA are supported.
+
+V23 wording: email verification and 2FA are out of scope and removed from the
+current implementation. Do not list their endpoints, database fields, tests,
+or UI screens as implemented features.
+
+
+2. Authentication and sessions
+------------------------------
+
+Old claim: browser authentication is JWT/localStorage-first.
+
+V23 wording: first-party browser pages use an HttpOnly Secure-in-production
+SameSite=Lax server-side session. Raw bearer values are not stored in
+localStorage, sessionStorage, URL fragments, or query strings. Compatibility
+bearer endpoints remain only for explicit non-browser integrations/tests.
+
+Old claim: Remember me is absent or uses one universal lifetime.
+
+V23 wording: unchecked browser session cookie is one hour and backing session
+record is one day; Remember me extends both to 30 days. The default maximum is
+five active sessions, bounded by the configuration.
+
+Old claim: database stores raw session/JWT values.
+
+V23 wording: Session stores SHA-256 hashes of the random access/refresh values;
+TokenBlacklist stores SHA-256 token hashes. Raw tokens are never persisted.
+
+Old claim: account deletion is an immediate hard delete.
+
+V23 wording: deletion is an authenticated deactivation/anonymization flow that
+invalidates sessions, grants, owned clients, and tokens. Retention cleanup
+removes eligible tombstones and expired security data later.
+
+
+3. Roles and authorization
+--------------------------
+
+Old claim: roles are user/admin/moderator and admins edit arbitrary roles and
+permissions.
+
+V23 wording: roles are exactly user and admin. The role is checked server-side,
+is not an OAuth scope, and is not placed in access/ID token claims. There is no
+role/permission management UI. Admin routes are protected by the admin role;
+ordinary users are limited to their own records and owned OAuth clients.
+
+
+4. OAuth/OIDC
+------------
+
+Old claim: OAuth uses a generic JWT/HS256 token model and role scope.
+
+V23 wording: web clients use authorization code, exact redirect URI matching,
+state, nonce, and mandatory S256 PKCE. Access tokens and ID tokens are RS256
+signed using the OIDC key/JWKS. Refresh tokens are HS256, 30 days, and require
+explicit offline_access. Tokens are bound to the user/client/grant and can be
+revoked.
+
+Old claim: scope is a broad arbitrary list or is selected independently in a
+complex scope editor.
+
+V23 wording: the private server accepts openid, profile, email, and optional
+offline_access only. openid is required. Unknown scopes and role are rejected.
+offline_access is registered explicitly and is the only condition that causes
+a refresh_token to be issued.
+
+Old claim: consent supports partial scope selection.
+
+V23 wording: consent has Allow or Deny. Partial consent is intentionally not
+implemented. Consent lasts 30 days, can be revoked, and revocation invalidates
+the associated grant/token state. A later approval receives a new grant ID.
+
+Old claim: tokens are returned in social-login redirect URLs.
+
+V23 wording: social login for an OAuth client returns only a one-time
+authorization code plus client state. The client server exchanges it through
+the token endpoint.
+
+
+5. Current route corrections
+----------------------------
+
+Use /health for public application health; /api/health is not the AuthSys
+health route.
+
+The current route groups are /api/auth, /api/oauth, /api/users,
+/api/sessions, and /api/dashboard. The source and /openapi.json should be used
+for the exact method/validation matrix.
+
+Important current endpoints include:
+
+    POST /api/auth/register
+    POST /api/auth/login
+    GET  /api/auth/session
+    POST /api/auth/logout
+    POST /api/auth/refresh-token
+    POST /api/auth/forgot-password
+    POST /api/auth/reset-password/:token
+    POST /api/auth/change-password
+    POST /api/auth/set-password
+    GET  /api/auth/profile
+    GET  /api/auth/security-audit
+    GET  /api/auth/preferences
+    PUT  /api/auth/preferences
+    POST /api/auth/update-cookie-consent
+    DELETE /api/auth/delete-account
+    GET  /api/auth/google and /google/callback (when configured)
+    GET  /api/auth/github and /github/callback (when configured)
+
+    GET/POST /api/oauth/authorize
+    GET      /api/oauth/csrf
+    POST     /api/oauth/token
+    GET      /api/oauth/userinfo
+    POST     /api/oauth/introspect
+    POST     /api/oauth/revoke
+    CRUD     /api/oauth/clients
+    GET/DELETE /api/oauth/consents
+
+    GET /api/dashboard/login-activity
+    GET /api/dashboard/monitoring/health (admin)
+    /api/dashboard/logs (admin)
+    /api/users (admin)
+
+Remove old table rows for verify-email, resend-verification, 2FA, analytics,
+WebSocket metrics, and the removed Redis-health route.
+
+
+6. Validation and limits
+------------------------
+
+Replace old rate-limit tables with the current source values:
+
+    login                         5 / 15m, IP + email
+    register                      5 / 1h, IP
+    forgot/reset/change/set pwd   5 / 1h
+    refresh-token                 10 / 15m
+    authorize                     60 / 15m
+    token                         60 / 15m
+    userinfo                      120 / 1m
+    introspect                    300 / 15m
+    revoke                        60 / 15m
+    general API                   500 / 15m default
+
+Also update the constraints to: username 3..64, email max 254, display name
+max 80, bio max 160, request body 10kb default, active sessions 1..50 with
+default 5, consent 30 days, access/ID token 1h, refresh token 30d, and data
+retention 90d default.
+
+
+7. Security wording corrections
+-------------------------------
+
+- Replace X-XSS-Protection `1; mode=block` with the current value 0 and
+  explain that CSP is the active defense.
+- Remove claims that raw JWTs are stored in MongoDB.
+- State that URLs and logs redact authorization codes, state, tokens, and
+  secrets.
+- State that consent revocation invalidates associated token/grant state.
+- State that production requires strong distinct JWT/session secrets and the
+  OIDC private key.
+- State that databases and message brokers are private network services.
+- Do not document secrets, client secrets, reset tokens, screenshots of tokens,
+  or real test-account identifiers.
+
+
+8. Technology and testing numbers
+----------------------------------
+
+Replace old Node/Kafka/test-count claims with the current checked-in setup:
+
+- Node runtime: 24 Alpine in the application images; package engine Node
+  >=24 <25.
+- MongoDB image: 8.2 in the compose stack.
+- Redis image: 7 Alpine.
+- Kafka/Zookeeper image: Confluent Platform 7.5.0 in the current single-broker
+  compose profile.
+- Local test run: functions 54, audit regressions 36, modules 27, security 54,
+  blue-team 35/35, red-team 33/33; npm test exit 0.
+- npm audit high: 0 vulnerabilities in root, Client 1, and Client 2.
+- Live VPS browser audit: 72/72 checks, zero browser runtime failures.
+
+Do not copy historical 108/145/195/211 test totals into the v23 acceptance
+section unless a matching current test run is added to the repository.
+
+
+9. Required thesis edits
+------------------------
+
+When editing TAS8, update the abstract, objectives, scope, architecture,
+sequence diagrams, database dictionary, endpoint table, security section,
+limitations, and testing chapter together. The most important consistency
+rules are:
+
+- one role model: user/admin;
+- one browser-session model: HttpOnly server-side session;
+- one OAuth model: authorization code + S256 PKCE + state + nonce;
+- correct RS256/HS256 token split;
+- no email verification/2FA/analytics/WebSocket claims;
+- no raw-token persistence claim;
+- exact current routes and rate limits;
+- test counts backed by a command that exists in the repository.
+
+
+10. Evidence files
+------------------
+
+Detailed developer/audit guide:
+    docs/AUTHSYS_V23_FULL_AUDIT_GUIDE.txt
+
+Corrected user-facing guide:
+    docs/WEBSITE_USAGE_GUIDE_V23.txt
+
+Historical source files retained for comparison:
+    Final-Final/TAS8-final (1).docx
+    Final-Final/website-usage-guide.txt
+    Final-Final/TAS8-doc-updates.txt
+    Final-Final/AuthSys-detailed-re-audit-2026-08-21.txt
+
+Do not treat TAS8-copy.docx as a separate thesis version when its checksum is
+identical to TAS8-final (1).docx.

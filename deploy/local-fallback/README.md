@@ -11,10 +11,11 @@ DuckDNS, or the HTTPS deployment is unavailable. It uses plain HTTP on
 - Client 2 (Workspace mock): `http://localhost:3002`
 - Health check: `http://localhost:8080/health`
 
-The stack has its own Docker network and named volumes, so it does not use the
-production/VPS network, certificates, or DuckDNS settings. MongoDB and Redis
-start by default. Kafka is optional because it is relatively heavy for a
-small local fallback.
+The stack has isolated data, web, and client-session Docker networks plus its
+own named volumes, so the mock clients cannot reach AuthSys MongoDB/Redis and
+the stack does not use production/VPS networks, certificates, or DuckDNS.
+MongoDB, AuthSys Redis, and the small client-session Redis start by default.
+Kafka is optional because it is relatively heavy for a small local fallback.
 
 ## First run (PowerShell)
 
@@ -72,8 +73,8 @@ docker compose --project-name authsys-local --env-file .env -f docker-compose.lo
 ```
 
 `down` keeps the local MongoDB/Redis data. `down -v` removes those volumes and
-therefore resets local users, OAuth clients, sessions, and logs; use it only
-when a full local reset is intended.
+therefore resets local users, OAuth clients, AuthSys sessions, client sessions,
+and logs; use it only when a full local reset is intended.
 
 This configuration is development-only: it deliberately uses HTTP and
 `COOKIE_SECURE=false`. Do not expose port 8080 to the Internet or reuse these

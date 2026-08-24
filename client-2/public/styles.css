@@ -39,14 +39,12 @@ p { color: var(--muted); }
 .window-bar span { width: 9px; height: 9px; border-radius: 50%; background: #fb7185; }
 .window-bar span:nth-child(2) { background: #facc15; }
 .window-bar span:nth-child(3) { background: #4ade80; }
-.mini-grid, .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-.mini-card, .stat { padding: 16px; border-radius: 16px; background: rgba(255,255,255,.06); }
-.mini-card strong, .stat strong { display: block; font-size: 1.35rem; }
-.mini-card small, .stat small { color: var(--muted); }
+.mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.mini-card { padding: 16px; border-radius: 16px; background: rgba(255,255,255,.06); }
+.mini-card strong { display: block; font-size: 1.35rem; }
+.mini-card small { color: var(--muted); }
 .page { padding-bottom: 64px; }
 .dashboard-header { margin: 48px 0 28px; display: flex; justify-content: space-between; gap: 20px; align-items: end; }
-.stats { grid-template-columns: repeat(3, 1fr); margin-bottom: 18px; }
-.stat { min-height: 120px; }
 .card { padding: 24px; }
 .status { display: inline-flex; gap: 8px; align-items: center; color: #86efac; font-size: .9rem; }
 .status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 14px #4ade80; }
@@ -61,5 +59,5 @@ p { color: var(--muted); }
 .cookie-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .cookie-banner button { white-space: nowrap; }
 .cookie-banner[hidden] { display: none; }
-@media (max-width: 760px) { .hero { grid-template-columns: 1fr; gap: 20px; } .preview { transform: none; } .stats { grid-template-columns: 1fr; } .dashboard-header { align-items: start; flex-direction: column; } }
+@media (max-width: 760px) { .hero { grid-template-columns: 1fr; gap: 20px; } .preview { transform: none; } .dashboard-header { align-items: start; flex-direction: column; } }
 @media (max-width: 620px) { .cookie-banner { right: 12px; bottom: 12px; width: calc(100% - 24px); align-items: stretch; flex-direction: column; gap: 14px; } .cookie-actions { width: 100%; } .cookie-actions .button { flex: 1; padding-inline: 8px; } }

@@ -41,7 +41,11 @@ const SECRET_KEYS = new Set([
     'token',
     'code',
     'codeverifier',
-    'nonce'
+    'nonce',
+    'sessiontoken',
+    'reauthtoken',
+    'cookie',
+    'setcookie'
 ]);
 
 const MAX_AUDIT_METADATA_DEPTH = 12;
@@ -93,7 +97,12 @@ function redactText(value) {
     // Replace email-shaped text in messages and HTTP log lines with a stable
     // hash. This covers legacy call sites that interpolate an email into a
     // message instead of passing it as structured metadata.
-    return value.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}\b/gi, (email) => {
+    return value.replace(/[\r\n\u2028\u2029]+/g, ' ').slice(0, 4096)
+      .replace(/mongodb(?:\+srv)?:\/\/[^@\s/]+@/gi, 'mongodb://[REDACTED]@')
+      .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [REDACTED]')
+      .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[JWT_REDACTED]')
+      .replace(/([?&](?:code|state|token|access_token|refresh_token|id_token|client_secret|password|nonce|code_verifier|session_token)=)[^&\s"'<>]*/gi, '$1[REDACTED]')
+      .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}\b/gi, (email) => {
         const emailHash = hashIdentity(email);
         return emailHash ? `[email:${emailHash.slice(0, 16)}]` : '[email]';
     });

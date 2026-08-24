@@ -15,6 +15,10 @@ let apiKeys = [];
 
 // Update UI with user info
 document.addEventListener('DOMContentLoaded', async () => {
+    // Bind controls before waiting for profile/client requests. A fast click
+    // must never be dropped while the initial API data is still loading.
+    setupEventListeners();
+
     await loadBrowserUser();
     if (user.username) {
         document.getElementById('userNameSide').textContent = user.username;
@@ -30,8 +34,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchApiKeys();
     updateStats();
     
-    // Setup event listeners
-    setupEventListeners();
 });
 
 async function fetchApiKeys() {
@@ -50,14 +52,11 @@ async function fetchApiKeys() {
             apiKeys = result.data.clients.map(client => ({
                 id: client.client_id,
                 name: client.client_name,
-                environment: 'production',
                 clientId: client.client_id,
                 scopes: (client.scope || 'openid profile email').split(' '),
                 createdAt: client.createdAt,
                 lastUsed: client.lastUsed ? formatTimeAgo(client.lastUsed) : 'Never',
-                requests24h: 0,
-                totalRequests: client.totalRequests || 0,
-                rateLimit: '1000/hr'
+                totalRequests: client.totalRequests || 0
             }));
             loadApiKeys();
             updateStats();
@@ -132,8 +131,8 @@ function loadApiKeys() {
         container.innerHTML = `
             <div class="api-keys-empty">
                 <span class="material-symbols-outlined">vpn_key_off</span>
-                <p>${typeof t === 'function' ? t('apikeys.noKeys') : 'No API keys yet'}</p>
-                <small>${typeof t === 'function' ? t('apikeys.noKeysHint') : 'Create your first API key to get started'}</small>
+                <p>${typeof t === 'function' ? t('apikeys.noKeys') : 'No OAuth applications yet'}</p>
+                <small>${typeof t === 'function' ? t('apikeys.noKeysHint') : 'Register your first application to get started'}</small>
             </div>
         `;
         return;
@@ -145,7 +144,6 @@ function loadApiKeys() {
                 <div class="api-key-info">
                     <h3 class="api-key-name">${escapeHtml(key.name)}</h3>
                     <div class="api-key-meta">
-                        <span class="api-key-env env-${escapeHtml(key.environment)}">${escapeHtml(key.environment)}</span>
                         <span class="api-key-date">Created ${new Date(key.createdAt).toLocaleDateString()}</span>
                         <span class="api-key-date">Last used ${escapeHtml(key.lastUsed || 'Never')}</span>
                     </div>
@@ -181,16 +179,8 @@ function loadApiKeys() {
                 </div>
                 <div class="api-key-usage">
                     <div class="api-key-usage-item">
-                        <span class="api-key-usage-label">${typeof t === 'function' ? t('apikeys.requests') : 'Requests (24h)'}</span>
-                        <span class="api-key-usage-value">${key.requests24h || 0}</span>
-                    </div>
-                    <div class="api-key-usage-item">
-                        <span class="api-key-usage-label">${typeof t === 'function' ? t('apikeys.totalRequests') : 'Total Requests'}</span>
+                        <span class="api-key-usage-label">${typeof t === 'function' ? t('apikeys.totalRequests') : 'Token exchanges'}</span>
                         <span class="api-key-usage-value">${key.totalRequests || 0}</span>
-                    </div>
-                    <div class="api-key-usage-item">
-                        <span class="api-key-usage-label">${typeof t === 'function' ? t('apikeys.rateLimit') : 'Rate Limit'}</span>
-                        <span class="api-key-usage-value">${key.rateLimit || '1000/hr'}</span>
                     </div>
                 </div>
             </div>
@@ -233,22 +223,9 @@ function updateStats() {
         );
         document.getElementById('lastUsed').textContent = mostRecent.lastUsed || 'Never';
         
-        const total24h = apiKeys.reduce((sum, key) => sum + (key.requests24h || 0), 0);
-        document.getElementById('requests24h').textContent = total24h.toLocaleString();
     } else {
         document.getElementById('lastUsed').textContent = 'Never';
-        document.getElementById('requests24h').textContent = '0';
     }
-}
-
-// Generate random string
-function generateRandomString(length) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
 }
 
 // Escape HTML to prevent XSS
@@ -274,13 +251,11 @@ function closeCreateModal() {
     // Reset form
     document.getElementById('keyName').value = '';
     document.getElementById('redirectUris').value = '';
-    document.getElementById('keyEnvironment').value = 'production';
 }
 
 // Create API key
 async function createApiKey() {
     const name = document.getElementById('keyName').value.trim();
-    const environment = document.getElementById('keyEnvironment').value;
     const redirectUris = document.getElementById('redirectUris').value
         .split(',')
         .map(uri => uri.trim())
@@ -326,7 +301,7 @@ async function createApiKey() {
             },
             body: JSON.stringify({
                 client_name: name,
-                description: `Managed API key for ${environment}`,
+                description: 'OAuth application registered through AuthSys',
                 redirect_uris: redirectUris,
                 application_type: 'web',
                 contact_email: user.email,
@@ -343,15 +318,12 @@ async function createApiKey() {
             const newKey = {
                 id: client.client_id,
                 name: client.client_name,
-                environment: environment,
                 clientId: client.client_id,
                 clientSecret: client.client_secret, // Returned ONLY on creation
                 scopes: scopes,
                 createdAt: client.created_at || new Date().toISOString(),
                 lastUsed: 'Never',
-                requests24h: 0,
                 totalRequests: 0,
-                rateLimit: '1000/hr',
                 secretVisible: true
             };
 
@@ -367,13 +339,13 @@ async function createApiKey() {
             loadApiKeys();
             updateStats();
             
-            showToast(typeof t === 'function' ? t('apikeys.created') : 'API key created successfully', 'success');
+            showToast(typeof t === 'function' ? t('apikeys.created') : 'OAuth application created successfully', 'success');
         } else {
-            showToast(result.error || (typeof t === 'function' ? t('apikeys.createFailed') : 'Failed to create API key'), 'error');
+            showToast(result.error || (typeof t === 'function' ? t('apikeys.createFailed') : 'Failed to create OAuth application'), 'error');
         }
     } catch (error) {
         console.error('Create key error:', error);
-        showToast(typeof t === 'function' ? t('apikeys.networkError') : 'Network error creating API key', 'error');
+        showToast(typeof t === 'function' ? t('apikeys.networkError') : 'Network error creating OAuth application', 'error');
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'GENERATE KEY';
@@ -441,7 +413,7 @@ function copyToClipboard(elementId) {
 
 // Revoke key
 async function revokeKey(keyId) {
-    if (!confirm(typeof t === 'function' ? t('apikeys.revokeConfirm') : '⚠️ Are you sure you want to revoke this API key?\n\nThis action cannot be undone.')) {
+    if (!confirm(typeof t === 'function' ? t('apikeys.revokeConfirm') : '⚠️ Are you sure you want to revoke this OAuth application?\n\nThis action cannot be undone.')) {
         return;
     }
 
@@ -458,13 +430,13 @@ async function revokeKey(keyId) {
             apiKeys = apiKeys.filter(k => k.id !== keyId);
             loadApiKeys();
             updateStats();
-            showToast(typeof t === 'function' ? t('apikeys.revoked') : 'API key revoked', 'success');
+            showToast(typeof t === 'function' ? t('apikeys.revoked') : 'OAuth application revoked', 'success');
         } else {
-            showToast(result.error || 'Failed to revoke API key', 'error');
+            showToast(result.error || 'Failed to revoke OAuth application', 'error');
         }
     } catch (error) {
         console.error('Revoke key error:', error);
-        showToast(typeof t === 'function' ? t('apikeys.revokeError') : 'Network error revoking API key', 'error');
+        showToast(typeof t === 'function' ? t('apikeys.revokeError') : 'Network error revoking OAuth application', 'error');
     }
 }
 

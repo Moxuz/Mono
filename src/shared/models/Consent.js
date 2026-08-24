@@ -84,13 +84,11 @@ consentSchema.statics.hasConsented = async function(userId, clientId, scope) {
     return Boolean(await this.getActiveGrant(userId, clientId, scope));
 };
 
-// Standard identity consent is remembered for 30 days. Extended/resource
-// scopes are remembered for 7 days in this private deployment.
+// This private identity provider exposes only its registered OIDC scopes.
+// Remember an approval for 30 days unless the user revokes it earlier.
 consentSchema.statics.saveConsent = async function(userId, clientId, scope) {
-    const OIDC_BASE = new Set(['openid', 'profile', 'email', 'offline_access']);
     const normalizedScope = String(scope || '').split(/\s+/).filter(Boolean).join(' ');
-    const hasExtendedScopes = normalizedScope.split(' ').some((s) => s && !OIDC_BASE.has(s));
-    const ttlDays = hasExtendedScopes ? 7 : 30;
+    const ttlDays = 30;
     const now = new Date();
 
     const current = await this.findOne({ userId, clientId })

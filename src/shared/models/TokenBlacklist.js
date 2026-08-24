@@ -66,12 +66,37 @@ tokenBlacklistSchema.statics.revokeToken = async function(rawToken, userId, clie
 
     const expiresAt = new Date(Math.max(decoded.exp * 1000, Date.now() + 60000));
     const hash = hashToken(rawToken);
+    const tokenType = decoded.type === 'refresh_token' ? 'refresh_token' : 'access_token';
 
     return await this.findOneAndUpdate(
         { token: hash },
-        { $setOnInsert: { token: hash, userId, clientId: clientId || null, reason, expiresAt } },
+        { $setOnInsert: { token: hash, tokenType, userId, clientId: clientId || null, reason, expiresAt } },
         { upsert: true, new: true }
     );
+};
+
+// Atomically consume a one-time token. A unique-index collision means another
+// request already used or revoked the same token, so callers must issue no new
+// credentials. This closes concurrent refresh-token replay races.
+tokenBlacklistSchema.statics.consumeToken = async function(rawToken, userId, clientId, reason = 'token_rotation') {
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.decode(rawToken);
+    if (!decoded || !decoded.exp) throw new Error('Invalid token format');
+
+    try {
+        await this.create({
+            token: hashToken(rawToken),
+            tokenType: decoded.type === 'refresh_token' ? 'refresh_token' : 'access_token',
+            userId,
+            clientId: clientId || null,
+            reason,
+            expiresAt: new Date(Math.max(decoded.exp * 1000, Date.now() + 60000))
+        });
+        return true;
+    } catch (error) {
+        if (error?.code === 11000) return false;
+        throw error;
+    }
 };
 
 // Revoke by hash directly — used when the raw token is no longer available

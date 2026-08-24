@@ -26,7 +26,7 @@ exports.getProfile = async (req, res, next) => {
         logger.error('Get profile error:', error);
         res.status(404).json({
             success: false,
-            error: error.message || 'User not found'
+            error: 'User not found'
         });
     }
 };
@@ -48,6 +48,11 @@ exports.updateProfile = async (req, res, next) => {
 
         const user = await userService.updateUser(userId, updateData);
 
+        if (req.session?.user) {
+            req.session.user.username = user.username;
+            req.session.user.email = user.email;
+        }
+
         await securityAuditService.logSecurityEvent({
             userId,
             action: 'profile_updated',
@@ -66,42 +71,15 @@ exports.updateProfile = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('Update profile error:', error);
-        res.status(400).json({
-            success: false,
-            error: error.message
-        });
-    }
-};
-
-/**
- * Delete user account (PDPA Right to Erasure)
- */
-exports.deleteAccount = async (req, res, next) => {
-    try {
-        const userId = req.user?.id;
-        const { reason } = req.body;
-
-        if (!userId) {
-            return res.status(401).json({
+        if (error?.code === 11000) {
+            return res.status(409).json({
                 success: false,
-                error: 'Unauthorized'
+                error: 'Username or email is already in use'
             });
         }
-
-        const result = await userService.deleteUser(userId, reason || 'user_request');
-
-        res.json({
-            success: true,
-            message: result.message,
-            data: {
-                deletedAt: result.deletedAt
-            }
-        });
-    } catch (error) {
-        logger.error('Delete account error:', error);
         res.status(400).json({
             success: false,
-            error: error.message
+            error: 'Profile update failed'
         });
     }
 };
@@ -128,9 +106,9 @@ exports.exportData = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('Export data error:', error);
-        res.status(400).json({
+        res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Unable to export account data'
         });
     }
 };
@@ -157,9 +135,9 @@ exports.getSessions = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('Get sessions error:', error);
-        res.status(400).json({
+        res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Unable to retrieve sessions'
         });
     }
 };

@@ -1,6 +1,12 @@
 (() => {
   'use strict';
 
+  function clearAuthSysAccountStorage() {
+    ['recentEvents', 'userProfile', 'lastLogin', 'theme', 'language', 'emailNotif', 'loginAlerts']
+      .forEach((key) => localStorage.removeItem(key));
+    sessionStorage.removeItem('userProfile');
+  }
+
   // ─── Elements ────────────────────────────────────────────────────────────────
   const logoutBtnTop = document.getElementById('logoutBtnTop');
   const userEmailTop = document.getElementById('userEmailTop');
@@ -450,7 +456,7 @@
 
         showModalAlert(_t2('settings.deleteSuccess'), 'success');
         setTimeout(() => {
-          localStorage.clear();
+          clearAuthSysAccountStorage();
           window.location.href = '/login.html?deleted=true';
         }, 2000);
       } catch (error) {
@@ -506,7 +512,7 @@
       showModalAlert(_t('settings.deleteSuccess'), 'success');
       
       setTimeout(() => {
-        localStorage.clear();
+        clearAuthSysAccountStorage();
         window.location.href = '/login.html?deleted=true';
       }, 2000);
 

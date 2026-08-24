@@ -21,7 +21,7 @@ describe('Get Profile', () => {
         const d = res.data.data || res.data;
         expect(d.email).toBe(user.email);
         expect(d.username).toBe(user.username);
-        expect(['user', 'admin', 'moderator']).toContain(d.role);
+        expect(['user', 'admin']).toContain(d.role);
         expect(d.id || d._id).toBeTruthy();
     });
 

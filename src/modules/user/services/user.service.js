@@ -47,7 +47,9 @@ async function updateUser(userId, updateData) {
         }
 
         // Allowed fields for update
-        const allowedFields = ['username', 'email', 'displayName', 'bio'];
+        // Login identifiers are immutable through the self-service profile
+        // endpoint. Changing them needs a separate verified workflow.
+        const allowedFields = ['displayName', 'bio'];
         allowedFields.forEach(field => {
             if (updateData[field] !== undefined) {
                 user[field] = updateData[field];
@@ -85,6 +87,9 @@ async function deleteUser(userId, reason = 'user_request') {
 
         const originalEmail = user.email;
         logger.warn(`User deletion requested: ${originalEmail} (reason: ${reason})`);
+        const ownedClients = await Client.find({ owner: userId })
+            .select('client_id')
+            .lean();
 
         // Blacklist token hashes before deactivating sessions so old access
         // and refresh tokens cannot become usable if account state changes.
@@ -101,6 +106,9 @@ async function deleteUser(userId, reason = 'user_request') {
         // Revoke all sessions first
         await Session.revokeAllSessions(userId, 'account_deleted');
         await Consent.revokeAllForUser(userId, 'account_deleted');
+        await Promise.all(ownedClients.map(client =>
+            Consent.revokeAllForClient(client.client_id, 'owner_account_deleted')
+        ));
         await Client.updateMany({ owner: userId, isActive: true }, {
             $set: { isActive: false }
         });

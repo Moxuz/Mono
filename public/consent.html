@@ -1,432 +1,55 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authorize Application — AuthSys</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Authorize application — AuthSys</title>
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            font-size: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            vertical-align: middle;
-            flex-shrink: 0;
-        }
-        
-        .consent-container {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, var(--surface-dim) 0%, var(--surface-lowest) 100%);
-            padding: 2rem;
-        }
-        
-        .consent-box {
-            background-color: var(--surface-container-lowest);
-            border: 1px solid var(--outline-variant);
-            border-radius: var(--radius-lg);
-            padding: 2.5rem;
-            max-width: 34rem;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-        }
-        
-        .app-info {
-            text-align: center;
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--outline-variant);
-        }
-        
-        .app-icon {
-            width: 5rem;
-            height: 5rem;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dim) 100%);
-            border-radius: var(--radius-xl);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 8px 24px rgba(173, 198, 255, 0.3);
-        }
-        
-        .app-icon .material-symbols-outlined {
-            font-size: 48px;
-            color: var(--on-primary);
-        }
-        
-        .app-name {
-            font-size: 1.5rem;
-            font-weight: 900;
-            letter-spacing: -0.04em;
-            color: var(--on-surface);
-            margin-bottom: 0.5rem;
-        }
-        
-        .app-description {
-            color: var(--on-surface-variant);
-            font-size: 0.875rem;
-            line-height: 1.6;
-        }
-        
-        .permissions {
-            background-color: var(--surface-container-low);
-            border: 1px solid var(--outline-variant);
-            border-radius: var(--radius-default);
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-        }
-
-        .consent-intro {
-            display: flex;
-            gap: 0.75rem;
-            align-items: flex-start;
-            padding: 0.875rem 1rem;
-            margin-top: 1rem;
-            background: var(--primary/10);
-            border: 1px solid var(--primary/30);
-            border-radius: var(--radius-default);
-            color: var(--on-surface-variant);
-            font-size: 0.8rem;
-            line-height: 1.5;
-            text-align: left;
-        }
-
-        .consent-intro .material-symbols-outlined {
-            color: var(--primary);
-        }
-        
-        .permissions h3 {
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: var(--on-surface-variant);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .permissions h3 .material-symbols-outlined {
-            color: var(--primary);
-            font-size: 20px;
-        }
-        
-        .permission-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid var(--outline-variant/30);
-        }
-        
-        .permission-item:last-child {
-            border-bottom: none;
-        }
-        
-        .permission-icon {
-            width: 2rem;
-            height: 2rem;
-            background-color: var(--primary/10);
-            border-radius: var(--radius-default);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        
-        .permission-icon .material-symbols-outlined {
-            color: var(--primary);
-            font-size: 20px;
-        }
-        
-        .permission-text {
-            flex: 1;
-        }
-        
-        .permission-title {
-            font-weight: 600;
-            font-size: 0.875rem;
-            color: var(--on-surface);
-            margin-bottom: 0.25rem;
-        }
-        
-        .permission-description {
-            font-size: 0.75rem;
-            color: var(--on-surface-variant);
-            line-height: 1.5;
-        }
-
-        .permission-meta {
-            display: inline-block;
-            margin-top: 0.4rem;
-            padding: 0.15rem 0.45rem;
-            border-radius: var(--radius-full);
-            background: var(--surface-container-high);
-            color: var(--on-surface-variant);
-            font-size: 0.65rem;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-        }
-        
-        .pkce-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            background-color: var(--primary/10);
-            color: var(--primary);
-            font-size: 0.75rem;
-            font-weight: 600;
-            padding: 0.5rem 0.75rem;
-            border-radius: var(--radius-full);
-            margin-top: 1rem;
-        }
-        
-        .pkce-badge .material-symbols-outlined {
-            font-size: 16px;
-        }
-        
-        .consent-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            margin-top: 2rem;
-        }
-        
-        .btn-allow {
-            background-color: var(--primary);
-            color: var(--on-primary);
-            border: none;
-            padding: 0.875rem 1.5rem;
-            border-radius: var(--radius-default);
-            font-weight: 600;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: all var(--transition-base);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        
-        .btn-allow:hover {
-            background-color: var(--primary-dim);
-            transform: translateY(-1px);
-        }
-        
-        .btn-deny {
-            background-color: transparent;
-            color: var(--on-surface-variant);
-            border: 1px solid var(--outline-variant);
-            padding: 0.875rem 1.5rem;
-            border-radius: var(--radius-default);
-            font-weight: 500;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: all var(--transition-base);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        
-        .btn-deny:hover {
-            background-color: var(--surface-bright);
-            color: var(--on-surface);
-        }
-        
-        .consent-footer {
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--outline-variant);
-            text-align: center;
-        }
-        
-        .consent-footer p {
-            font-size: 0.75rem;
-            color: var(--on-surface-variant);
-            line-height: 1.6;
-            margin-bottom: 0.5rem;
-        }
-        
-        .consent-footer a {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .consent-footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    <link rel="stylesheet" href="/css/consent.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined&display=swap">
 </head>
 <body>
-    <div class="consent-container">
-        <div class="consent-box">
-            <!-- App Info -->
-            <div class="app-info">
-                <div class="app-icon">
-                    <span class="material-symbols-outlined filled">shopping_cart</span>
-                </div>
-                <h1 class="app-name" id="clientName">ShopHub Client</h1>
-                <p class="app-description">
-                    is requesting access to your AuthSys account
-                </p>
+    <main class="consent-container">
+        <section class="consent-box" aria-labelledby="clientName">
+            <header class="app-info">
+                <div class="app-icon" aria-hidden="true"><span class="material-symbols-outlined">shield_lock</span></div>
+                <h1 class="app-name" id="clientName">OAuth application</h1>
+                <p class="app-description">is requesting access to your AuthSys account</p>
                 <div class="consent-intro">
-                    <span class="material-symbols-outlined">info</span>
-                    <span>Your password stays with AuthSys. This application receives only the information listed below.</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                    <span>Your password stays with AuthSys. The application receives only the information listed below.</span>
                 </div>
-                <div class="pkce-badge">
-                    <span class="material-symbols-outlined filled">security</span>
-                    <span id="pkceStatus">Authorization Code Flow</span>
-                </div>
-            </div>
+                <div class="pkce-badge"><span class="material-symbols-outlined" aria-hidden="true">security</span><span id="pkceStatus">Authorization code flow</span></div>
+            </header>
 
-            <!-- Permissions -->
-            <div class="permissions">
-                <h3>
-                    <span class="material-symbols-outlined">folder_open</span>
-                    Requested access
-                </h3>
-                
+            <section class="permissions" aria-labelledby="permissionsTitle">
+                <h2 id="permissionsTitle">Requested access</h2>
                 <div id="permissionList"></div>
-            </div>
+            </section>
 
-            <!-- Actions -->
             <form id="consentForm">
-                <input type="hidden" name="client_id" id="clientId" value="">
-                <input type="hidden" name="redirect_uri" id="redirectUri" value="">
-                <input type="hidden" name="response_type" id="responseType" value="code">
-                <input type="hidden" name="scope" id="scope" value="">
-                <input type="hidden" name="state" id="state" value="">
-                <input type="hidden" name="code_challenge" id="codeChallenge" value="">
-                <input type="hidden" name="code_challenge_method" id="codeChallengeMethod" value="S256">
-                <input type="hidden" name="nonce" id="nonce" value="">
-
+                <input type="hidden" id="clientId">
+                <input type="hidden" id="redirectUri">
+                <input type="hidden" id="responseType" value="code">
+                <input type="hidden" id="scope">
+                <input type="hidden" id="state">
+                <input type="hidden" id="codeChallenge">
+                <input type="hidden" id="codeChallengeMethod" value="S256">
+                <input type="hidden" id="nonce">
                 <div class="consent-actions">
-                    <button type="button" id="btnAllow" class="btn-allow">
-                        <span class="material-symbols-outlined filled">check_circle</span>
-                        Allow Access
-                    </button>
-
-                    <button type="button" id="btnDeny" class="btn-deny">
-                        <span class="material-symbols-outlined">cancel</span>
-                        Deny
-                    </button>
+                    <button type="button" id="btnAllow" class="btn-allow">Allow access</button>
+                    <button type="button" id="btnDeny" class="btn-deny">Deny and return</button>
                 </div>
+                <p id="consentError" class="consent-error" role="alert"></p>
             </form>
 
-            <!-- Footer -->
-            <div class="consent-footer">
-                <p>
-                    By allowing, you agree to our<br>
-                    <a href="/privacy-policy.html#terms" target="_blank">Terms of Service and Privacy Notice</a>
-                  
-                </p>
-                <p style="font-size: 0.625rem; color: var(--outline);">
-                    Approval is remembered for 30 days. You can revoke access at any time from your account settings.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const clientId        = urlParams.get('client_id');
-        const redirectUri     = urlParams.get('redirect_uri');
-        const responseType    = urlParams.get('response_type') || 'code';
-        const scope           = urlParams.get('scope');
-        const state           = urlParams.get('state');
-        const codeChallenge   = urlParams.get('code_challenge');
-        const challengeMethod = urlParams.get('code_challenge_method');
-        const nonce            = urlParams.get('nonce');
-        const clientName      = urlParams.get('client_name');
-
-        // Populate hidden fields
-        if (clientId)        document.getElementById('clientId').value = clientId;
-        if (redirectUri)     document.getElementById('redirectUri').value = redirectUri;
-        document.getElementById('responseType').value = responseType;
-        if (scope)           document.getElementById('scope').value = scope;
-        if (state)           document.getElementById('state').value = state;
-        if (codeChallenge)   document.getElementById('codeChallenge').value = codeChallenge;
-        if (challengeMethod) document.getElementById('codeChallengeMethod').value = challengeMethod;
-        if (nonce)           document.getElementById('nonce').value = nonce;
-        if (clientName)      document.getElementById('clientName').textContent = clientName;
-        document.getElementById('pkceStatus').textContent = codeChallenge ? 'PKCE Secured (S256)' : 'PKCE is required';
-
-        const permissionDefinitions = {
-            openid: ['lock', 'Sign you in', 'Use your AuthSys identity to sign in to this application'],
-            profile: ['person', 'View your profile', 'Access your name and profile information'],
-            email: ['email', 'View your email address', 'Access your primary email address'],
-            offline_access: ['schedule', 'Keep access when you are away', 'Allow the application to refresh your session']
-        };
-        const permissionList = document.getElementById('permissionList');
-        (scope || 'openid profile email').split(/\s+/).filter(Boolean).forEach((name) => {
-            const definition = permissionDefinitions[name] || ['verified_user', `Access ${name}`, 'Access requested by this application'];
-            const item = document.createElement('div');
-            item.className = 'permission-item';
-            item.innerHTML = `
-                <div class="permission-icon"><span class="material-symbols-outlined">${definition[0]}</span></div>
-                <div class="permission-text">
-                    <div class="permission-title"></div>
-                    <div class="permission-description"></div>
-                    <span class="permission-meta"></span>
-                </div>`;
-            item.querySelector('.permission-title').textContent = definition[1];
-            item.querySelector('.permission-description').textContent = definition[2];
-            item.querySelector('.permission-meta').textContent = name === 'offline_access'
-                ? 'Additional session access'
-                : 'Identity information';
-            permissionList.appendChild(item);
-        });
-
-        async function submitConsent(action) {
-            const body = {
-                client_id:             clientId,
-                redirect_uri:          redirectUri,
-                response_type:         responseType,
-                scope:                 scope,
-                state:                 state,
-                code_challenge:        codeChallenge,
-                code_challenge_method: challengeMethod,
-                nonce,
-                action
-            };
-
-            try {
-                const csrfRes = await fetch('/api/oauth/csrf', { credentials: 'include' });
-                const csrfData = await csrfRes.json();
-                if (!csrfRes.ok || !csrfData.csrf_token) throw new Error('Authorization session expired');
-                body.csrf_token = csrfData.csrf_token;
-
-                const res = await fetch('/api/oauth/authorize', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(body)
-                });
-                const data = await res.json();
-                if (data.redirect_url) {
-                    window.location.href = data.redirect_url;
-                } else {
-                    alert('Authorization failed: ' + (data.error || 'Unknown error'));
-                }
-            } catch (err) {
-                console.error('Consent error:', err);
-                alert('Something went wrong. Please try again.');
-            }
-        }
-
-        document.getElementById('btnAllow').addEventListener('click', () => submitConsent('allow'));
-        document.getElementById('btnDeny').addEventListener('click',  () => submitConsent('deny'));
-    </script>
+            <footer class="consent-footer">
+                <p>By allowing, you agree to the <a href="/privacy-policy.html#terms" target="_blank" rel="noopener">Terms of Service and Privacy Notice</a>.</p>
+                <p class="consent-note">Approval is remembered for 30 days. You can revoke it at any time in Settings.</p>
+            </footer>
+        </section>
+    </main>
+    <script src="/js/consent.js"></script>
 </body>
 </html>

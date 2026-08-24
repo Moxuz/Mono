@@ -1,4 +1,5 @@
 const Session = require('../models/Session');
+const mongoose = require('mongoose');
 const TokenBlacklist = require('../models/TokenBlacklist');
 const config = require('../config/config');
 const crypto = require('crypto');
@@ -214,6 +215,9 @@ async function getUserSessions(userId, currentSessionId = null) {
  */
 async function revokeSession(sessionId, userId, reason = 'user_logout') {
     try {
+        if (!mongoose.isValidObjectId(sessionId)) {
+            throw new Error('Invalid session ID');
+        }
         const session = await Session.findOne({ _id: sessionId, userId });
         
         if (!session) {
@@ -238,6 +242,9 @@ async function revokeSession(sessionId, userId, reason = 'user_logout') {
  */
 async function revokeAllOtherSessions(userId, currentSessionId, reason = 'user_logout') {
     try {
+        if (!mongoose.isValidObjectId(currentSessionId)) {
+            throw new Error('Invalid current session ID');
+        }
         const query = { userId, isActive: true };
         if (currentSessionId) query._id = { $ne: currentSessionId };
         const sessions = await Session.find(query);

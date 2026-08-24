@@ -3,12 +3,14 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const session = require('express-session');
 const { RedisStore } = require('connect-redis');
 const { createClient } = require('redis');
-const swaggerUi = require('swagger-ui-express');
+const swaggerUiDist = require('swagger-ui-dist');
 const swaggerDocument = require('../swagger.json');
+const mongoose = require('mongoose');
 const dashboardRoutes = require('./modules/dashboard/routes/dashboard.routes');
 const wellKnownRoutes = require('./modules/auth/routes/wellKnown');
 
@@ -17,6 +19,7 @@ const wellKnownRoutes = require('./modules/auth/routes/wellKnown');
 
 const config = require('./shared/config/config');
 const { generalLimiter } = require('./shared/middleware/rateLimiter');
+const { isRedisReady } = require('./shared/middleware/rateLimiter');
 const { csrfProtection, csrfToken } = require('./shared/middleware/csrf');
 const { sanitizeBody } = require('./shared/middleware/validate');
 const { passport, GOOGLE_ENABLED, GITHUB_ENABLED } = require('./shared/config/passport');
@@ -45,6 +48,10 @@ const Client = require('./shared/models/Client');
 const User = require('./shared/models/User');
 
 const app = express();
+
+// Keep query values scalar. Nested query objects such as filter[$ne] are not
+// accepted as implicit MongoDB operators by any route.
+app.set('query parser', 'simple');
 
 // Trust a proxy only when deployment explicitly enables it. This prevents a
 // direct local/public app process from accepting a spoofed X-Forwarded-For.
@@ -107,7 +114,9 @@ if (config.USE_REDIS_SESSIONS) {
             return true;
         })
         .catch(err => {
-            logger.warn('Session Redis unavailable; using memory session store:', err.message);
+            logger.warn(config.NODE_ENV === 'production'
+                ? 'Session Redis unavailable; production sessions will fail closed:'
+                : 'Session Redis unavailable; using memory session store:', err.message);
             return false;
         });
 } else {
@@ -128,13 +137,13 @@ app.locals.closeSessionRedis = async () => {
 
 const helmetDirectives = {
     defaultSrc:  ["'self'"],
-    scriptSrc:   ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net', 'https://code.jquery.com'],
-    scriptSrcAttr: ["'unsafe-hashes'"],
-    styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net'],
-    styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net', 'https://cdn.datatables.net'],
+    scriptSrc:   ["'self'"],
+    scriptSrcAttr: ["'none'"],
+    styleSrc:    ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
     fontSrc:     ["'self'", 'https://fonts.gstatic.com', 'data:'],
     imgSrc:      ["'self'", "data:", "https:", "blob:"],
-    connectSrc:  ["'self'", "ws:", "http:", "https:", "wss:"],
+    connectSrc:  ["'self'"],
     objectSrc:   ["'none'"],
     frameSrc:    ["'none'"],
     baseUri:     ["'self'"],
@@ -164,6 +173,7 @@ app.use(cors({
 
 app.use(express.json({ limit: config.REQUEST_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: config.REQUEST_BODY_LIMIT }));
+app.use(cookieParser());
 app.use(sanitizeBody);
 
 function sanitizedRequestUrl(req) {
@@ -195,17 +205,29 @@ function sanitizedRequestUrl(req) {
 
 morgan.token('safe-url', sanitizedRequestUrl);
 
+const accessLogOptions = {
+    // Docker checks this endpoint every few seconds. Keeping it out of the
+    // application access log prevents unbounded low-value noise while health
+    // failures remain visible through Docker and the endpoint status itself.
+    skip: (req) => req.path === '/health'
+};
+
 if (logger.stream) {
-    const safeAccessLogFormat = ':remote-addr - :remote-user [:date[iso]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"';
-    app.use(morgan(safeAccessLogFormat, { stream: logger.stream }));
+    // Referrers can contain OAuth codes/state from another page. They are not
+    // needed for this private service, so do not record them at all.
+    const safeAccessLogFormat = ':remote-addr - :remote-user [:date[iso]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":user-agent"';
+    app.use(morgan(safeAccessLogFormat, { ...accessLogOptions, stream: logger.stream }));
 } else {
-    app.use(morgan(':method :safe-url :status :response-time ms', { stream: process.stdout }));
+    app.use(morgan(':method :safe-url :status :response-time ms', {
+        ...accessLogOptions,
+        stream: process.stdout
+    }));
 }
 
 
 app.use(session({
     store: sessionStore,
-    secret: config.SESSION_SECRET || 'your_session_secret',
+    secret: config.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -224,15 +246,26 @@ app.use(passport.session());
 app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('X-XSS-Protection', '0');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
     next();
 });
 
-app.get('/admin.html', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin.html')));
-app.get('/admin-logs.html', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-logs.html')));
-app.get('/admin-users.html', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-users.html')));
+function sendPrivatePage(page) {
+    return (req, res) => {
+        res.set('Cache-Control', 'no-store');
+        res.sendFile(path.join(__dirname, '../public', page));
+    };
+}
+
+app.get('/admin.html', authenticate, authorizeRole('admin'), sendPrivatePage('admin.html'));
+app.get('/admin-logs.html', authenticate, authorizeRole('admin'), sendPrivatePage('admin-logs.html'));
+app.get('/admin-users.html', authenticate, authorizeRole('admin'), sendPrivatePage('admin-users.html'));
+
+for (const page of ['dashboard.html', 'profile.html', 'settings.html', 'api-keys.html', 'user-activity.html', 'consent.html']) {
+    app.get('/' + page, authenticate, sendPrivatePage(page));
+}
 
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -242,19 +275,32 @@ app.use(csrfProtection);
 
 // ตรวจสอบสถานะการทำงานของ server
 app.get('/health', (req, res) => {
-    res.json({
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        environment: config.NODE_ENV
+    res.set('Cache-Control', 'no-store');
+    const mongoReady = mongoose.connection.readyState === 1;
+    const redisReady = !config.REDIS_REQUIRED || (
+        isRedisReady() && (!config.USE_REDIS_SESSIONS || sessionRedisClient?.isReady)
+    );
+    const ready = mongoReady && redisReady;
+
+    res.status(ready ? 200 : 503).json({
+        status: ready ? 'OK' : 'degraded',
+        timestamp: new Date().toISOString()
     });
 });
 
-// API Documentation (Swagger)
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-    explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Auth API Docs'
+// API documentation uses only self-hosted scripts so the global CSP can stay
+// strict without allowing inline JavaScript.
+app.get('/openapi.json', (req, res) => {
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json(swaggerDocument);
+});
+app.get('/api-docs', (req, res) => res.redirect(308, '/api-docs/'));
+app.get('/api-docs/', (req, res) =>
+    res.sendFile(path.join(__dirname, '../public', 'api-docs.html'))
+);
+app.use('/api-docs/assets', express.static(swaggerUiDist.getAbsoluteFSPath(), {
+    immutable: true,
+    maxAge: '1d'
 }));
 
 // Apply the general budget to API requests; static/page GETs are skipped by
@@ -313,7 +359,9 @@ const scheduleCleanup = () => {
     const midnight = new Date(now);
     midnight.setDate(midnight.getDate() + 1);
     midnight.setHours(0, 0, 0, 0);
-    const timeUntilMidnight = midnight.getTime() - now.getTime();
+    // A wall-clock adjustment (NTP, VM resume, or a manually corrected VPS
+    // clock) must not turn the cleanup timer into a tight loop.
+    const timeUntilMidnight = Math.max(1000, midnight.getTime() - now.getTime());
 
     setTimeout(async () => {
         await runDataCleanup();
@@ -341,17 +389,18 @@ app.use('/api/dashboard', dashboardRoutes);
 app.get('/',          (req, res) => res.sendFile(path.join(__dirname, '../public', 'index.html')));
 app.get('/login',     (req, res) => res.sendFile(path.join(__dirname, '../public', 'login.html')));
 app.get('/register',  (req, res) => res.sendFile(path.join(__dirname, '../public', 'register.html')));
-app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, '../public', 'dashboard.html')));
-app.get('/admin', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin.html')));
-app.get('/admin/logs', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-logs.html')));
-app.get('/admin/users', authenticate, authorizeRole('admin'), (req, res) => res.sendFile(path.join(__dirname, '../public', 'admin-users.html')));
-app.get('/user-activity', authenticate, (req, res) => res.sendFile(path.join(__dirname, '../public', 'user-activity.html')));
+app.get('/dashboard', authenticate, sendPrivatePage('dashboard.html'));
+app.get('/admin', authenticate, authorizeRole('admin'), sendPrivatePage('admin.html'));
+app.get('/admin/logs', authenticate, authorizeRole('admin'), sendPrivatePage('admin-logs.html'));
+app.get('/admin/users', authenticate, authorizeRole('admin'), sendPrivatePage('admin-users.html'));
+app.get('/user-activity', authenticate, sendPrivatePage('user-activity.html'));
 
 // จัดการ route ที่ไม่พบ
 app.use((req, res) => {
+    const safePath = sanitizedRequestUrl(req).split('?')[0];
     res.status(404).json({
         error: 'Not Found',
-        message: `Route ${req.method} ${req.url} not found`
+        message: `Route ${req.method} ${safePath} not found`
     });
 });
 
@@ -360,7 +409,7 @@ app.use((err, req, res, next) => {
     logger.error('Error:', {
         message: err.message,
         stack:   err.stack,
-        url:     req.url,
+        url:     sanitizedRequestUrl(req),
         method:  req.method
     });
     const isDevelopment = config.NODE_ENV === 'development';

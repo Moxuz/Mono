@@ -41,12 +41,20 @@ const clientSchema = new mongoose.Schema({
     grant_types: {
         type: [String],
         enum: ['authorization_code', 'refresh_token'],
-        default: ['authorization_code', 'refresh_token']
+        default: ['authorization_code'],
+        validate: {
+            validator: value => Array.isArray(value) && value.length > 0,
+            message: 'grant_types must contain at least one grant type'
+        }
     },
     response_types: {
         type: [String],
         enum: ['code'],
-        default: ['code']
+        default: ['code'],
+        validate: {
+            validator: value => Array.isArray(value) && value.length > 0,
+            message: 'response_types must contain at least one response type'
+        }
     },
     scope: {
         type: String,

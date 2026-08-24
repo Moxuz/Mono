@@ -1,5 +1,6 @@
 services:
   nginx:
+    image: testmono-auth-nginx:latest
     build:
       context: ./deploy/https
     environment:
@@ -13,8 +14,7 @@ services:
       - "${HTTPS_BIND_IP:-0.0.0.0}:443:443"
     volumes: !override
       - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
-    networks:
-      - auth-network
+    networks: !override
       - client-network
 
   auth-app-1:

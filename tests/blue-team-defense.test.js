@@ -1,14 +1,14 @@
 /**
- * 🔵 BLUE TEAM DEFENSE TEST SUITE
- * Validates defensive security measures
+ * 🔵 DEFENSIVE SECURITY REGRESSION SUITE
+ * Validates selected defensive controls at unit/static level
  * Run: node tests/blue-team-defense.test.js
  */
 
 const assert = require('assert');
 
 console.log('\n╔═══════════════════════════════════════════════════════════╗');
-console.log('║           🔵 BLUE TEAM DEFENSE TEST                      ║');
-console.log('║            Validating Security Controls                  ║');
+console.log('║       🔵 DEFENSIVE SECURITY REGRESSION SUITE             ║');
+console.log('║          Selected Unit and Static Controls               ║');
 console.log('╚═══════════════════════════════════════════════════════════╝\n');
 
 let passed = 0;
@@ -140,10 +140,10 @@ test('Incident Response - Audit trail', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n📋 SECTION 4: RECOVERY CONTROLS\n');
 
-test('Backup - Database backups configured', () => {
-    // MongoDB has built-in replication
-    console.log('   ℹ️  MongoDB supports replication and backups');
-    assert.ok(true);
+test('Recovery - Retention cleanup is implemented', () => {
+    const fs = require('fs');
+    const appCode = fs.readFileSync('src/app.js', 'utf8');
+    assert.ok(appCode.includes('runDataCleanup'));
 });
 
 test('Recovery - Password reset mechanism', () => {
@@ -162,10 +162,10 @@ test('Recovery - Session cleanup', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n📋 SECTION 5: SECURITY MONITORING\n');
 
-test('Real-time Monitoring - WebSocket active', () => {
-    const websocket = require('../src/shared/utils/websocket');
-    assert.ok(websocket.initializeWebSocket);
-    assert.ok(websocket.broadcastSecurityEvent);
+test('Monitoring - Unused WebSocket surface is absent', () => {
+    const fs = require('fs');
+    assert.ok(!fs.existsSync('src/shared/utils/websocket.js'));
+    assert.ok(!fs.readFileSync('src/server.js', 'utf8').includes('initializeWebSocket'));
 });
 
 test('Log Aggregation - Kafka logging available', () => {
@@ -294,38 +294,19 @@ const passRate = ((passed / totalTests) * 100).toFixed(1);
 console.log(`📊 DEFENSE RESULTS:`);
 console.log(`   ✅ Controls Passed: ${passed}/${totalTests}`);
 console.log(`   ❌ Controls Failed: ${failed}/${totalTests}`);
-console.log(`\n🛡️  DEFENSE EFFECTIVENESS: ${passRate}%\n`);
-
-// Calculate category scores
-const categories = {
-    'Prevention': 6,
-    'Detection': 5,
-    'Response': 4,
-    'Recovery': 4,
-    'Monitoring': 4,
-    'Data Protection': 4,
-    'Compliance': 4,
-    'Infrastructure': 3,
-    'Documentation': 3
-};
-
-console.log(`📋 DEFENSE BY CATEGORY:\n`);
-Object.entries(categories).forEach(([category, maxPoints]) => {
-    // Simplified - all categories assumed fully implemented
-    console.log(`   ${category.padEnd(20)}: ✅ Complete`);
-});
+console.log(`\n🛡️  REGRESSION PASS RATE: ${passRate}%\n`);
 
 const blueTeamScore = Math.round((passed / totalTests) * 100);
 
 console.log(`\n╔═══════════════════════════════════════════════════════════╗`);
-console.log(`║  🔵 BLUE TEAM SCORE: ${blueTeamScore}/100                           ║`);
-console.log(`║  (Higher is better for defenders)                         ║`);
+console.log(`║  🔵 REGRESSION SCORE: ${blueTeamScore}/100                         ║`);
+console.log(`║  (This score covers only the checks in this file)          ║`);
 console.log(`╚═══════════════════════════════════════════════════════════╝\n`);
 
 if (failed > 0) {
     console.log(`⚠️  ${failed} control(s) need improvement\n`);
 } else {
-    console.log(`✅ All security controls active - Strong defense posture\n`);
+    console.log('✅ All checks in this suite passed (this is not a production certification)\n');
 }
 
 // Export results

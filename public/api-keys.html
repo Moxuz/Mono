@@ -7,7 +7,7 @@
     <script src="/js/theme-init.js"></script>
     <link rel="stylesheet" href="/css/style.css">
     <link id="lighttheme-css" rel="stylesheet" href="/css/lighttheme.css" disabled>
-    <script>if(localStorage.getItem("theme")==="light"){document.getElementById("lighttheme-css").disabled=false;}</script>
+    <script src="/js/light-theme-init.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 </head>
@@ -102,13 +102,6 @@
                             <span class="api-stat-value" id="lastUsed">Never</span>
                         </div>
                     </div>
-                    <div class="api-stat-item">
-                        <span class="material-symbols-outlined">trending_up</span>
-                        <div>
-                            <span class="api-stat-label" data-i18n="apikeys.requests24h">Requests (24h)</span>
-                            <span class="api-stat-value" id="requests24h">0</span>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -117,8 +110,8 @@
                 <!-- Keys will be loaded here -->
                 <div class="api-keys-empty">
                     <span class="material-symbols-outlined">vpn_key_off</span>
-                    <p>No API keys yet</p>
-                    <small>Create your first API key to get started</small>
+                    <p>No OAuth applications yet</p>
+                    <small>Register your first application to get started</small>
                 </div>
             </div>
 
@@ -133,7 +126,7 @@
                         <div class="api-docs-step-number">1</div>
                         <div>
                         <h4 data-i18n="apikeys.step1Title">Register Application</h4>
-                        <p data-i18n="apikeys.step1Desc">Set an application name, environment, and exact HTTPS callback URL.</p>
+                        <p data-i18n="apikeys.step1Desc">Set an application name and exact HTTPS callback URL.</p>
                         </div>
                     </div>
                     <div class="api-docs-step">
@@ -146,8 +139,8 @@
                     <div class="api-docs-step">
                         <div class="api-docs-step-number">3</div>
                         <div>
-                            <h4 data-i18n="apikeys.step3Title">Authenticate Requests</h4>
-                            <p data-i18n="apikeys.step3Desc">Include your credentials in the Authorization header:</p>
+                            <h4 data-i18n="apikeys.step3Title">Implement OAuth</h4>
+                            <p data-i18n="apikeys.step3Desc">Exchange the authorization code from your server and verify the ID token.</p>
                             <pre class="code-snippet">Authorization Code + PKCE</pre>
                         </div>
                     </div>
@@ -178,12 +171,6 @@
                 <input type="text" class="input" id="keyName" placeholder="e.g., ShopHub Web App" minlength="1" maxlength="100">
             </div>
             <div class="form-group">
-                <label class="input-label" data-i18n="apikeys.environment">Environment</label>
-                <select class="settings-select" id="keyEnvironment">
-                    <option value="production">Production (HTTPS web app)</option>
-                </select>
-            </div>
-            <div class="form-group">
                 <label class="input-label" for="redirectUris">Redirect URI</label>
                 <input type="url" class="input" id="redirectUris"
                        placeholder="https://your-app.example/callback"
@@ -195,7 +182,7 @@
             <button class="btn btn-secondary" id="cancelCreateBtn" data-i18n="apikeys.cancel">Cancel</button>
             <button class="btn btn-primary" id="submitCreateKeyBtn">
                 <span class="material-symbols-outlined">add</span>
-                <span data-i18n="apikeys.createKey">Create Key</span>
+                <span data-i18n="apikeys.createKey">Create Application</span>
             </button>
         </div>
     </div>
@@ -208,7 +195,7 @@
         <div class="modal-header">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary">check_circle</span>
-                <h3 class="modal-title" data-i18n="apikeys.secretTitle">API Key Created</h3>
+                <h3 class="modal-title" data-i18n="apikeys.secretTitle">OAuth Application Created</h3>
             </div>
             <button class="modal-close" id="closeSecretModalBtn">
                 <span class="material-symbols-outlined">close</span>

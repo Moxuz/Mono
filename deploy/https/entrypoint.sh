@@ -11,4 +11,4 @@ envsubst '${AUTH_HOST} ${CLIENT_HOST} ${CLIENT2_HOST} ${CERT_NAME} ${CLIENT2_CER
   < /etc/nginx/templates/default.conf.template \
   > /etc/nginx/conf.d/default.conf
 
-exec nginx -g 'daemon off;'
+exec "$@"

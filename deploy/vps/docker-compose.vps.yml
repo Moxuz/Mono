@@ -1,5 +1,6 @@
 services:
   nginx:
+    image: testmono-auth-nginx:latest
     build:
       context: ./deploy/https
     environment:
@@ -13,8 +14,7 @@ services:
       - "443:443"
     volumes: !override
       - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
-    networks:
-      - auth-network
+    networks: !override
       - client-network
 
   auth-app-1:
@@ -28,6 +28,9 @@ services:
       GITHUB_CALLBACK_URL: https://${AUTH_HOST:?Set AUTH_HOST}/api/auth/github/callback
 
 networks:
+  auth-network:
+    external: true
+    name: ${AUTH_NETWORK_NAME:-auth-network}
   client-network:
     external: true
     name: ${CLIENT_NETWORK_NAME:-client-network}

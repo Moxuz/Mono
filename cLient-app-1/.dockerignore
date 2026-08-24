@@ -1,7 +1,8 @@
-node_modules/
 .env
 .env.*
-!.env.example
-logs/
+node_modules
+.git
 *.log
-.git/
+*.pem
+*.key
+README.md

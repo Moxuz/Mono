@@ -1,14 +1,11 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const Client = require('../../../shared/models/Client');
 const User = require('../../../shared/models/User');
 const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const Consent = require('../../../shared/models/Consent');
 const AuthorizationCode = require('../../../shared/models/AuthorizationCode');
-const Session = require('../../../shared/models/Session');
 const config = require('../../../shared/config/config');
-const sessionService = require('../../../shared/services/session.service');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
 const logger = require('../../../shared/utils/logger');
 const { parseScopes } = require('../../../shared/utils/oauthScopes');
@@ -232,6 +229,10 @@ class OAuthService {
         try {
             const client_id     = crypto.randomBytes(16).toString('hex');
             const client_secret = crypto.randomBytes(32).toString('hex');
+            const registeredScope = clientData.scope || 'openid profile email';
+            const grantTypes = parseScopes(registeredScope).has('offline_access')
+                ? ['authorization_code', 'refresh_token']
+                : ['authorization_code'];
 
             const client = new Client({
                 client_id,
@@ -243,8 +244,8 @@ class OAuthService {
                 application_type: 'web',
                 contact_email:    clientData.contact_email,
                 owner:            ownerId,
-                scope:            clientData.scope || 'openid profile email',
-                grant_types:      ['authorization_code', 'refresh_token'],
+                scope:            registeredScope,
+                grant_types:      grantTypes,
                 response_types:   ['code']
             });
 
@@ -406,7 +407,8 @@ class OAuthService {
             sub:       user._id.toString(),
             client_id: clientId,
             scope,
-            type:      'access_token'
+            type:      'access_token',
+            jti:       crypto.randomBytes(16).toString('hex')
         };
         if (grantId) claims.grant_id = String(grantId);
 
@@ -468,7 +470,7 @@ class OAuthService {
     }
     // ─────────────────────────────────────────
 
-    async refreshAccessToken(refreshToken, req) {
+    async refreshAccessToken(refreshToken) {
         try {
             const baseUrl = config.BASE_URL || 'http://localhost:5000';
             const decoded = jwt.verify(refreshToken, config.JWT_SECRET, {
@@ -482,8 +484,10 @@ class OAuthService {
                 throw new Error('Refresh token is not authorized for offline access');
             }
 
-            const isBlacklisted = await TokenBlacklist.isBlacklisted(refreshToken);
-            if (isBlacklisted) throw new Error('Token has been revoked');
+            const audiences = Array.isArray(decoded.aud) ? decoded.aud : [decoded.aud];
+            if (!decoded.client_id || !audiences.includes(decoded.client_id)) {
+                throw new Error('Refresh token audience is invalid');
+            }
 
             const user = await User.findById(decoded.sub);
             if (!user || !user.isActive) throw new Error('User not found or inactive');
@@ -492,41 +496,15 @@ class OAuthService {
                 throw new Error('OAuth grant is inactive');
             }
 
-            // If session tracking is available, validate and rotate.
-            if (req?.sessionToken) {
-                const sessionValidation = await sessionService.validateAndRotateRefreshToken(
-                    req.sessionToken,
-                    refreshToken
-                );
-
-                if (!sessionValidation.valid) {
-                    if (sessionValidation.compromised) {
-                        throw new Error('Session compromised - all sessions revoked');
-                    }
-                    throw new Error('Invalid session');
-                }
-
-                await TokenBlacklist.revokeToken(refreshToken, user._id, decoded.client_id, 'user_logout');
-
-                const newRefreshToken = this.generateRefreshToken(
-                    user, decoded.client_id, decoded.scope, decoded.grant_id
-                );
-                await sessionService.updateRefreshToken(req.sessionToken, newRefreshToken);
-
-                const access_token = this.generateAccessToken(
-                    user, decoded.client_id, decoded.scope, decoded.grant_id
-                );
-
-                return {
-                    access_token,
-                    refresh_token: newRefreshToken,
-                    token_type: 'Bearer',
-                    scope: decoded.scope,
-                    expires_in: 3600
-                };
-            }
-
-            await TokenBlacklist.revokeToken(refreshToken, user._id, decoded.client_id, 'user_logout');
+            // Unique token hashes make consumption atomic: at most one
+            // concurrent refresh request can issue a successor token.
+            const consumed = await TokenBlacklist.consumeToken(
+                refreshToken,
+                user._id,
+                decoded.client_id,
+                'token_rotation'
+            );
+            if (!consumed) throw new Error('Token has been revoked');
 
             const access_token = this.generateAccessToken(
                 user, decoded.client_id, decoded.scope, decoded.grant_id
@@ -535,7 +513,7 @@ class OAuthService {
                 user, decoded.client_id, decoded.scope, decoded.grant_id
             );
 
-            logger.info('OAuth token refreshed (no-session path)', { userId: user._id });
+            logger.info('OAuth token refreshed', { userId: user._id, clientId: decoded.client_id });
             return {
                 access_token,
                 refresh_token: new_refresh,
@@ -561,6 +539,10 @@ class OAuthService {
             });
             if (decoded.type !== 'access_token') throw new Error('Invalid token type');
             if (!decoded.grant_id) throw new Error('OAuth grant is inactive');
+            const audiences = Array.isArray(decoded.aud) ? decoded.aud : [decoded.aud];
+            if (!decoded.client_id || !audiences.includes(decoded.client_id)) {
+                throw new Error('Invalid access token audience');
+            }
 
             if (!await this.isGrantActive(decoded.sub, decoded.client_id, decoded.grant_id, decoded.scope)) {
                 throw new Error('OAuth grant is inactive');
@@ -599,10 +581,44 @@ class OAuthService {
         }
     }
 
-    async revokeToken(token, userId, reason = 'user_logout') {
+    verifyRevocableToken(token, expectedClientId) {
+        const unverified = jwt.decode(token);
+        if (!unverified || !expectedClientId || unverified.client_id !== expectedClientId) {
+            throw new Error('Invalid OAuth token');
+        }
+
+        const baseUrl = config.BASE_URL || 'http://localhost:5000';
+        const verification = {
+            issuer: baseUrl,
+            audience: expectedClientId
+        };
+        let decoded;
+        if (unverified.type === 'access_token') {
+            decoded = jwt.verify(token, oidcKeys.publicKey, {
+                ...verification,
+                algorithms: ['RS256']
+            });
+        } else if (unverified.type === 'refresh_token') {
+            decoded = jwt.verify(token, config.JWT_SECRET, {
+                ...verification,
+                algorithms: ['HS256']
+            });
+        } else {
+            throw new Error('Unsupported OAuth token type');
+        }
+
+        if (!decoded.sub || decoded.client_id !== expectedClientId) {
+            throw new Error('Invalid OAuth token claims');
+        }
+        return decoded;
+    }
+
+    async revokeToken(token, userId, reason = 'user_logout', expectedClientId = null) {
         try {
-            const decoded = jwt.decode(token);
-            if (!decoded) throw new Error('Invalid token');
+            const decoded = this.verifyRevocableToken(token, expectedClientId);
+            if (String(decoded.sub) !== String(userId)) {
+                throw new Error('OAuth token subject mismatch');
+            }
 
             await TokenBlacklist.revokeToken(token, userId, decoded.client_id, reason);
             return { message: 'Token revoked successfully' };

@@ -5,11 +5,7 @@ const { authenticate } = require('../../auth/middleware/authenticate');
 const dashboardController = require('../controllers/dashboard.controller');
 
 const logRoutes = require('./log.routes');
-const userRoutes = require('./user.routes');
 const monitoringRoutes = require('./monitoring.routes');
-
-const analyticsRoutes = require('./analytics.routes');
-const redisHealthRoutes = require('./redis.health');
 
 /**
  * @swagger
@@ -20,10 +16,7 @@ const redisHealthRoutes = require('./redis.health');
 
 // Mount sub-routes
 router.use('/logs', logRoutes);
-router.use('/user', userRoutes);
 router.use('/monitoring', monitoringRoutes);
-router.use('/analytics', analyticsRoutes);
-router.use('/health/redis', redisHealthRoutes);
 
 /**
  * @swagger
@@ -84,11 +77,9 @@ router.get('/', authenticate, authorizeRole('admin'), (req, res) => {
             role: req.user.role
         },
         endpoints: {
-            analytics: '/api/dashboard/analytics',
             logs: '/api/dashboard/logs',
-            monitoring: '/api/dashboard/monitoring',
-            user: '/api/dashboard/user',
-            loginActivity: '/api/dashboard/login-activity' // 
+            health: '/api/dashboard/monitoring/health',
+            loginActivity: '/api/dashboard/login-activity'
         }
     });
 });

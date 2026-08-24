@@ -1,12 +1,21 @@
 (function () {
     const storageKey = 'client2_cookie_consent';
+    const consentVersion = '1.1.0';
+    const consentLifetimeMs = 365 * 24 * 60 * 60 * 1000;
     const banner = document.getElementById('cookieBanner');
     if (!banner) return;
 
     function readConsent() {
         try {
             const value = JSON.parse(localStorage.getItem(storageKey) || 'null');
-            return value && typeof value.accepted === 'boolean' ? value : null;
+            if (!value || typeof value.accepted !== 'boolean' ||
+                value.version !== consentVersion ||
+                !Number.isFinite(value.expiresAt) ||
+                value.expiresAt <= Date.now()) {
+                localStorage.removeItem(storageKey);
+                return null;
+            }
+            return value;
         } catch {
             return null;
         }
@@ -15,8 +24,9 @@
     async function saveConsent(accepted) {
         const data = {
             accepted,
-            version: '1.0.0',
-            updatedAt: new Date().toISOString()
+            version: consentVersion,
+            updatedAt: new Date().toISOString(),
+            expiresAt: Date.now() + consentLifetimeMs
         };
         localStorage.setItem(storageKey, JSON.stringify(data));
         banner.hidden = true;

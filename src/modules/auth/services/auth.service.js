@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 
 // Pre-computed dummy hash for timing-safe user lookup — prevents timing attacks
 // when user is not found (bcrypt.compare takes ~100ms; skipping it leaks user existence)
-const TIMING_DUMMY_HASH = bcrypt.hashSync('timing_normalization_placeholder', 12);
+const TIMING_DUMMY_HASH = bcrypt.hashSync('timing_normalization_placeholder', 10);
 const User = require('../../../shared/models/User');
 const config = require('../../../shared/config/config');
 const emailService = require('../../../shared/services/email.service');
@@ -12,6 +12,8 @@ const { validatePassword } = require('../../../shared/utils/passwordValidator');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
 const sessionService = require('../../../shared/services/session.service');
 const logger = require('../../../shared/utils/logger');
+const Session = require('../../../shared/models/Session');
+const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 
 class AuthService {
     // สมัครสมาชิกใหม่ ตรวจสอบรหัสผ่าน ส่งอีเมลยืนยัน และสร้าง JWT
@@ -68,23 +70,6 @@ class AuthService {
             await user.save();
             logger.info(`User created successfully: ${user.email} (ID: ${user._id})`);
 
-            // Log security event first — audit must succeed before firing email
-            await securityAuditService.logSecurityEvent({
-                userId: user._id,
-                action: 'account_created',
-                status: 'success',
-                ipAddress: pdpaConsent?.consentIp,
-                metadata: {
-                    email: user.email,
-                    username: user.username
-                }
-            });
-
-            // Send welcome email (async, non-blocking)
-            emailService
-                .sendWelcomeEmail({ to: user.email, username: user.username })
-                .catch((err) => logger.error('Welcome email failed:', { email: user.email, error: err.message }));
-
             // Generate tokens — rollback user creation if this fails
             let token, refreshToken;
             try {
@@ -97,14 +82,34 @@ class AuthService {
             }
             logger.info(`Tokens generated for new user: ${user.email}`);
 
-            // Create session (consistent with login flow)
-            let session = null;
+            // Registration is session-bound. If persistence fails, roll the
+            // new account back instead of returning credentials that cannot be
+            // revoked or used by the first-party browser flow.
+            let session;
             try {
                 session = await sessionService.createSession(user._id, token, refreshToken, req);
                 logger.info(`Session created for new user: ${user.email}`);
             } catch (err) {
                 logger.error('Failed to create session after registration:', err.message);
+                await User.deleteOne({ _id: user._id });
+                throw new Error('Registration failed: could not create session');
             }
+
+            await securityAuditService.logSecurityEvent({
+                userId: user._id,
+                action: 'account_created',
+                status: 'success',
+                ipAddress: pdpaConsent?.consentIp,
+                metadata: {
+                    email: user.email,
+                    username: user.username
+                }
+            });
+
+            // Send only after both the account and revocable session exist.
+            emailService
+                .sendWelcomeEmail({ to: user.email, username: user.username })
+                .catch((err) => logger.error('Welcome email failed:', { email: user.email, error: err.message }));
 
             return {
                 user: {
@@ -115,7 +120,7 @@ class AuthService {
                 },
                 token,
                 refreshToken,
-                sessionId: session?.sessionId || null
+                sessionId: session.sessionId
             };
         } catch (error) {
             logger.error('Registration failed:', { error: error.message, email });
@@ -141,7 +146,7 @@ class AuthService {
 
             if (typeof analyticsAccepted === 'boolean') {
                 user.pdpaConsent.analyticsAccepted = analyticsAccepted;
-                user.pdpaConsent.analyticsAcceptedAt = cookieConsentAt;
+                user.pdpaConsent.analyticsAcceptedAt = analyticsAccepted ? cookieConsentAt : null;
             }
 
             await user.save();
@@ -172,27 +177,25 @@ class AuthService {
                 throw new Error('Invalid credentials');
             }
 
-            // Check if account is active
-            if (!user.isActive) {
-                logger.warn(`Login failed - account inactive: ${email}`);
-                await securityAuditService.logLoginFailed(email, req, 'account_inactive');
-                throw new Error('Account is inactive. Please contact support.');
-            }
-
-            // Check if account is locked
-            if (user.isLocked()) {
-                const retryAfterSec = Math.ceil((user.lockUntil - new Date()) / 1000);
-                const lockTime = Math.ceil(retryAfterSec / 60);
-                logger.warn(`Login failed - account locked: ${email} (${lockTime} minutes remaining)`);
-                await securityAuditService.logLoginFailed(email, req, 'account_locked');
-                const lockErr = new Error(`Account is locked. Try again in ${lockTime} minutes`);
-                lockErr.retryAfter = retryAfterSec;
-                throw lockErr;
+            // A social-only account has no local password. Run the same costly
+            // comparison and return the same public error as a bad password so
+            // this path cannot be used for account/provider enumeration.
+            if (!user.password) {
+                await bcrypt.compare(password, TIMING_DUMMY_HASH);
+                await securityAuditService.logLoginFailed(email, req, 'invalid_password');
+                throw new Error('Invalid credentials');
             }
 
             // Check password
             const isMatch = await bcrypt.compare(password, user.password);
             if (!isMatch) {
+                // Do not reveal inactive/locked state to someone who does not
+                // know the password. Also avoid extending an existing lock.
+                if (!user.isActive || user.isLocked()) {
+                    await securityAuditService.logLoginFailed(email, req, 'invalid_password');
+                    throw new Error('Invalid credentials');
+                }
+
                 const isNowLocked = await user.incrementLoginAttempts();
 
                 if (isNowLocked) {
@@ -208,6 +211,24 @@ class AuthService {
                 throw new Error('Invalid credentials');
             }
 
+            // Account state is disclosed only after the credential itself has
+            // been proved, preventing username/account-state enumeration.
+            if (!user.isActive) {
+                logger.warn(`Login failed - account inactive: ${email}`);
+                await securityAuditService.logLoginFailed(email, req, 'account_inactive');
+                throw new Error('Account is inactive. Please contact support.');
+            }
+
+            if (user.isLocked()) {
+                const retryAfterSec = Math.ceil((user.lockUntil - new Date()) / 1000);
+                const lockTime = Math.ceil(retryAfterSec / 60);
+                logger.warn(`Login failed - account locked: ${email} (${lockTime} minutes remaining)`);
+                await securityAuditService.logLoginFailed(email, req, 'account_locked');
+                const lockErr = new Error(`Account is locked. Try again in ${lockTime} minutes`);
+                lockErr.retryAfter = retryAfterSec;
+                throw lockErr;
+            }
+
             // Reset login attempts on successful login
             await user.resetLoginAttempts();
 
@@ -216,21 +237,13 @@ class AuthService {
             await user.save();
             logger.info(`Password verified for user: ${email}`);
 
-            // Log successful login — audit first, then fire email
-            await securityAuditService.logLoginSuccess(user, req);
-
-            // ส่ง Login Alert Email (async - ไม่ block login process)
-            sendLoginAlertIfEnabled(user, req).catch(err => {
-                logger.error('Login alert email failed:', { email: user.email, error: err.message });
-            });
-            logger.info(`Login successful for user: ${email}`);
-
             // Generate token
             const token = this.createToken(user, remember);
             const refreshToken = this.generateRefreshToken(user);
 
-            // Create session
-            let session = null;
+            // Authentication is session-bound. Never return a bearer token if
+            // its revocation/session record could not be persisted.
+            let session;
             try {
                 session = await sessionService.createSession(
                     user._id,
@@ -242,7 +255,14 @@ class AuthService {
                 logger.info(`Session created for user: ${email} (Session ID: ${session.sessionId})`);
             } catch (error) {
                 logger.error('Failed to create session:', { email, error: error.message });
+                throw new Error('Authentication session could not be created');
             }
+
+            await securityAuditService.logLoginSuccess(user, req);
+            sendLoginAlertIfEnabled(user, req).catch(err => {
+                logger.error('Login alert email failed:', { email: user.email, error: err.message });
+            });
+            logger.info(`Login successful for user: ${email}`);
 
             return {
                 user: {
@@ -253,7 +273,7 @@ class AuthService {
                 },
                 token,
                 refreshToken,
-                sessionId: session?.sessionId || null
+                sessionId: session.sessionId
             };
         } catch (error) {
             logger.error('Login failed:', { error: error.message, email });
@@ -294,7 +314,7 @@ class AuthService {
     // ตรวจสอบความถูกต้องและอายุของ JWT token
     async validateToken(token) {
         try {
-            logger.info(`Token validation requested`);
+            logger.info('Token validation requested');
 
             if (!token) {
                 logger.warn('Token validation failed - no token provided');
@@ -304,21 +324,35 @@ class AuthService {
                 };
             }
 
-            const decoded = jwt.verify(token, config.JWT_SECRET);
+            const decoded = jwt.verify(token, config.JWT_SECRET, { algorithms: ['HS256'] });
             if (decoded.type !== 'access_token') {
                 return { valid: false, error: 'Invalid access token' };
             }
 
-            const now = Math.floor(Date.now() / 1000);
-            if (decoded.exp && decoded.exp < now) {
-                logger.warn('Token validation failed - token expired');
-                return {
-                    valid: false,
-                    error: 'Token has expired'
-                };
+            if (await TokenBlacklist.isBlacklisted(token)) {
+                return { valid: false, error: 'Token has been revoked' };
             }
 
-            logger.info(`Token validation successful for user: ${decoded.email || decoded.id}`);
+            const userId = decoded.sub || decoded.id;
+            if (!userId) return { valid: false, error: 'Invalid access token' };
+
+            const [user, session] = await Promise.all([
+                User.findById(userId).select('_id isActive'),
+                Session.findOne({
+                    userId,
+                    accessTokenHash: Session.hashToken(token),
+                    isActive: true
+                })
+            ]);
+            if (!user?.isActive || !session) {
+                return { valid: false, error: 'Token session is inactive' };
+            }
+            if (session.isExpired()) {
+                await session.revoke('expired');
+                return { valid: false, error: 'Token has expired' };
+            }
+
+            logger.info('Token validation successful', { userId });
 
             return {
                 valid: true,
@@ -345,7 +379,7 @@ class AuthService {
             logger.error('Token validation failed:', error.message);
             return {
                 valid: false,
-                error: error.message
+                error: 'Token validation failed'
             };
         }
     }
@@ -355,7 +389,7 @@ class AuthService {
         try {
             logger.info('Refresh token request received');
 
-            const decoded = jwt.verify(refreshToken, config.JWT_SECRET);
+            const decoded = jwt.verify(refreshToken, config.JWT_SECRET, { algorithms: ['HS256'] });
             
             if (decoded.type !== 'refresh_token') {
                 logger.warn('Refresh token failed - invalid token type');
@@ -368,32 +402,33 @@ class AuthService {
                 throw new Error('Invalid refresh token');
             }
 
-            const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
-            const isBlacklisted = await TokenBlacklist.isBlacklisted(refreshToken);
-            if (isBlacklisted) {
-                logger.warn('Refresh token failed - token is blacklisted (possible reuse attack)');
-                const breachUserId = decoded.sub || decoded.id;
+            const breachUserId = decoded.sub || decoded.id;
+            const handleReuse = async (reason) => {
+                logger.warn('Refresh token reuse detected', { userId: breachUserId, reason });
                 await securityAuditService.logSecurityEvent({
                     userId: breachUserId,
                     action: 'security_breach',
                     status: 'failure',
-                    metadata: { reason: 'token_reuse_detected', jti: decoded.jti }
+                    metadata: { reason: 'token_reuse_detected', detail: reason, jti: decoded.jti }
                 });
                 await this.blacklistAllUserTokens(breachUserId, 'security_breach');
-                // Notify user of breach (best-effort, non-blocking)
                 User.findById(breachUserId).select('email username').then(breachUser => {
-                    if (breachUser) {
-                        emailService.sendEmail({
-                            to: breachUser.email,
-                            subject: 'Security Alert: Unusual Activity Detected on Your Account',
-                            text: `Dear ${breachUser.username},\n\nWe detected suspicious activity on your account — a refresh token was reused, which may indicate theft. All active sessions have been terminated.\n\nIf this was not you, please contact support immediately and change your password.\n\nAuthSys Security Team`
-                        }).catch(err => logger.error('Breach notification email failed:', err.message));
-                    }
-                }).catch(() => {});
+                    if (!breachUser) return;
+                    return emailService.sendEmail({
+                        to: breachUser.email,
+                        subject: 'Security Alert: Unusual Activity Detected on Your Account',
+                        text: `Dear ${breachUser.username},\n\nWe detected suspicious refresh-token reuse. All active sessions have been terminated.\n\nIf this was not you, change your password and contact the administrator.\n\nAuthSys Security Team`
+                    });
+                }).catch(err => logger.error('Breach notification email failed:', err.message));
+            };
+
+            const isBlacklisted = await TokenBlacklist.isBlacklisted(refreshToken);
+            if (isBlacklisted) {
+                await handleReuse('blacklisted_token');
                 throw new Error('Token has been revoked due to security concerns');
             }
 
-            const user = await User.findById(decoded.sub || decoded.id);
+            const user = await User.findById(breachUserId);
 
             if (!user) {
                 logger.warn('Refresh token failed - user not found');
@@ -406,51 +441,39 @@ class AuthService {
                 throw new Error('User account is inactive');
             }
 
-            if (sessionId) {
-                const Session = require('../../../shared/models/Session');
-                const session = await Session.findOne({ _id: sessionId, userId: user._id, isActive: true });
-
-                if (!session) {
-                    logger.warn('Refresh token failed - session not found or inactive');
-                    await securityAuditService.logSecurityEvent({
-                        userId: user._id,
-                        action: 'token_refresh_failed',
-                        status: 'failure',
-                        metadata: { reason: 'session_revoked', sessionId }
-                    });
-                    await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'user_logout');
-                    throw new Error('Session has expired or been revoked');
-                }
-
-                const sessionUpdate = { lastActiveAt: new Date() };
-                if (deviceInfo?.ipAddress) sessionUpdate.ipAddress = deviceInfo.ipAddress;
-                await Session.updateOne({ _id: session._id }, { $set: sessionUpdate });
-                logger.info(`Session activity updated for user: ${user.email}`);
-            }
-
-            const Session = require('../../../shared/models/Session');
             const oldRefreshHash = Session.hashRefreshToken(refreshToken);
+            const newAccessToken = this.createToken(user);
+            const newRefreshToken = this.generateRefreshToken(user);
+
+            const sessionQuery = {
+                refreshTokenHash: oldRefreshHash,
+                userId: user._id,
+                isActive: true,
+                expiresAt: { $gt: new Date() }
+            };
+            if (sessionId) sessionQuery._id = sessionId;
+
+            // The old refresh-token hash is part of the update predicate. Only
+            // one concurrent request can win this rotation.
+            const updatedSession = await Session.findOneAndUpdate(
+                sessionQuery,
+                { $set: {
+                    accessTokenHash: Session.hashToken(newAccessToken),
+                    refreshTokenHash: Session.hashToken(newRefreshToken),
+                    lastActiveAt: new Date(),
+                    ...(deviceInfo?.ipAddress ? { ipAddress: deviceInfo.ipAddress } : {})
+                } },
+                { new: true }
+            );
+            if (!updatedSession) {
+                await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'token_rotation').catch(() => {});
+                await handleReuse('session_hash_mismatch');
+                throw new Error('Session has expired or been revoked');
+            }
 
             await TokenBlacklist.revokeToken(refreshToken, user._id, null, 'token_rotation');
             logger.info(`Old refresh token blacklisted for user: ${user.email} (rotation)`);
 
-            const newAccessToken = this.createToken(user);
-            const newRefreshToken = this.generateRefreshToken(user);
-
-            // Update session with new tokens so req.authSession stays valid
-            const updatedSession = await Session.findOneAndUpdate(
-                { refreshTokenHash: oldRefreshHash, userId: user._id, isActive: true },
-                {
-                    accessTokenHash: Session.hashToken(newAccessToken),
-                    refreshTokenHash: Session.hashToken(newRefreshToken),
-                    lastActiveAt: new Date()
-                }
-            );
-            if (!updatedSession) {
-                logger.warn('Token rotation: no matching session found for hash update', { userId: user._id });
-            }
-
-            const securityAuditService = require('../../../shared/services/securityAudit.service');
             await securityAuditService.logSecurityEvent({
                 userId: user._id,
                 action: 'token_refreshed',
@@ -635,7 +658,7 @@ class AuthService {
 
             logger.info(`Password reset token created for: ${user.email}`);
 
-            const resetUrl = `${process.env.AUTH_SERVER_URL}/reset-password.html?token=${resetToken}`;
+            const resetUrl = `${config.AUTH_SERVER_URL}/reset-password.html?token=${resetToken}`;
 
             try {
                 await emailService.sendPasswordResetEmail({

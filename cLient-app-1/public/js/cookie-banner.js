@@ -5,7 +5,7 @@
 (function () {
     const KEY     = 'cookie_consent';
     const EXPIRY  = 365 * 24 * 60 * 60 * 1000;
-    const VERSION = '1.0.0';
+    const VERSION = '1.1.0';
 
     function getConsent() {
         try {

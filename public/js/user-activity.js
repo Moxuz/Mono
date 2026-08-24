@@ -15,7 +15,6 @@ async function loadBrowserUser() {
         // Protected API calls below provide the authoritative auth result.
     }
 }
-
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
@@ -37,7 +36,6 @@ function formatTimeAgo(date) {
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}D_AGO`;
 }
-
 function getDeviceIcon(deviceInfo) {
     const device = deviceInfo?.device?.toLowerCase() || '';
     
@@ -139,7 +137,6 @@ async function loadActiveSessions() {
         }
     }
 }
-
 function createSessionCard(session) {
     const card = document.createElement('div');
     card.className = 'session-card';
@@ -290,15 +287,11 @@ async function loadAuditLogs() {
     `;
     
     try {
-        console.log('🔄 Loading audit logs...');
-        
         const response = await fetch('/api/auth/security-audit', {
             headers: { 
                 'Content-Type': 'application/json'
             }
         });
-
-        console.log('📡 Audit logs response status:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -307,8 +300,6 @@ async function loadAuditLogs() {
         }
 
         const data = await response.json();
-        console.log('✅ Audit logs data:', data);
-
         if (!data.success || !data.data) {
             throw new Error(data.error || 'Failed to load audit logs');
         }
@@ -596,7 +587,6 @@ function viewTrace(logData) {
         }
     });
     
-    console.log('📋 Trace Data:', logData);
 }
 
 // Helper function: Generate trace text for copy
@@ -725,7 +715,3 @@ function logout() {
         });
     }
 }
-
-// Export functions to window for inline onclick handlers
-window.viewTrace = viewTrace;
-window.loadAuditLogs = loadAuditLogs;

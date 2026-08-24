@@ -1,6 +1,7 @@
 const SecurityAudit = require('../../../shared/models/SecurityAudit');
 const User = require('../../../shared/models/User');
 const Session = require('../../../shared/models/Session');
+const mongoose = require('mongoose');
 const config = require('../../../shared/config/config');
 const logger = require('../../../shared/utils/logger');
 const { hashIdentity, sanitizeAuditMetadata } = require('../../../shared/utils/auditIdentity');
@@ -13,6 +14,24 @@ const {
 } = require('../../../shared/utils/pagination');
 
 const SECURITY_LOG_SORT_FIELDS = new Set(['createdAt', 'action', 'status', 'ipAddress']);
+
+function invalidObjectId(res, value) {
+    if (!value || mongoose.isValidObjectId(value)) return false;
+    res.status(400).json({ success: false, error: 'Invalid user ID' });
+    return true;
+}
+
+function csvCell(value) {
+    const stringValue = value === undefined || value === null
+        ? ''
+        : (typeof value === 'string' ? value : JSON.stringify(value));
+    // Spreadsheet programs interpret these prefixes as formulas even inside
+    // quoted CSV cells. Prefixing an apostrophe forces plain-text display.
+    const safeValue = /^[=+\-@]/.test(stringValue.trimStart())
+        ? `'${stringValue}`
+        : stringValue;
+    return `"${safeValue.replace(/"/g, '""')}"`;
+}
 
 /**
  * Get all security audit logs with filtering and pagination
@@ -36,6 +55,7 @@ async function getSecurityLogs(req, res) {
         // Build filter object
         const filter = {};
 
+        if (invalidObjectId(res, userId)) return;
         if (userId) filter.userId = userId;
         if (action) filter.action = new RegExp(escapeRegExp(action), 'i');
         if (status) filter.status = status;
@@ -70,20 +90,11 @@ async function getSecurityLogs(req, res) {
             .limit(limitNum)
             .lean();
 
-        // Enrich with user data if userId exists
-        const enrichedLogs = await Promise.all(logs.map(async (log) => {
-            const safeLog = { ...log, metadata: sanitizeAuditMetadata(log.metadata || {}) };
-            if (log.userId) {
-                const user = await User.findById(log.userId).select('username email');
-                return {
-                    ...safeLog,
-                    userInfo: user ? {
-                        username: user.username,
-                        email: user.email
-                    } : null
-                };
-            }
-            return safeLog;
+        // Audit logs remain pseudonymous. User identity belongs in the
+        // dedicated user directory, not in security-event payloads.
+        const enrichedLogs = logs.map(log => ({
+            ...log,
+            metadata: sanitizeAuditMetadata(log.metadata || {})
         }));
 
         logger.info('Security logs retrieved', {
@@ -109,7 +120,7 @@ async function getSecurityLogs(req, res) {
         logger.error('Get security logs failed:', error.message);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Failed to retrieve security logs'
         });
     }
 }
@@ -157,20 +168,9 @@ async function getLoginHistory(req, res) {
             .limit(limitNum)
             .lean();
 
-        // Enrich with user data
-        const enrichedLogins = await Promise.all(logins.map(async (login) => {
-            const safeLogin = { ...login, metadata: sanitizeAuditMetadata(login.metadata || {}) };
-            if (login.userId) {
-                const user = await User.findById(login.userId).select('username email');
-                return {
-                    ...safeLogin,
-                    userInfo: user ? {
-                        username: user.username,
-                        email: user.email
-                    } : null
-                };
-            }
-            return safeLogin;
+        const enrichedLogins = logins.map(login => ({
+            ...login,
+            metadata: sanitizeAuditMetadata(login.metadata || {})
         }));
 
         res.json({
@@ -189,7 +189,7 @@ async function getLoginHistory(req, res) {
         logger.error('Get login history failed:', error.message);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Failed to retrieve login history'
         });
     }
 }
@@ -275,7 +275,7 @@ async function getFailedLogins(req, res) {
         logger.error('Get failed logins failed:', error.message);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Failed to retrieve failed-login summary'
         });
     }
 }
@@ -289,6 +289,7 @@ async function getActiveSessions(req, res) {
         const { page = 1, limit = 50, userId } = req.query;
 
         const filter = { isActive: true };
+        if (invalidObjectId(res, userId)) return;
         if (userId) filter.userId = userId;
 
         const pagination = parsePagination(page, limit, 50, 100);
@@ -299,27 +300,16 @@ async function getActiveSessions(req, res) {
         const total = await Session.countDocuments(filter);
 
         const sessions = await Session.find(filter)
-            .sort({ lastActivity: -1 })
+            .select('-accessTokenHash -refreshTokenHash -refreshTokenFamily')
+            .sort({ lastActiveAt: -1 })
             .skip(skip)
             .limit(limitNum)
             .lean();
 
-        // Enrich with user data
-        const enrichedSessions = await Promise.all(sessions.map(async (session) => {
-            const user = await User.findById(session.userId).select('username email');
-            return {
-                ...session,
-                userInfo: user ? {
-                    username: user.username,
-                    email: user.email
-                } : null
-            };
-        }));
-
         res.json({
             success: true,
             data: {
-                sessions: enrichedSessions,
+                sessions,
                 pagination: {
                     total,
                     page: pageNum,
@@ -332,7 +322,7 @@ async function getActiveSessions(req, res) {
         logger.error('Get active sessions failed:', error.message);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Failed to retrieve active sessions'
         });
     }
 }
@@ -358,28 +348,22 @@ async function exportLogs(req, res) {
 
         const logs = await SecurityAudit.find(filter).sort({ createdAt: -1 }).limit(1000).lean();
 
-        // Batch fetch user emails to avoid N+1 queries
-        const userIds = [...new Set(logs.map(l => l.userId?.toString()).filter(Boolean))];
-        const users = await User.find({ _id: { $in: userIds } }).select('email').lean();
-        const userMap = Object.fromEntries(users.map(u => [u._id.toString(), u.email]));
-
         // Convert to CSV format
-        const headers = ['Timestamp', 'Action', 'Status', 'User ID', 'Email', 'IP Address', 'User Agent', 'Details'];
-        const csvRows = [headers.join(',')];
+        const headers = ['Timestamp', 'Action', 'Status', 'User ID', 'Email Hash', 'IP Address', 'User Agent', 'Details'];
+        const csvRows = [headers.map(csvCell).join(',')];
 
         for (const log of logs) {
-            const emailVal = log.userId ? (userMap[log.userId.toString()] || '') : '';
             const row = [
                 log.createdAt?.toISOString() || '',
                 log.action || '',
                 log.status || '',
                 log.userId?.toString() || '',
-                emailVal,
+                log.emailHash || '',
                 log.ipAddress || '',
-                `"${(log.userAgent || '').replace(/"/g, '""')}"`,
-                `"${JSON.stringify(sanitizeAuditMetadata(log.metadata || {})).replace(/"/g, '""')}"`
+                log.userAgent || '',
+                sanitizeAuditMetadata(log.metadata || {})
             ];
-            csvRows.push(row.join(','));
+            csvRows.push(row.map(csvCell).join(','));
         }
 
         const csvContent = csvRows.join('\n');
@@ -396,7 +380,7 @@ async function exportLogs(req, res) {
         logger.error('Export logs failed:', error.message);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Failed to export security logs'
         });
     }
 }
@@ -478,7 +462,7 @@ async function getDashboardStats(req, res) {
         logger.error('Get dashboard stats failed:', error.message);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Failed to retrieve dashboard statistics'
         });
     }
 }
@@ -491,6 +475,7 @@ async function getUserActivity(req, res) {
     try {
         const { userId } = req.params;
         const { days = 30 } = req.query;
+        if (invalidObjectId(res, userId)) return;
 
         const parsedDays = Number.parseInt(days, 10);
         const safeDays = Number.isFinite(parsedDays) && parsedDays > 0 ? Math.min(parsedDays, 365) : 30;
@@ -534,7 +519,7 @@ async function getUserActivity(req, res) {
         logger.error('Get user activity failed:', error.message);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Failed to retrieve user activity'
         });
     }
 }

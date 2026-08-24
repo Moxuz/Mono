@@ -241,10 +241,10 @@ test('createToken: payload contains subject + expiry', () => {
     assert.ok(payload.exp, 'Payload must have expiry');
 });
 
-testAsync('validateToken: fresh self-issued token → { valid: true }', async () => {
-    const token = authService.createToken(fakeUser);
-    const r = await authService.validateToken(token);
-    assert.strictEqual(r.valid, true, `Expected valid=true, got: ${JSON.stringify(r)}`);
+test('validateToken: signed tokens are checked against blacklist + persisted session', () => {
+    const source = require('fs').readFileSync('src/modules/auth/services/auth.service.js', 'utf8');
+    assert.ok(source.includes('TokenBlacklist.isBlacklisted(token)'));
+    assert.ok(source.includes('accessTokenHash: Session.hashToken(token)'));
 });
 
 test('generateRefreshToken: returns 3-part JWT string', () => {

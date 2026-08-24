@@ -41,12 +41,16 @@
                     </svg>
                     Continue with GitHub
                 </a>
+                <p class="social-login-notice">
+                    By continuing, you agree to the <a href="/privacy-policy.html#terms">Terms of Service</a>
+                    and acknowledge the <a href="/privacy-policy.html#section-1">Privacy Notice</a>.
+                </p>
             </div>
 
             <div class="divider">IDENT_PROVIDER_LEGACY</div>
 
             <!-- Form -->
-            <form id="loginForm" class="auth-form" novalidate>
+            <form id="loginForm" class="auth-form" method="post" action="/api/auth/login" novalidate>
                 <div class="form-group">
                     <label for="email" class="input-label">Email Address</label>
                     <input type="email" id="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" maxlength="254" autofocus required />
@@ -89,7 +93,7 @@
                 <span class="cookie-icon">🍪</span>
                 <div>
                     <strong>COOKIE_LEDGER_NOTICE</strong>
-                    <p>Essential cookies keep sign-in and security working. Analytics is optional. <a href="/privacy-policy.html" target="_blank">Read Terms & Privacy</a>.</p>
+                    <p>Essential cookies keep sign-in and security working. Analytics is optional. <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer">Read Terms & Privacy</a>.</p>
                 </div>
             </div>
             <div class="cookie-banner-actions">

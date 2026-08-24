@@ -15,6 +15,17 @@ if (missing.length) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
 }
 
+if (process.env.NODE_ENV === 'production') {
+    const weakSecrets = ['JWT_SECRET', 'SESSION_SECRET']
+        .filter(key => String(process.env[key] || '').length < 32);
+    if (weakSecrets.length) {
+        throw new Error(`Production secrets must be at least 32 characters: ${weakSecrets.join(', ')}`);
+    }
+    if (process.env.JWT_SECRET === process.env.SESSION_SECRET) {
+        throw new Error('JWT_SECRET and SESSION_SECRET must be different in production');
+    }
+}
+
 module.exports = {
     NODE_ENV: process.env.NODE_ENV || 'development',
     PORT: process.env.PORT || 5000,
@@ -81,7 +92,7 @@ module.exports = {
     KAFKA_BROKER: process.env.KAFKA_BROKER || process.env.KAFKA_BROKERS || 'localhost:9092',
     KAFKA_CLIENT_ID: process.env.KAFKA_CLIENT_ID || 'auth-app',
     KAFKA_CONNECT_TIMEOUT_MS: parseInt(process.env.KAFKA_CONNECT_TIMEOUT_MS, 10) || 2000,
-    KAFKA_RETRIES: parseInt(process.env.KAFKA_RETRIES, 10) || 0,
+    KAFKA_RETRIES: boundedInt(process.env.KAFKA_RETRIES, 0, 0, 10),
 
     // OIDC signing keys. In development an ephemeral RSA key is generated so
     // the application can run without Docker-managed secrets. Production

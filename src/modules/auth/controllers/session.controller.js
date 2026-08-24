@@ -3,6 +3,14 @@
 const sessionService = require('../../../shared/services/session.service');
 const logger = require('../../../shared/utils/logger');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
+const { destroyWebSession } = require('../../../shared/services/webSession.service');
+
+async function clearCurrentBrowserSession(req, res) {
+    await destroyWebSession(req).catch(error => {
+        logger.warn('Could not destroy revoked browser session:', error.message);
+    });
+    res.clearCookie('connect.sid');
+}
 
 // ดึงรายการ session ที่ active ทั้งหมดของ user ปัจจุบัน
 exports.getSessions = async (req, res, next) => {
@@ -16,7 +24,7 @@ exports.getSessions = async (req, res, next) => {
             });
         }
 
-        const currentSessionId = req.authSession?.sessionId;
+        const currentSessionId = req.authSession?.sessionId || req.session?.user?.sessionId;
 
         const result = await sessionService.getUserSessions(userId, currentSessionId);
 
@@ -69,6 +77,10 @@ exports.revokeSession = async (req, res, next) => {
             ipAddress: req.ip,
             metadata: { sessionId, reason: 'user_logout', function: 'revokeSession' }
         });
+
+        if (String(sessionId) === String(req.authSession?.sessionId || '')) {
+            await clearCurrentBrowserSession(req, res);
+        }
 
         res.json({
             success: true,
@@ -165,6 +177,8 @@ exports.revokeAllSessions = async (req, res, next) => {
             ipAddress: req.ip,
             metadata: { action: 'logout_everywhere' }
         });
+
+        await clearCurrentBrowserSession(req, res);
 
         res.json({
             success: true,

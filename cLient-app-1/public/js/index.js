@@ -28,31 +28,8 @@
             .catch(() => {});
     }
 
-    function initConsentModal() {
-        const modal = document.getElementById('consentModal');
-        const login = document.getElementById('loginBtn');
-        const cancel = document.getElementById('cancelConsent');
-        const accept = document.getElementById('acceptConsent');
-        if (!modal || !login || !cancel || !accept) return;
-
-        login.addEventListener('click', (event) => {
-            event.preventDefault();
-            modal.style.display = 'flex';
-        });
-        cancel.addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-        accept.addEventListener('click', () => {
-            window.location.assign('/login');
-        });
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) modal.style.display = 'none';
-        });
-    }
-
     function init() {
         initSessionStatus();
-        initConsentModal();
     }
 
     if (document.readyState === 'loading') {

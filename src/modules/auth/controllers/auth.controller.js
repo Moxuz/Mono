@@ -1,6 +1,5 @@
 const authService = require('../services/auth.service');
 const logger      = require('../../../shared/utils/logger');
-const { passport, GOOGLE_ENABLED } = require('../../../shared/config/passport');
 const securityAuditService = require('../../../shared/services/securityAudit.service');
 const userService = require('../../user/services/user.service');
 const User = require('../../../shared/models/User');
@@ -10,8 +9,12 @@ const SecurityAudit = require('../../../shared/models/SecurityAudit');
 const TokenBlacklist = require('../../../shared/models/TokenBlacklist');
 const jwt = require('jsonwebtoken');
 const config = require('../../../shared/config/config');
-const { recordLoginAttempt, recordActiveUser } = require('../../dashboard/services/realtimeMetrics.service');
-const { establishWebSession, destroyWebSession } = require('../../../shared/services/webSession.service');
+const {
+    establishWebSession,
+    destroyWebSession,
+    normalizeUser,
+    saveSession
+} = require('../../../shared/services/webSession.service');
 const { parsePagination } = require('../../../shared/utils/pagination');
 const { sanitizeAuditMetadata } = require('../../../shared/utils/auditIdentity');
 
@@ -21,6 +24,17 @@ function safeWebAuthResponse(result, remember = false) {
         remembered: Boolean(remember),
         user: result?.user || null
     };
+}
+
+async function endBrowserSession(req, res) {
+    if (typeof req.logout === 'function') {
+        await new Promise((resolve) => req.logout(() => resolve()));
+    }
+    await destroyWebSession(req).catch(error => {
+        logger.warn('Could not destroy browser session cleanly:', error.message);
+    });
+    res.clearCookie('connect.sid');
+    res.clearCookie('reauth_token');
 }
 
 // ─── Register ─────────────────────────────────────────────────────────────────
@@ -118,8 +132,6 @@ exports.login = async (req, res, next) => {
         if (!apiTokenResponse) {
             await establishWebSession(req, result.user, result.sessionId, [], { remember: Boolean(remember) });
         }
-        recordLoginAttempt(true, req.ip, result.user?.id);
-        recordActiveUser(result.user?.id);
 
         const loginIp = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress;
         logger.info(`User logged in: ${email}`, { 
@@ -134,7 +146,6 @@ exports.login = async (req, res, next) => {
             data:    apiTokenResponse ? result : safeWebAuthResponse(result, remember)
         });
     } catch (error) {
-        recordLoginAttempt(false, req.ip);
         const loginIp = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection?.remoteAddress;
         const emailLog = typeof req.body.email === 'string' ? req.body.email : '[invalid]';
         logger.error(`Login failed for: ${emailLog}`, {
@@ -186,19 +197,50 @@ exports.loginToken = async (req, res, next) => {
 };
 
 // Return first-party browser session state without exposing a bearer token.
-exports.getWebSession = (req, res) => {
-    const user = req.session?.user;
-    if (!user) return res.json({ authenticated: false, user: null });
-    res.json({
-        authenticated: true,
-        user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            provider: user.provider || 'local'
+exports.getWebSession = async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const storedUser = req.session?.user;
+    if (!storedUser?.id || !storedUser.sessionId) {
+        return res.json({ authenticated: false, user: null });
+    }
+
+    try {
+        const [account, browserSession] = await Promise.all([
+            User.findById(storedUser.id),
+            Session.findOne({
+                _id: storedUser.sessionId,
+                userId: storedUser.id,
+                isActive: true
+            })
+        ]);
+
+        if (!account?.isActive || !browserSession || browserSession.isExpired()) {
+            if (browserSession?.isExpired()) await browserSession.revoke('expired');
+            await endBrowserSession(req, res);
+            return res.json({ authenticated: false, user: null });
         }
-    });
+
+        req.session.user = normalizeUser(account, browserSession._id.toString());
+        await saveSession(req);
+        await browserSession.updateLastActive().catch(error => {
+            logger.warn('Could not update browser session activity:', error.message);
+        });
+
+        return res.json({
+            authenticated: true,
+            user: {
+                id: account._id.toString(),
+                username: account.username,
+                email: account.email,
+                role: account.role,
+                provider: req.session.user.provider
+            }
+        });
+    } catch (error) {
+        logger.warn('Browser session validation failed:', error.message);
+        await endBrowserSession(req, res);
+        return res.json({ authenticated: false, user: null });
+    }
 };
 
 // บันทึกการตั้งค่า theme, ภาษา และการแจ้งเตือนของ user
@@ -230,7 +272,10 @@ exports.updatePreferences = async (req, res, next) => {
     logger.error('Update preferences error:', error);
     res.status(400).json({
       success: false,
-      error: error.message
+      error: ['Invalid theme preference', 'Invalid language preference', 'Invalid notification preferences']
+        .includes(error.message)
+        ? error.message
+        : 'Unable to update preferences'
     });
   }
 };
@@ -256,9 +301,9 @@ exports.getPreferences = async (req, res, next) => {
     });
   } catch (error) {
     logger.error('Get preferences error:', error);
-    res.status(400).json({
+    res.status(500).json({
       success: false,
-      error: error.message
+      error: 'Unable to retrieve preferences'
     });
   }
 };
@@ -424,7 +469,7 @@ exports.deleteAccount = async (req, res) => {
                 });
             }
             try {
-                const payload = jwt.verify(reauth_token, config.JWT_SECRET);
+                const payload = jwt.verify(reauth_token, config.JWT_SECRET, { algorithms: ['HS256'] });
                 if (payload.purpose !== 'delete_account' || payload.userId !== userId.toString()) {
                     throw new Error('Invalid reauth token');
                 }
@@ -440,6 +485,7 @@ exports.deleteAccount = async (req, res) => {
 
         // Delegate to userService — soft delete: anonymize data, revoke sessions, audit log
         await userService.deleteUser(userId, 'user_request');
+        await endBrowserSession(req, res);
 
         res.json({
             success: true,
@@ -467,7 +513,7 @@ exports.validateToken = async (req, res, next) => {
         res.status(200).json(result);
     } catch (error) {
         logger.error('Validate token error:', error);
-        res.status(401).json({ valid: false, error: error.message });
+        res.status(401).json({ valid: false, error: 'Token validation failed' });
     }
 };
 
@@ -605,10 +651,12 @@ exports.changePassword = async (req, res, next) => {
         }
         
         const result = await authService.changePassword(userId, currentPassword, newPassword, req);
+        await endBrowserSession(req, res);
         
         res.json({
             success: true,
-            message: result.message
+            message: result.message,
+            reauthenticate: true
         });
     } catch (error) {
         logger.error('Change password error:', error);
@@ -629,9 +677,13 @@ exports.changePassword = async (req, res, next) => {
             });
         }
         
+        const safeMessages = [
+            'Current password is required',
+            'New password must be different from current password'
+        ];
         res.status(400).json({
             success: false,
-            error: error.message
+            error: safeMessages.includes(error.message) ? error.message : 'Unable to change password'
         });
     }
 };
@@ -652,10 +704,12 @@ exports.setPassword = async (req, res, next) => {
 
         const { newPassword } = req.body;
         const result = await authService.setPassword(userId, newPassword, req);
+        await endBrowserSession(req, res);
 
         res.json({
             success: true,
-            message: result.message
+            message: result.message,
+            reauthenticate: true
         });
     } catch (error) {
         logger.error('Set password error:', error);
@@ -679,7 +733,7 @@ exports.setPassword = async (req, res, next) => {
 
         res.status(400).json({
             success: false,
-            error: error.message || 'Failed to set password'
+            error: 'Unable to set password'
         });
     }
 };
@@ -771,6 +825,10 @@ exports.revokeSession = async (req, res, next) => {
 
         await authService.revokeSession(userId, sessionId);
 
+        if (String(sessionId) === String(req.authSession?.sessionId || req.session?.user?.sessionId || '')) {
+            await endBrowserSession(req, res);
+        }
+
         logger.info(`Session ${sessionId} revoked for user ${userId}`);
 
         res.json({
@@ -781,7 +839,7 @@ exports.revokeSession = async (req, res, next) => {
         logger.error('Revoke session error:', error);
         res.status(400).json({
             success: false,
-            error: error.message
+            error: 'Unable to revoke session'
         });
     }
 };
@@ -791,7 +849,9 @@ exports.revokeSession = async (req, res, next) => {
 exports.revokeAllOtherSessions = async (req, res, next) => {
     try {
         const userId = req.user?.id;
-        const currentSessionId = req.body.currentSessionId;
+        // Never trust a caller-provided exclusion ID: otherwise a user could
+        // preserve an arbitrary old session. Keep only the authenticated one.
+        const currentSessionId = req.authSession?.sessionId || req.session?.user?.sessionId;
 
         if (!userId) {
             return res.status(401).json({
@@ -820,7 +880,7 @@ exports.revokeAllOtherSessions = async (req, res, next) => {
         logger.error('Revoke all other sessions error:', error);
         res.status(400).json({
             success: false,
-            error: error.message
+            error: 'Unable to revoke other sessions'
         });
     }
 };
@@ -885,6 +945,7 @@ exports.emergencyLockdown = async (req, res, next) => {
         }
 
         const result = await authService.blacklistAllUserTokens(userId, 'security_breach');
+        await endBrowserSession(req, res);
 
         logger.warn(`Emergency lockdown activated for user ${userId}`);
 
@@ -895,9 +956,9 @@ exports.emergencyLockdown = async (req, res, next) => {
         });
     } catch (error) {
         logger.error('Emergency lockdown error:', error);
-        res.status(400).json({
+        res.status(500).json({
             success: false,
-            error: error.message
+            error: 'Unable to terminate sessions'
         });
     }
 };

@@ -1,0 +1,555 @@
+AuthSys v23 - Full Audit and Developer Guide
+=============================================
+Release basis: source code and deployed runtime
+Audit date: 2026-08-24 (Asia/Bangkok)
+Repository: Mono / branch last
+
+This document is the v23 developer guide. It is intentionally separate from
+the older TAS8 and website-usage-guide files. Those files are retained as
+historical evidence; when they disagree with this file, the current source
+code, OpenAPI document, and deployed environment are authoritative.
+
+
+1. RELEASE SCOPE
+----------------
+
+v23 is a private, small-user AuthSys deployment. It is an OAuth 2.0 / OpenID
+Connect authorization server with first-party browser authentication and two
+small OAuth relying-party clients.
+
+Included:
+
+- Local email/password authentication.
+- Google and GitHub social login when the corresponding environment variables
+  are configured.
+- HttpOnly first-party browser sessions.
+- OAuth authorization-code flow for registered web clients.
+- S256 PKCE, state, nonce, exact redirect-URI matching, one-time codes,
+  consent records, token revocation, refresh-token rotation, and JWKS.
+- A simple server-side user/admin access boundary.
+- User profile, preferences, password management, sessions, security activity,
+  consent management, and account deactivation.
+- Admin health, users, logs, CSV export, and pagination views.
+- MongoDB, Redis, and optional Kafka logging.
+- Nginx TLS termination and separate AuthSys/client Docker networks.
+- A local HTTP fallback stack for cases where Docker Desktop, HTTPS, DuckDNS,
+  or the VPS is unavailable.
+
+Explicitly not part of v23:
+
+- Email verification.
+- Two-factor authentication (2FA).
+- Moderator roles or a user-defined RBAC/permission editor.
+- Analytics dashboards, fake CPU/resource metrics, WebSocket live streams,
+  or browser-side bearer-token storage.
+- A generic resource/API scope system. Only the implemented OIDC scopes are
+  accepted.
+
+
+2. LIVE DEPLOYMENT TOPOLOGY
+---------------------------
+
+Public HTTPS hosts used by the VPS deployment:
+
+- AuthSys: https://testmono-user.duckdns.org
+- Client 1: https://client-1.duckdns.org
+- Client 2: https://client-2.duckdns.org
+
+The VPS compose overlay runs:
+
+    auth-nginx        TLS termination and host-based routing
+    auth-app-1        AuthSys Node application
+    shophub-client    Client 1 OAuth relying party
+    workspace-client-2 Client 2 OAuth relying party
+    auth-mongodb      MongoDB application database
+    auth-redis        AuthSys sessions/rate limits/cache
+    auth-client-redis Client sessions only
+    kafka-broker      Optional security/audit log transport
+    kafka-zookeeper   Kafka coordination for the current single-broker setup
+
+Network boundaries:
+
+- auth-network contains AuthSys, MongoDB, AuthSys Redis, and Kafka.
+- client-network contains Nginx, AuthSys, client applications, and client
+  session Redis.
+- AuthSys is attached to both networks so Nginx can reach it and the app can
+  reach its own data services. Client applications do not receive MongoDB or
+  AuthSys Redis credentials.
+- Client session Redis is separate from AuthSys Redis. This prevents a client
+  application from depending on AuthSys's internal session data layout.
+
+The public security-group policy should expose only TCP 80 and 443 to the
+Internet. SSH must be restricted to an administrator IP or a private access
+path. Do not expose MongoDB (27017), Redis (6379), Kafka (29092), Zookeeper
+(2181), or the internal Node port (5000) publicly.
+
+
+3. APPLICATION ENTRYPOINTS
+--------------------------
+
+The public health endpoint is:
+
+    GET /health
+
+It is not /api/health. The endpoint is used by the AuthSys container health
+check and reports the application/dependency readiness status.
+
+Documentation endpoints:
+
+    GET /openapi.json
+    GET /api-docs/
+
+Private HTML pages are protected by the server before the file is served:
+
+    /dashboard.html       or /dashboard
+    /profile.html         or /profile
+    /settings.html        or /settings
+    /api-keys.html
+    /user-activity.html
+    /consent.html
+    /admin.html            or /admin
+    /admin-logs.html       or /admin/logs
+    /admin-users.html      or /admin/users
+
+The OpenAPI document is the route-level reference. The main route groups are:
+
+    /api/auth      registration, login, sessions, password, profile,
+                   preferences, security activity, social login
+    /api/oauth     authorization, token, userinfo, introspection, revocation,
+                   client registration and consent
+    /api/users     admin user list, detail, update, and deactivation
+    /api/sessions  session management compatibility routes
+    /api/dashboard login activity, admin logs, and dependency health
+
+Removed routes/features must not be added to new documentation as if they
+were live: verify-email, resend-verification, 2FA, analytics, WebSocket
+metrics, and the old Redis-health route.
+
+
+4. FIRST-PARTY BROWSER AUTHENTICATION
+-------------------------------------
+
+Local login:
+
+1. Browser sends POST /api/auth/login over same-origin HTTPS.
+2. The server validates input, rate-limits by IP/email, checks the bcrypt
+   password, handles the 5-failure lockout policy, and creates a server-side
+   session row.
+3. The raw random session values are never persisted. MongoDB stores SHA-256
+   hashes of the access/refresh values.
+4. The browser receives an HttpOnly, Secure-in-production, SameSite=Lax
+   session cookie. The UI does not put bearer tokens in localStorage,
+   sessionStorage, URL fragments, or query strings.
+5. The browser is redirected to /dashboard.html (or a validated same-site
+   returnTo path).
+
+Remember me:
+
+- Unchecked: the browser session cookie is one hour and the backing session
+  record is one day.
+- Checked: the browser session cookie is 30 days and the backing session
+  record is 30 days.
+- MAX_ACTIVE_SESSIONS defaults to 5 and is bounded by the configuration code.
+  Old sessions are revoked and their token hashes are blacklisted when the
+  limit is exceeded.
+- The login page checks /api/auth/session on load. An existing valid browser
+  session redirects without asking for credentials again.
+
+The compatibility endpoints /api/auth/login/token, /refresh-token, and
+/validate-token remain for explicitly bearer-token-based integrations and
+tests. They are not the storage mechanism used by the first-party browser UI.
+
+Logout, password change, session revocation, account deactivation, and
+consent revocation invalidate the relevant server-side state and/or token
+hashes. A client must treat a 401 as a new-authentication event; do not loop
+silently forever.
+
+
+5. SOCIAL LOGIN
+---------------
+
+Provider entrypoints:
+
+    GET /api/auth/google
+    GET /api/auth/google/callback
+    GET /api/auth/github
+    GET /api/auth/github/callback
+
+The route exists only when that provider is enabled by environment
+configuration. The login page can query the provider-status endpoint to hide
+an unavailable provider.
+
+The social flow uses a server-side session state value and constant-time state
+comparison. A stale, missing, or mismatched state is rejected with an
+invalid_oauth_state result. The provider callback then establishes the same
+HttpOnly AuthSys session as a local login and redirects to /dashboard.html.
+
+For an OAuth client flow, the callback does not place access or refresh tokens
+in the redirect URL. It returns a one-time authorization code and the client
+state. The client exchanges the code server-to-server.
+
+Provider configuration must match exactly:
+
+- Google authorized redirect URI:
+  https://testmono-user.duckdns.org/api/auth/google/callback
+- GitHub authorization callback URL:
+  https://testmono-user.duckdns.org/api/auth/github/callback
+- Local fallback uses the corresponding http://localhost callback.
+
+
+6. OAUTH/OIDC FLOW
+------------------
+
+Client registration:
+
+1. A signed-in user opens API Keys and creates a web OAuth client.
+2. The server generates a random client_id and a 32-byte random secret.
+3. The secret is displayed once. It is not recoverable from the UI.
+4. Redirect URIs are stored and later compared exactly, including case and
+   trailing slash differences.
+5. The registered scope must include openid and may contain only:
+
+       openid profile email offline_access
+
+   offline_access is opt-in. role is rejected. There is no partial consent
+   mode and no role scope.
+
+Authorization request:
+
+    response_type=code
+    client_id=<registered client id>
+    redirect_uri=<exact registered URI>
+    scope=openid profile email [offline_access]
+    state=<client-generated value>
+    nonce=<client-generated value>
+    code_challenge=<S256 challenge>
+    code_challenge_method=S256
+
+AuthSys requires response_type=code, state, nonce, and S256 PKCE for the web
+client flow. The client must validate state on return and the OIDC client must
+validate the ID-token nonce.
+
+Consent behavior:
+
+- First use shows the AuthSys consent page with client identity, redirect URI,
+  and requested scopes.
+- Allow records the approval for 30 days and returns the authorization code.
+- Reject returns an OAuth access-denied result to the exact client callback.
+- There is no partial approval. The registered private deployment is small and
+  every requested scope is needed for the defined OIDC identity flow.
+- The user can revoke an approved client under Authorized Apps/Consent. The
+  grant is tombstoned, related tokens are invalidated, and a future approval
+  receives a new grant identifier.
+
+Code exchange:
+
+    POST /api/oauth/token
+
+The code is short-lived, bound to client_id, redirect_uri, grant, and PKCE,
+and is atomically marked used. Replaying it or changing the verifier/client/
+redirect URI fails without issuing credentials.
+
+Token formats and lifetimes:
+
+- OAuth access token: JWT signed RS256 with the OIDC private key, one hour.
+  It contains subject, client_id, scope, type, jti, and grant_id, with issuer
+  and audience validation.
+- OIDC ID token: JWT signed RS256 with issuer, audience, subject, time claims,
+  nonce, and only the email/profile claims requested by scope. It does not
+  contain role.
+- OAuth refresh token: JWT signed HS256 with JWT_SECRET, 30 days, only when
+  offline_access was approved. It is bound to the client/grant and rotates on
+  use; reuse or a mismatch revokes the affected session/grant family.
+
+Public verification metadata:
+
+    GET /.well-known/openid-configuration
+    GET /.well-known/jwks.json
+
+Client 1 and Client 2 both use the same AuthSys identity provider but have
+separate client IDs, secrets, redirect URIs, and server-side sessions. A user
+account is independent of the OAuth client owner. Possessing User 1's login
+credentials does not grant ownership of User 2's client; access is determined
+by the authenticated AuthSys account and the registered client owner.
+
+
+7. USER AND ADMIN BOUNDARIES
+----------------------------
+
+User roles are exactly:
+
+    user, admin
+
+Role is stored and checked on the server. It is not an OAuth scope and is not
+issued as an OIDC token claim. Admin pages and admin APIs require the admin
+role. Ordinary users can manage only their own profile, sessions, password,
+preferences, security activity, OAuth consents, and owned clients.
+
+Admin UI v23 is intentionally simple:
+
+- Dependency health: MongoDB, Redis, Kafka/application readiness.
+- User list/detail/update/deactivation with bounded pagination.
+- Security/application logs with filters, trace identifiers, and CSV export.
+- Sign-out and the same session controls as other users.
+
+There is no UI for creating arbitrary roles or permissions. Add a real policy
+model and tests before adding such a feature.
+
+Account deletion is an authenticated deactivation flow. The user is
+anonymized/deactivated and related sessions, grants, clients, and token state
+are invalidated according to the service code. Retention cleanup later removes
+eligible tombstones and expired audit/token records. It is not an immediate
+hard-delete promise to the browser.
+
+Password reset is available to local-password users. Social-only users should
+use the provider account or the explicit set-password flow when the server
+allows it; the UI must not claim that a provider password can be reset by
+AuthSys.
+
+
+8. COOKIE AND PRIVACY CONSENT
+----------------------------
+
+The banner intentionally has only two choices:
+
+    Accept all
+    Reject non-essential
+
+Essential session/security cookies are required for sign-in and cannot be
+disabled while using the site. Analytics is optional. The anonymous browser
+choice is retained locally and is synchronized to the authenticated user via
+POST /api/auth/update-cookie-consent when a session exists. The policy version
+is recorded with the account consent state.
+
+The UI links the combined Terms & Privacy page. Do not add a third or
+"partial consent" button unless a new independently optional category is
+actually implemented and documented.
+
+
+9. DATA SERVICES
+----------------
+
+MongoDB:
+
+- Primary durable store for users, OAuth clients, authorization codes, grants,
+  sessions, security audits, and token-blacklist hashes.
+- Authorization codes and consent records use expiry indexes. Sessions and
+  token blacklist entries use TTL/cleanup policy.
+- Raw access/refresh tokens and client secrets are not returned by normal list
+  queries. Session/token collections store hashes where applicable.
+
+Redis (AuthSys):
+
+- Express session store in production.
+- Distributed rate-limit store after Redis readiness.
+- Short-lived/cache namespaces used by AuthSys services.
+- In production REDIS_REQUIRED=true; a missing Redis dependency is a readiness
+  failure rather than a silent unlimited-rate fallback. Local development can
+  use the bounded in-memory fallback when REDIS_REQUIRED=false.
+
+Redis (client):
+
+- Dedicated server-side session store for Client 1 and Client 2.
+- It is not a source of AuthSys user data and must not be shared with MongoDB
+  credentials or AuthSys private namespaces.
+
+Kafka/Zookeeper:
+
+- Optional transport for structured security/audit log events.
+- Kafka is not the user database, token store, or authentication authority.
+- The current deployment is a single private broker with bounded retention;
+  it is suitable for this private project, not a highly available Kafka
+  production topology.
+- When Kafka logging is disabled, application logs remain available through
+  the normal container/logger path.
+
+
+10. SECURITY CONTROLS
+---------------------
+
+- Helmet CSP and security headers, including X-Frame-Options DENY,
+  X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-
+  origin, and a restrictive Permissions-Policy.
+- X-XSS-Protection is explicitly disabled (0); CSP is the relevant control.
+- Same-origin browser mutations use CSRF protection. Cross-origin browser
+  register/login/reset requests are rejected.
+- Sensitive request URLs and OAuth parameters are redacted from access logs.
+- Authorization state, OAuth code, PKCE, nonce, redirect URI, audience,
+  issuer, active grant, and token blacklist are checked server-side.
+- Passwords use bcrypt. Production requires strong, distinct JWT_SECRET and
+  SESSION_SECRET values and the OIDC private key.
+- Request body and admin query limits are bounded.
+- No raw credentials, client secrets, reset tokens, or session tokens belong in
+  Git, screenshots, logs, or documentation.
+- Docker images run as non-root where the Dockerfile defines the application
+  user. Runtime images copy only required files.
+
+
+11. RATE LIMITS AND CONSTRAINTS
+-------------------------------
+
+Current defaults from source (environment can raise/lower only where the
+configuration exposes an override):
+
+    login                         5 / 15 minutes, IP + normalized email
+    register                      5 / 1 hour, IP
+    forgot/reset/change/set pwd   5 / 1 hour, shared password limiter
+    refresh-token                 10 / 15 minutes, IP
+    OAuth authorize               60 / 15 minutes
+    OAuth token                   60 / 15 minutes
+    OAuth userinfo                120 / 1 minute
+    OAuth introspect              300 / 15 minutes
+    OAuth revoke                  60 / 15 minutes
+    general API                   500 / 15 minutes by default
+
+Other important bounds:
+
+- MAX_ACTIVE_SESSIONS defaults to 5 and is bounded to 1..50.
+- REQUEST_BODY_LIMIT defaults to 10kb.
+- DATA_RETENTION_DAYS defaults to 90 days.
+- OAuth consent expires after 30 days unless revoked sooner.
+- OAuth access/ID tokens expire after one hour; refresh tokens expire after
+  30 days and rotate.
+- Usernames are 3..64 supported Unicode letters/numbers plus . _ -.
+- Emails are max 254 characters and validated before persistence.
+- Display name is max 80 characters; bio is max 160 characters.
+
+
+12. LOCAL FALLBACK
+------------------
+
+Use deploy/local-fallback when local Docker Desktop is available but public
+HTTPS/DuckDNS/VPS is not. It is HTTP by design and is not a production mode.
+
+    copy .env.example .env
+    # Replace every placeholder secret in .env.
+    docker compose -f deploy/local-fallback/docker-compose.local.yml up -d --build
+    GET http://localhost/health
+
+If Docker Desktop is unavailable, run tests without Docker and use the VPS for
+integration tests. Do not create a fake production TLS result locally.
+
+The local OAuth callbacks use localhost HTTP values. The VPS callbacks use the
+three HTTPS hosts above. Never mix a localhost callback URI into a live client
+registration.
+
+
+13. VPS DEPLOYMENT OPERATIONS
+-----------------------------
+
+The normal update is a rebuild/recreate, not a destructive volume reset:
+
+    docker compose -f docker-compose.yml \
+      -f docker-compose.client.yml \
+      -f deploy/vps/docker-compose.vps.yml build
+    docker compose -f docker-compose.yml \
+      -f docker-compose.client.yml \
+      -f deploy/vps/docker-compose.vps.yml up -d
+
+Inspect without deleting state:
+
+    docker compose ... ps
+    docker compose ... logs --tail=200 auth-app-1
+    curl -fsS https://testmono-user.duckdns.org/health
+
+Do not use `down -v` during a normal deploy. It removes Mongo/Redis/Kafka data
+volumes. Take a backup before any intentional data migration or cleanup.
+
+Expected service signals after deploy:
+
+- Auth app health is healthy.
+- MongoDB is connected.
+- Auth Redis/session store is ready.
+- SMTP verification succeeds when SMTP is configured.
+- Kafka is connected only when Kafka logging is enabled/started.
+- Nginx serves the correct certificate and host route.
+
+
+14. AUDIT AND TEST EVIDENCE
+---------------------------
+
+Current v23 local test run:
+
+- npm test: exit 0.
+- Function tests: 54 passed.
+- Audit regression tests: 36 passed.
+- Module tests: 27 passed.
+- Security tests: 54 passed.
+- Blue-team suite: 35/35 passed.
+- Red-team suite: 33/33 passed.
+
+Dependency audit:
+
+- npm audit --audit-level=high: 0 vulnerabilities in the root, Client 1, and
+  Client 2 package trees.
+
+VPS browser audit:
+
+- UI live audit marker v23ui_1787550866500_3a9a83.
+- 72/72 checks passed.
+- Covered public pages, cookies, docs/privacy, mobile rendering, provider
+  entrypoints, local login/register/password, remember-me/session behavior,
+  admin access, client registration/one-time secret, consent allow/deny,
+  PKCE callback, client 1/client 2 isolation, revoke, settings, activity,
+  logs/CSV, account deactivation, and zero browser runtime failures.
+
+The audit data was disposable and was cleaned from MongoDB and client Redis.
+Never copy live test credentials or test user identifiers into a report.
+
+
+15. TROUBLESHOOTING
+-------------------
+
+OAuth returns invalid_oauth_state:
+
+- Start the flow from the same browser tab/session.
+- Clear only the AuthSys site cookies if a stale OAuth session is suspected.
+- Verify the provider callback URL and hostname exactly.
+- Do not reuse a callback URL with a different client or redirect URI.
+- Browser automation must be granted site permissions for the AuthSys and
+  provider domains; a blocked popup/redirect can look like an application
+  failure.
+
+OAuth consent keeps reappearing:
+
+- Check that the client_id and redirect_uri are the registered pair.
+- Check that requested scopes are within the registered list.
+- A revoked/expired grant is expected to require a new allow action.
+
+Health is down:
+
+- Use /health, not /api/health.
+- Check auth-app logs, MongoDB health, Redis readiness, and the Nginx route.
+- A provider timeout does not imply the VPS is banned; verify the container
+  and security-group path first.
+
+Local Docker cannot start:
+
+- Run local unit/security tests without Docker.
+- Use deploy/local-fallback only after Docker Desktop is working.
+- Use the VPS for the live OAuth/browser audit.
+- Do not weaken live TLS or publish database ports to compensate.
+
+Rate limit blocks a test:
+
+- Wait for the window or use a new disposable test IP/account in a controlled
+  environment.
+- Never delete production data to bypass a limiter.
+
+
+16. CHANGE CONTROL
+------------------
+
+For every future change:
+
+1. Update source code and tests first.
+2. Run npm test and npm audit.
+3. Run the live UI/API flow when OAuth/session/deployment code changes.
+4. Update this guide and TAS8 alignment notes only after the code result is
+   known.
+5. Scan the diff for secrets and generated artifacts.
+6. Commit with a version tag and record the deployed commit on the VPS.
+
+The original TAS8 and historical audit files remain useful for traceability,
+but their old JWT/role/email-verification/analytics/test-count statements are
+not v23 acceptance criteria.

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const config = require('../config/config');
 const {
     hashIdentity,
     sanitizeAuditMetadata
@@ -44,6 +45,8 @@ const securityAuditSchema = new mongoose.Schema({
             'client_validation_failed',
             'userinfo_failed',
             'consent_granted',
+            'consent_denied',
+            'consent_revoked',
             'registration_failed',
             'security_breach',
             'profile_updated',
@@ -69,7 +72,7 @@ const securityAuditSchema = new mongoose.Schema({
     },
     expiresAt: {
         type: Date,
-        default: () => new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
+        default: () => new Date(Date.now() + config.DATA_RETENTION_DAYS * 24 * 60 * 60 * 1000),
         index: { expires: 0 }
     }
 }, {
@@ -192,8 +195,7 @@ securityAuditSchema.statics.getUserLogs = async function(userId, page = 1, limit
     const logs = await this.find({ userId })
         .sort('-createdAt')
         .skip(skip)
-        .limit(limit)
-        .populate('userId', 'email username');
+        .limit(limit);
     
     const total = await this.countDocuments({ userId });
     
